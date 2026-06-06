@@ -25,10 +25,12 @@ parametrizável.
 - [x] Convenções de day-count, CET e arredondamento definidas (CALC_REF).
 - [ ] `data/regulatory-config.json` inicial (alíquotas/tetos datados).
 
-### Fase 1 — Arquitetura e setup
-- Projeto Angular 17+ (standalone, signals), lint/format.
-- Esqueleto do **motor (TS puro)** + `decimal.js` configurado.
-- Estrutura de pastas (ARCHITECTURE §3); CI de testes.
+### Fase 1 — Arquitetura e setup ✅ (concluída — ver PHASE1_IMPLEMENTATION.md)
+- [x] Projeto Angular 22 (standalone, signals, zoneless, Vitest).
+- [x] `decimal.js` 10.6.0 configurado (34 dígitos, half-even).
+- [x] Esqueleto do **motor (TS puro)**: models + stubs (price/sac/iof/cet/solver).
+- [x] Estrutura de pastas (ARCHITECTURE §3); locale pt-BR; config regulatória.
+- [x] Testes verdes (5/5) e build de produção ok.
 
 ### Fase 2 — Motor de cálculo (núcleo da precisão bancária)
 - Conversões de taxa + day-count; Price; SAC.

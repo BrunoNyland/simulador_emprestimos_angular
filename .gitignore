@@ -22,3 +22,5 @@ Thumbs.db
 # Misc caches
 .cache/
 tmp/
+# Angular incremental build info
+*.tsbuildinfo

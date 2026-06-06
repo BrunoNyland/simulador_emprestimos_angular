@@ -1,0 +1,25 @@
+{
+  "version": "2026.06-draft",
+  "vigenciaInicio": "2026-01-01",
+  "observacao": "Valores de REFERENCIA, parametrizaveis e pendentes de validacao juridica (ver COMPLIANCE_NOTES.md secao 4). Nao usar em producao sem confirmar normativo vigente.",
+  "iof": {
+    "aliquotaDiaria": {
+      "PF": "0.000082",
+      "PJ": "0.000041"
+    },
+    "aliquotaAdicional": "0.0038",
+    "limiteDias": 365,
+    "produtosIsentos": ["habitacional"]
+  },
+  "mora": {
+    "jurosMensal": "0.01",
+    "multa": "0.02"
+  },
+  "tac": {
+    "permitidaPF": false
+  },
+  "cet": {
+    "toleranciaTir": "1e-10",
+    "anualizacaoPeriodosAno": 12
+  }
+}
