@@ -142,7 +142,7 @@
     <h2>Comparativo Price × SAC</h2>
     <table>
       <thead>
-        <tr><th></th><th>Price</th><th>SAC</th></tr>
+        <tr><th>Indicador</th><th>Price</th><th>SAC</th></tr>
       </thead>
       <tbody>
         <tr>
@@ -152,7 +152,7 @@
         </tr>
         <tr>
           <td>Última parcela</td>
-          <td>{{ +comp.price.primeiraParcela | currency: 'BRL' }}</td>
+          <td>{{ +comp.price.ultimaParcela | currency: 'BRL' }}</td>
           <td>{{ +comp.sac.ultimaParcela | currency: 'BRL' }}</td>
         </tr>
         <tr>

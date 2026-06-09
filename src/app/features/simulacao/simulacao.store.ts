@@ -70,7 +70,11 @@ export class SimulacaoStore {
       const price = gerarCronogramaPrice(entrada);
       const sac = gerarCronogramaSac(entrada);
       return {
-        price: { totais: somarTotais(price), primeiraParcela: price[0].valorParcela },
+        price: {
+          totais: somarTotais(price),
+          primeiraParcela: price[0].valorParcela,
+          ultimaParcela: price[n - 1].valorParcela,
+        },
         sac: {
           totais: somarTotais(sac),
           primeiraParcela: sac[0].valorParcela,

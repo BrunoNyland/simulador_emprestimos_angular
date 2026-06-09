@@ -54,6 +54,20 @@ describe('SimulacaoStore', () => {
     }
   });
 
+  it('comparativo: Price usa a ultima parcela real (com residuo), nao a constante', () => {
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+
+    const comp = store.comparativo();
+    expect(comp).not.toBeNull();
+    expect(comp!.price.primeiraParcela).toBe('88.85');
+    // ultima parcela do Price absorve o residuo -> 88.84 (diferente da 1a)
+    expect(comp!.price.ultimaParcela).toBe('88.84');
+    expect(comp!.sac.primeiraParcela).toBe('93.33');
+    expect(comp!.sac.ultimaParcela).toBe('84.20');
+  });
+
   it('reporta erro para prazo invalido', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');
