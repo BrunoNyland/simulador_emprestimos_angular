@@ -1,7 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { Decimal } from '../../core/engine/decimal.config';
 import {
-  Parcela,
   ParametrosSimulacao,
   SistemaAmortizacao,
   TipoTaxa,
@@ -13,14 +12,29 @@ import { somarTotais, TotaisCronograma } from '../../core/engine/totais';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
 import { CampoAlvo, resolverCampoAlvo } from '../../core/engine/solver';
 import { calcularCet, FluxoCaixa } from '../../core/engine/cet';
+import {
+  EventoCalc,
+  LinhaCronograma,
+  ParametrosMora,
+  projetarComEventos,
+  ResumoProjecao,
+} from '../../core/engine/eventos';
+
+/** Mora default (espelha regulatory-config.jsonc; idealmente vem da config). */
+const MORA_DEFAULT: ParametrosMora = {
+  jurosMensal: new Decimal('0.01'),
+  multa: new Decimal('0.02'),
+};
 
 export interface ResultadoSimulacao {
   parametros: ParametrosSimulacao;
   parcelaCalculada: string;
-  parcelas: Parcela[];
+  parcelas: LinhaCronograma[];
   totais: TotaisCronograma;
   cetMensal: string;
   cetAnual: string;
+  /** Presente quando ha eventos pos-simulacao aplicados. */
+  resumoEventos?: ResumoProjecao;
 }
 
 export type EstadoResultado =
@@ -43,6 +57,21 @@ export class SimulacaoStore {
   readonly prazo = signal(12);
   readonly parcela = signal('500');
   readonly dataBase = signal('2026-01-01');
+
+  // --- Eventos pos-simulacao (lista ordenada; cronograma = projecao dela) ---
+  readonly eventos = signal<EventoCalc[]>([]);
+
+  adicionarEvento(evento: EventoCalc): void {
+    this.eventos.update((lista) => [...lista, evento].sort((a, b) => a.apos - b.apos));
+  }
+
+  removerEvento(indice: number): void {
+    this.eventos.update((lista) => lista.filter((_, i) => i !== indice));
+  }
+
+  limparEventos(): void {
+    this.eventos.set([]);
+  }
 
   /** Campos que ficam travados (somente leitura) = todos menos o campo-alvo. */
   readonly travado = (campo: CampoAlvo): boolean =>
@@ -127,6 +156,36 @@ export class SimulacaoStore {
     }
 
     const entrada = { principal, taxaPeriodo: i, prazo: n, dataBase };
+    const eventos = this.eventos();
+
+    // Com eventos: reprojecao deterministica (CET omitido por incluir extras).
+    if (eventos.length > 0) {
+      const proj = projetarComEventos({
+        principal,
+        taxaPeriodo: i,
+        prazo: n,
+        sistema: this.sistema(),
+        eventos,
+        dataBase,
+        mora: MORA_DEFAULT,
+      });
+      const totaisEv: TotaisCronograma = {
+        totalJuros: proj.resumo.totalJuros,
+        totalAmortizacao: proj.resumo.totalAmortizacao,
+        totalEncargos: proj.resumo.totalEncargos,
+        totalParcelas: proj.resumo.totalPago,
+      };
+      return {
+        parametros: resolvidos,
+        parcelaCalculada: this.sistema() === 'price' ? parcelaCalculada : proj.parcelas[0].valorParcela,
+        parcelas: proj.parcelas,
+        totais: totaisEv,
+        cetMensal: '',
+        cetAnual: '',
+        resumoEventos: proj.resumo,
+      };
+    }
+
     const parcelas =
       this.sistema() === 'price' ? gerarCronogramaPrice(entrada) : gerarCronogramaSac(entrada);
 

@@ -86,14 +86,21 @@
       <span class="rotulo">Total de juros</span>
       <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</strong>
     </div>
-    <div class="card">
-      <span class="rotulo">CET mensal</span>
-      <strong>{{ +res.dados.cetMensal | percent: '1.2-4' }}</strong>
-    </div>
-    <div class="card">
-      <span class="rotulo">CET anual</span>
-      <strong>{{ +res.dados.cetAnual | percent: '1.2-2' }}</strong>
-    </div>
+    @if (!res.dados.resumoEventos) {
+      <div class="card">
+        <span class="rotulo">CET mensal</span>
+        <strong>{{ +res.dados.cetMensal | percent: '1.2-4' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">CET anual</span>
+        <strong>{{ +res.dados.cetAnual | percent: '1.2-2' }}</strong>
+      </div>
+    } @else {
+      <div class="card">
+        <span class="rotulo">CET</span>
+        <strong title="CET recalculado apenas sem eventos nesta fase">—</strong>
+      </div>
+    }
   </section>
 
   <section class="tabela-wrap">
@@ -108,11 +115,12 @@
           <th>Amortização</th>
           <th>Parcela</th>
           <th>Saldo final</th>
+          <th>Obs.</th>
         </tr>
       </thead>
       <tbody>
         @for (p of res.dados.parcelas; track p.numero) {
-          <tr>
+          <tr [class.tem-evento]="p.observacao">
             <td>{{ p.numero }}</td>
             <td>{{ p.dataVencimento }}</td>
             <td>{{ +p.saldoInicial | currency: 'BRL' }}</td>
@@ -120,6 +128,7 @@
             <td>{{ +p.amortizacao | currency: 'BRL' }}</td>
             <td>{{ +p.valorParcela | currency: 'BRL' }}</td>
             <td>{{ +p.saldoFinal | currency: 'BRL' }}</td>
+            <td class="obs">{{ p.observacao }}</td>
           </tr>
         }
       </tbody>
@@ -129,12 +138,96 @@
           <td>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</td>
           <td>{{ +res.dados.totais.totalAmortizacao | currency: 'BRL' }}</td>
           <td>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</td>
-          <td>—</td>
+          <td colspan="2">—</td>
         </tr>
       </tfoot>
     </table>
   </section>
+
+  @if (res.dados.resumoEventos; as rev) {
+    <section class="resumo">
+      <div class="card">
+        <span class="rotulo">Prazo final</span>
+        <strong>{{ rev.prazoFinal }} meses</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Economia de juros</span>
+        <strong>{{ +rev.economiaJuros | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Amortizações extras</span>
+        <strong>{{ +rev.amortizacoesExtras | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Mora/encargos</span>
+        <strong>{{ +rev.totalEncargos | currency: 'BRL' }}</strong>
+      </div>
+    </section>
+  }
 }
+
+<section class="eventos painel">
+  <h2>Eventos pós-simulação</h2>
+  <form [formGroup]="eventoForm" class="grid" (ngSubmit)="adicionarEvento()">
+    <label>
+      <span>Tipo</span>
+      <select formControlName="tipo">
+        <option value="amortizacao">Amortização extra</option>
+        <option value="quitacao">Quitação antecipada</option>
+        <option value="antecipacao">Antecipação de parcelas</option>
+        <option value="pagamento">Pagamento (atraso)</option>
+      </select>
+    </label>
+    <label>
+      <span>Após a parcela nº</span>
+      <input type="number" formControlName="apos" min="0" step="1" />
+    </label>
+    @if (eventoForm.controls.tipo.value === 'amortizacao') {
+      <label>
+        <span>Valor (R$)</span>
+        <input type="number" formControlName="valor" min="0" step="0.01" />
+      </label>
+    }
+    @if (eventoForm.controls.tipo.value === 'antecipacao') {
+      <label>
+        <span>Qtd. de parcelas</span>
+        <input type="number" formControlName="quantidade" min="1" step="1" />
+      </label>
+    }
+    @if (eventoForm.controls.tipo.value === 'amortizacao' || eventoForm.controls.tipo.value === 'antecipacao') {
+      <label>
+        <span>Opção</span>
+        <select formControlName="opcao">
+          <option value="reduzir-prazo">Reduzir prazo</option>
+          <option value="reduzir-parcela">Reduzir parcela</option>
+        </select>
+      </label>
+    }
+    @if (eventoForm.controls.tipo.value === 'pagamento') {
+      <label>
+        <span>Dias de atraso</span>
+        <input type="number" formControlName="diasAtraso" min="0" step="1" />
+      </label>
+    }
+    <label class="acao">
+      <span>&nbsp;</span>
+      <button type="submit">Adicionar evento</button>
+    </label>
+  </form>
+
+  @if (store.eventos().length) {
+    <ul class="lista-eventos">
+      @for (e of store.eventos(); track $index) {
+        <li>
+          <span>{{ descreverEvento(e) }}</span>
+          <button type="button" (click)="store.removerEvento($index)">Cancelar</button>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="vazio">Nenhum evento. Adicione amortização, quitação ou antecipação para recompor o cronograma.</p>
+  }
+</section>
 
 @let comp = store.comparativo();
 @if (comp) {

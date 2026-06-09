@@ -68,6 +68,40 @@ describe('SimulacaoStore', () => {
     expect(comp!.sac.ultimaParcela).toBe('84.20');
   });
 
+  it('eventos: amortizacao extra reduz o prazo e expoe resumoEventos', () => {
+    store.sistema.set('price');
+    store.campoAlvo.set('parcela');
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.adicionarEvento({ tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-prazo' });
+
+    const r = store.resultado();
+    expect(r.tipo).toBe('ok');
+    if (r.tipo === 'ok') {
+      expect(r.dados.resumoEventos).toBeDefined();
+      expect(r.dados.resumoEventos!.prazoFinal).toBeLessThan(12);
+      expect(r.dados.totais.totalAmortizacao).toBe('1000.00');
+      expect(r.dados.cetMensal).toBe('');
+    }
+  });
+
+  it('eventos: cancelar (remover) reprojeta de volta ao cronograma base', () => {
+    store.sistema.set('price');
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.adicionarEvento({ tipo: 'quitacao', apos: 6 });
+    expect((store.resultado() as { dados: { parcelas: unknown[] } }).dados.parcelas).toHaveLength(6);
+
+    store.removerEvento(0);
+    const r = store.resultado();
+    if (r.tipo === 'ok') {
+      expect(r.dados.parcelas).toHaveLength(12);
+      expect(r.dados.resumoEventos).toBeUndefined();
+    }
+  });
+
   it('reporta erro para prazo invalido', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');

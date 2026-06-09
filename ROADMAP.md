@@ -47,9 +47,12 @@ parametrizável.
 - [x] Comparativo Price vs SAC. (memoização e `UX_GUIDE.md` ficam para depois.)
 - [x] 42 testes passando; build e dev server ok.
 
-### Fase 4 — Pós-simulação
-- Amortização extra (reduz prazo/parcela); quitação antecipada (VP);
-  antecipação de parcelas; pagamento efetivo (mora); cancelamento determinístico.
+### Fase 4 — Pós-simulação ✅ (concluída — ver PHASE4_IMPLEMENTATION.md)
+- [x] Amortização extra (reduz prazo/parcela); quitação antecipada (VP);
+      antecipação de parcelas (Price); pagamento com atraso (mora).
+- [x] Cancelamento determinístico (cronograma = projeção da lista de eventos).
+- [x] Engine `eventos.ts` + UI (painel de eventos) + 52 testes; build/verify ok.
+- [ ] Pendências: antecipação SAC, CET com eventos, mapeamento por data, pgto parcial.
 
 ### Fase 5 — Exportação
 - Excel (`exceljs`) e PDF (`pdfmake`), com metadata (versões + hash).

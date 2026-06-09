@@ -136,3 +136,62 @@ tfoot td {
   font-size: 0.8rem;
   color: #687387;
 }
+
+.eventos {
+  margin-top: 1.5rem;
+
+  .acao button {
+    cursor: pointer;
+    background: #0a3d62;
+    color: #fff;
+    border: none;
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+}
+
+tr.tem-evento {
+  background: #fff7e6;
+}
+
+td.obs {
+  text-align: left;
+  color: #8a5a00;
+  font-size: 0.78rem;
+}
+
+.lista-eventos {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #e3e8ef;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  button {
+    cursor: pointer;
+    background: #fff3f3;
+    border: 1px solid #ffc9c9;
+    color: #b42318;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+  }
+}
+
+.vazio {
+  margin-top: 1rem;
+  color: #687387;
+  font-size: 0.85rem;
+}

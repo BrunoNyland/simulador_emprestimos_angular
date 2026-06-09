@@ -11,3 +11,4 @@ export * from './encargos';
 export * from './iof';
 export * from './cet';
 export * from './solver';
+export * from './eventos';

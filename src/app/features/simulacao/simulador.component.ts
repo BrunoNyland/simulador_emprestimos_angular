@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
+import { EventoCalc } from '../../core/engine/eventos';
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
 
@@ -63,6 +64,59 @@ export class SimuladorComponent {
     });
 
     this.aplicarTravas();
+  }
+
+  // --- Painel de eventos pos-simulacao ---
+  readonly eventoForm = this.fb.nonNullable.group({
+    tipo: 'amortizacao',
+    apos: 1,
+    valor: '1000',
+    opcao: 'reduzir-prazo',
+    quantidade: 2,
+    diasAtraso: 30,
+  });
+
+  adicionarEvento(): void {
+    const v = this.eventoForm.getRawValue();
+    const apos = Number(v.apos);
+    let evento: EventoCalc;
+    switch (v.tipo) {
+      case 'amortizacao':
+        evento = {
+          tipo: 'amortizacao',
+          apos,
+          valor: String(v.valor),
+          opcao: v.opcao as 'reduzir-prazo' | 'reduzir-parcela',
+        };
+        break;
+      case 'antecipacao':
+        evento = {
+          tipo: 'antecipacao',
+          apos,
+          quantidade: Number(v.quantidade),
+          opcao: v.opcao as 'reduzir-prazo' | 'reduzir-parcela',
+        };
+        break;
+      case 'pagamento':
+        evento = { tipo: 'pagamento', apos, diasAtraso: Number(v.diasAtraso) };
+        break;
+      default:
+        evento = { tipo: 'quitacao', apos };
+    }
+    this.store.adicionarEvento(evento);
+  }
+
+  descreverEvento(e: EventoCalc): string {
+    switch (e.tipo) {
+      case 'amortizacao':
+        return `Amortização R$ ${e.valor} após parc. ${e.apos} (${e.opcao})`;
+      case 'antecipacao':
+        return `Antecipar ${e.quantidade} parc. após parc. ${e.apos}`;
+      case 'pagamento':
+        return `Pagamento parc. ${e.apos} com ${e.diasAtraso} dia(s) de atraso`;
+      default:
+        return `Quitação após parc. ${e.apos}`;
+    }
   }
 
   /** Trava (disable) o campo-alvo no Price; no SAC trava a parcela. */
