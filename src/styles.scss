@@ -1,1 +1,29 @@
-/* You can add global styles to this file, and also import other style files */
+/* Estilos globais */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: #f1f4f9;
+  font-family:
+    'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1a2233;
+}
+
+.topo {
+  background: #0a3d62;
+  color: #fff;
+  padding: 1.1rem 1.5rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.35rem;
+  }
+  p {
+    margin: 0.25rem 0 0;
+    opacity: 0.85;
+    font-size: 0.85rem;
+  }
+}

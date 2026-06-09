@@ -46,9 +46,13 @@ previa `data/`.
   `solver.ts`.
 
 ### 6. Config regulatória inicial ✅
-- `public/data/regulatory-config.json` versionado: IOF PF/PJ (0,0082%/0,0041%),
-  adicional 0,38%, cap 365 dias, isenção habitacional, mora, TAC PF vedada, CET.
-  Valores de **referência**, a validar (COMPLIANCE_NOTES §4).
+- `public/data/regulatory-config.jsonc` (**JSONC** — comentado opção a opção, com
+  os valores possíveis de cada campo). Inclui: defaults de cálculo
+  (arredondamento, convenção de dias, capitalização, periodicidade), IOF PF/PJ
+  (0,0082%/0,0041%), adicional 0,38%, cap 365 dias, isenção habitacional, mora,
+  TAC PF vedada, CET. Valores de **referência**, a validar (COMPLIANCE_NOTES §4).
+- Formato JSONC: o loader da Fase 2 remove comentários antes do `JSON.parse`
+  (mesma abordagem do `tsconfig.json`).
 
 ### 7. Testes ✅
 - Vitest (`ng test --watch=false`).

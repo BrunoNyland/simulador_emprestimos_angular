@@ -1,0 +1,107 @@
+// ============================================================================
+// CONFIGURACAO REGULATORIA (parametrizavel) — Simulador de Emprestimo
+// ----------------------------------------------------------------------------
+// Formato: JSONC (JSON with Comments). Comentarios servem para humanos/compliance;
+// o loader da aplicacao (Fase 2) remove os comentarios antes do JSON.parse.
+//
+// REGRA: nenhuma aliquota/teto fica "hard-coded" no codigo — tudo vive aqui,
+// versionado e com data de vigencia. Ver COMPLIANCE_NOTES.md.
+// AVISO: valores abaixo sao de REFERENCIA. Confirmar contra o normativo vigente
+// antes de uso em producao (COMPLIANCE_NOTES.md secao 4).
+// Todas as taxas/aliquotas sao FRACOES decimais (0.0038 = 0,38%) e ficam como
+// string para preservar precisao no Decimal.
+// ============================================================================
+{
+  // Identificador desta versao da config. Texto livre; sugestao: AAAA.MM + sufixo.
+  // Gravado em cada simulacao (auditoria/rastreabilidade).
+  "version": "2026.06-draft",
+
+  // Data ISO (YYYY-MM-DD) a partir da qual estes valores valem.
+  "vigenciaInicio": "2026-01-01",
+
+  // Nota livre exibida em revisoes de compliance.
+  "observacao": "Valores de REFERENCIA, pendentes de validacao juridica.",
+
+  // ----------------------------------------------------------------------------
+  // Padroes de calculo aplicados quando o produto/simulacao nao especifica.
+  // (Os valores possiveis espelham os enums em src/app/core/engine/models.ts.)
+  // ----------------------------------------------------------------------------
+  "defaults": {
+    // Arredondamento monetario. Escolhas: "half-even" (bancario, recomendado) |
+    // "half-up" (comercial).
+    "arredondamento": "half-even",
+
+    // Convencao de contagem de dias p/ taxas proporcionais e datas irregulares.
+    // Escolhas: "30/360" (comercial BR) | "ACT/365" (dias corridos) |
+    // "ACT/252" (dias uteis — exige calendario de feriados).
+    "convencaoDias": "30/360",
+
+    // Capitalizacao do periodo irregular/carencia (1a parcela "quebrada").
+    // Escolhas: "composta" ((1+i)^(d/p)-1) | "linear" (i*d/p).
+    "capitalizacaoPeriodoIrregular": "composta",
+
+    // Periodicidade padrao das parcelas.
+    // Escolhas: "mensal" | "quinzenal" | "anual".
+    "periodicidade": "mensal"
+  },
+
+  // ----------------------------------------------------------------------------
+  // IOF — Decreto 6.306/2007 (ver CALCULATION_REFERENCE.md secao 4).
+  // ----------------------------------------------------------------------------
+  "iof": {
+    // Aliquota diaria, por publico, incidente sobre cada parcela de principal,
+    // limitada a "limiteDias" dias. Fracao por dia.
+    // Referencia: PF 0,0082%/dia (0.000082) | PJ 0,0041%/dia (0.000041).
+    "aliquotaDiaria": {
+      "PF": "0.000082",
+      "PJ": "0.000041"
+    },
+
+    // Aliquota adicional fixa sobre o principal, independente do prazo.
+    // Referencia: 0,38% (0.0038).
+    "aliquotaAdicional": "0.0038",
+
+    // Teto de dias para o IOF diario por parcela. Inteiro. Referencia: 365.
+    "limiteDias": 365,
+
+    // Produtos ISENTOS de IOF. Valores possiveis: ids de produto definidos nos
+    // presets (ver COMPLIANCE_NOTES.md secao 2), ex.:
+    // "generico" | "credito-pessoal" | "consignado" | "cdc-veiculo" |
+    // "penhor" | "habitacional" | "pj-fundo-garantidor" | "desconto-bancario".
+    // Referencia: financiamento habitacional (SFH) e credito rural sao isentos.
+    "produtosIsentos": ["habitacional"]
+  },
+
+  // ----------------------------------------------------------------------------
+  // Encargos de mora (atraso no pagamento). Aplicados em pagamentos em atraso.
+  // ----------------------------------------------------------------------------
+  "mora": {
+    // Juros de mora ao mes (fracao). Referencia: 1% a.m. (0.01).
+    "jurosMensal": "0.01",
+
+    // Multa por atraso (fracao sobre a parcela). Referencia: 2% (0.02).
+    "multa": "0.02"
+  },
+
+  // ----------------------------------------------------------------------------
+  // TAC — Tarifa de Abertura de Credito.
+  // ----------------------------------------------------------------------------
+  "tac": {
+    // Se a TAC pode ser cobrada de Pessoa Fisica. Escolhas: true | false.
+    // Vedada para PF (Resolucao CMN 3.518/2007) -> default false.
+    "permitidaPF": false
+  },
+
+  // ----------------------------------------------------------------------------
+  // CET — Custo Efetivo Total (Resolucao CMN 4.881/2020).
+  // ----------------------------------------------------------------------------
+  "cet": {
+    // Tolerancia de convergencia do solver de TIR (Newton/bissecao).
+    // String numerica; menor = mais preciso/mais iteracoes. Referencia: 1e-10.
+    "toleranciaTir": "1e-10",
+
+    // Periodos no ano para anualizar o CET: (1+i)^p - 1.
+    // Inteiro. Escolhas tipicas: 12 (mensal) | 24 (quinzenal) | 1 (anual).
+    "anualizacaoPeriodosAno": 12
+  }
+}

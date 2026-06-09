@@ -32,17 +32,20 @@ parametrizável.
 - [x] Estrutura de pastas (ARCHITECTURE §3); locale pt-BR; config regulatória.
 - [x] Testes verdes (5/5) e build de produção ok.
 
-### Fase 2 — Motor de cálculo (núcleo da precisão bancária)
-- Conversões de taxa + day-count; Price; SAC.
-- IOF (PF/PJ, cap 365, isenções); CET por TIR (Newton + bisseção).
-- Solver campo-alvo (locks, ordem topológica, ciclo/inviabilidade).
-- Política de arredondamento + ajuste de resíduo.
-- `TEST_PLAN.md` + **golden tests** vs. planilhas de referência.
+### Fase 2 — Motor de cálculo (núcleo da precisão bancária) ✅ (concluída — ver PHASE2_IMPLEMENTATION.md)
+- [x] Conversões de taxa + day-count; Price; SAC.
+- [x] IOF (PF/PJ, cap 365, isenções); CET por TIR (Newton + bisseção).
+- [x] Solver campo-alvo Price {PV, i, n, parcela}; bruto↔líquido em `encargos.ts`.
+      (solver inverso de SAC e detecção de ciclo na integração ficam p/ depois.)
+- [x] Política de arredondamento + ajuste de resíduo (última parcela).
+- [x] `TEST_PLAN.md` + golden tests (38 testes passando). Pendente: planilhas
+      oficiais do cliente para ampliar a cobertura.
 
-### Fase 3 — Simulação e UI base
-- Reactive Forms com campo-alvo/locks e validação imediata.
-- Tabela de parcelas com totais; recálculo reativo (signals); memoização.
-- Comparativo Price vs SAC. `UX_GUIDE.md`.
+### Fase 3 — Simulação e UI base ✅ (concluída — ver PHASE3_IMPLEMENTATION.md)
+- [x] Reactive Forms com campo-alvo/locks e recálculo reativo (signals).
+- [x] Tabela de parcelas com totais; resumo com CET mensal/anual.
+- [x] Comparativo Price vs SAC. (memoização e `UX_GUIDE.md` ficam para depois.)
+- [x] 42 testes passando; build e dev server ok.
 
 ### Fase 4 — Pós-simulação
 - Amortização extra (reduz prazo/parcela); quitação antecipada (VP);

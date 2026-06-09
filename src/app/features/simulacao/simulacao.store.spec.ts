@@ -1,0 +1,66 @@
+import { TestBed } from '@angular/core/testing';
+import { SimulacaoStore } from './simulacao.store';
+
+describe('SimulacaoStore', () => {
+  let store: SimulacaoStore;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    store = TestBed.inject(SimulacaoStore);
+  });
+
+  it('Price: recalcula parcela ao alterar entradas (campo-alvo=parcela)', () => {
+    store.sistema.set('price');
+    store.campoAlvo.set('parcela');
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+
+    const r = store.resultado();
+    expect(r.tipo).toBe('ok');
+    if (r.tipo === 'ok') {
+      expect(r.dados.parcelaCalculada).toBe('88.85');
+      expect(r.dados.totais.totalAmortizacao).toBe('1000.00');
+      expect(r.dados.parcelas).toHaveLength(12);
+    }
+  });
+
+  it('Price: campo-alvo=valorBruto resolve o PV a partir da parcela', () => {
+    store.sistema.set('price');
+    store.valorBruto.set('0');
+    store.campoAlvo.set('valorBruto');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.parcela.set('88.848788'); // PMT exato p/ PV=1000
+
+    const r = store.resultado();
+    expect(r.tipo).toBe('ok');
+    if (r.tipo === 'ok') {
+      expect(r.dados.parametros.valorBruto).toBe('1000.00');
+    }
+  });
+
+  it('SAC: gera cronograma decrescente sem solver', () => {
+    store.sistema.set('sac');
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+
+    const r = store.resultado();
+    expect(r.tipo).toBe('ok');
+    if (r.tipo === 'ok') {
+      expect(r.dados.parcelas[0].amortizacao).toBe('83.33');
+      expect(r.dados.totais.totalAmortizacao).toBe('1000.00');
+    }
+  });
+
+  it('reporta erro para prazo invalido', () => {
+    store.sistema.set('price');
+    store.campoAlvo.set('parcela');
+    store.valorBruto.set('1000');
+    store.prazo.set(0);
+
+    const r = store.resultado();
+    expect(r.tipo).toBe('erro');
+  });
+});

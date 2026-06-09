@@ -1,0 +1,82 @@
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import { CurrencyPipe, PercentPipe } from '@angular/common';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { SimulacaoStore } from './simulacao.store';
+import { CampoAlvo } from '../../core/engine/solver';
+
+const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
+
+@Component({
+  selector: 'app-simulador',
+  standalone: true,
+  imports: [ReactiveFormsModule, CurrencyPipe, PercentPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './simulador.component.html',
+  styleUrl: './simulador.component.scss',
+})
+export class SimuladorComponent {
+  private readonly fb = inject(FormBuilder);
+  readonly store = inject(SimulacaoStore);
+
+  readonly form = this.fb.nonNullable.group({
+    sistema: this.store.sistema(),
+    campoAlvo: this.store.campoAlvo(),
+    valorBruto: this.store.valorBruto(),
+    taxa: this.store.taxa(),
+    tipoTaxa: this.store.tipoTaxa(),
+    unidadeTaxa: this.store.unidadeTaxa(),
+    prazo: this.store.prazo(),
+    parcela: this.store.parcela(),
+    dataBase: this.store.dataBase(),
+  });
+
+  constructor() {
+    // Formulario -> store (le getRawValue p/ incluir campos travados).
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      const v = this.form.getRawValue();
+      this.store.sistema.set(v.sistema);
+      this.store.campoAlvo.set(v.campoAlvo as CampoAlvo);
+      this.store.valorBruto.set(String(v.valorBruto));
+      this.store.taxa.set(String(v.taxa));
+      this.store.tipoTaxa.set(v.tipoTaxa);
+      this.store.unidadeTaxa.set(v.unidadeTaxa);
+      this.store.prazo.set(Number(v.prazo));
+      this.store.parcela.set(String(v.parcela));
+      this.store.dataBase.set(v.dataBase);
+      this.aplicarTravas();
+    });
+
+    // Resultado -> reflete o valor resolvido no campo-alvo (somente leitura).
+    effect(() => {
+      const r = this.store.resultado();
+      if (r.tipo !== 'ok' || this.store.sistema() !== 'price') {
+        return;
+      }
+      const alvo = this.store.campoAlvo();
+      const patch: Record<string, string | number> = {};
+      if (alvo === 'parcela') patch['parcela'] = r.dados.parcelaCalculada;
+      if (alvo === 'valorBruto') patch['valorBruto'] = r.dados.parametros.valorBruto;
+      if (alvo === 'taxa') patch['taxa'] = r.dados.parametros.taxa;
+      if (alvo === 'prazo') patch['prazo'] = r.dados.parametros.prazo;
+      this.form.patchValue(patch, { emitEvent: false });
+    });
+
+    this.aplicarTravas();
+  }
+
+  /** Trava (disable) o campo-alvo no Price; no SAC trava a parcela. */
+  private aplicarTravas(): void {
+    const sis = this.form.controls.sistema.value;
+    const alvo = this.form.controls.campoAlvo.value as CampoAlvo;
+    for (const c of CAMPOS) {
+      const ctrl = this.form.get(c)!;
+      const deveTravar = sis === 'price' ? c === alvo : c === 'parcela';
+      if (deveTravar && ctrl.enabled) {
+        ctrl.disable({ emitEvent: false });
+      } else if (!deveTravar && ctrl.disabled) {
+        ctrl.enable({ emitEvent: false });
+      }
+    }
+  }
+}

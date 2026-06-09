@@ -1,0 +1,174 @@
+<form [formGroup]="form" class="painel">
+  <h2>Parâmetros da simulação</h2>
+
+  <div class="grid">
+    <label>
+      <span>Sistema</span>
+      <select formControlName="sistema">
+        <option value="price">Price (parcela constante)</option>
+        <option value="sac">SAC (amortização constante)</option>
+      </select>
+    </label>
+
+    <label [class.desabilitado]="form.controls.sistema.value !== 'price'">
+      <span>Campo-alvo (resolver)</span>
+      <select formControlName="campoAlvo" [attr.disabled]="form.controls.sistema.value !== 'price' ? true : null">
+        <option value="parcela">Parcela</option>
+        <option value="valorBruto">Valor bruto</option>
+        <option value="taxa">Taxa</option>
+        <option value="prazo">Prazo</option>
+      </select>
+      <small>O campo escolhido é calculado (travado); os demais você edita.</small>
+    </label>
+
+    <label [class.alvo]="store.travado('valorBruto')">
+      <span>Valor bruto (R$) @if (store.travado('valorBruto')) {<em>· calculado</em>}</span>
+      <input type="number" formControlName="valorBruto" min="0" step="0.01" />
+    </label>
+
+    <label [class.alvo]="store.travado('taxa')">
+      <span>Taxa (fração, ex.: 0.02 = 2%) @if (store.travado('taxa')) {<em>· calculado</em>}</span>
+      <input type="number" formControlName="taxa" min="0" step="0.0001" />
+    </label>
+
+    <label>
+      <span>Tipo de taxa</span>
+      <select formControlName="tipoTaxa">
+        <option value="efetiva">Efetiva</option>
+        <option value="nominal">Nominal</option>
+      </select>
+    </label>
+
+    <label>
+      <span>Unidade da taxa</span>
+      <select formControlName="unidadeTaxa">
+        <option value="mensal">Mensal</option>
+        <option value="anual">Anual</option>
+      </select>
+    </label>
+
+    <label [class.alvo]="store.travado('prazo')">
+      <span>Prazo (meses) @if (store.travado('prazo')) {<em>· calculado</em>}</span>
+      <input type="number" formControlName="prazo" min="1" step="1" />
+    </label>
+
+    <label [class.alvo]="store.travado('parcela') || form.controls.sistema.value === 'sac'">
+      <span>
+        Parcela (R$)
+        @if (store.travado('parcela')) {<em>· calculado</em>}
+        @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela (SAC)</em>}
+      </span>
+      <input type="number" formControlName="parcela" min="0" step="0.01" />
+    </label>
+
+    <label>
+      <span>Data-base</span>
+      <input type="date" formControlName="dataBase" />
+    </label>
+  </div>
+</form>
+
+@let res = store.resultado();
+
+@if (res.tipo === 'erro') {
+  <p class="erro">⚠️ {{ res.mensagem }}</p>
+} @else {
+  <section class="resumo">
+    <div class="card">
+      <span class="rotulo">Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
+      <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL' }}</strong>
+    </div>
+    <div class="card">
+      <span class="rotulo">Total pago</span>
+      <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</strong>
+    </div>
+    <div class="card">
+      <span class="rotulo">Total de juros</span>
+      <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</strong>
+    </div>
+    <div class="card">
+      <span class="rotulo">CET mensal</span>
+      <strong>{{ +res.dados.cetMensal | percent: '1.2-4' }}</strong>
+    </div>
+    <div class="card">
+      <span class="rotulo">CET anual</span>
+      <strong>{{ +res.dados.cetAnual | percent: '1.2-2' }}</strong>
+    </div>
+  </section>
+
+  <section class="tabela-wrap">
+    <h2>Cronograma de parcelas</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Vencimento</th>
+          <th>Saldo inicial</th>
+          <th>Juros</th>
+          <th>Amortização</th>
+          <th>Parcela</th>
+          <th>Saldo final</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of res.dados.parcelas; track p.numero) {
+          <tr>
+            <td>{{ p.numero }}</td>
+            <td>{{ p.dataVencimento }}</td>
+            <td>{{ +p.saldoInicial | currency: 'BRL' }}</td>
+            <td>{{ +p.juros | currency: 'BRL' }}</td>
+            <td>{{ +p.amortizacao | currency: 'BRL' }}</td>
+            <td>{{ +p.valorParcela | currency: 'BRL' }}</td>
+            <td>{{ +p.saldoFinal | currency: 'BRL' }}</td>
+          </tr>
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3">Totais</td>
+          <td>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</td>
+          <td>{{ +res.dados.totais.totalAmortizacao | currency: 'BRL' }}</td>
+          <td>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</td>
+          <td>—</td>
+        </tr>
+      </tfoot>
+    </table>
+  </section>
+}
+
+@let comp = store.comparativo();
+@if (comp) {
+  <section class="comparativo">
+    <h2>Comparativo Price × SAC</h2>
+    <table>
+      <thead>
+        <tr><th></th><th>Price</th><th>SAC</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1ª parcela</td>
+          <td>{{ +comp.price.primeiraParcela | currency: 'BRL' }}</td>
+          <td>{{ +comp.sac.primeiraParcela | currency: 'BRL' }}</td>
+        </tr>
+        <tr>
+          <td>Última parcela</td>
+          <td>{{ +comp.price.primeiraParcela | currency: 'BRL' }}</td>
+          <td>{{ +comp.sac.ultimaParcela | currency: 'BRL' }}</td>
+        </tr>
+        <tr>
+          <td>Total de juros</td>
+          <td>{{ +comp.price.totais.totalJuros | currency: 'BRL' }}</td>
+          <td>{{ +comp.sac.totais.totalJuros | currency: 'BRL' }}</td>
+        </tr>
+        <tr>
+          <td>Total pago</td>
+          <td>{{ +comp.price.totais.totalParcelas | currency: 'BRL' }}</td>
+          <td>{{ +comp.sac.totais.totalParcelas | currency: 'BRL' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <small>SAC normalmente tem 1ª parcela maior e total de juros menor que o Price.</small>
+  </section>
+}
+
+<p class="disclaimer">Simulação meramente informativa — não constitui oferta de crédito.</p>
