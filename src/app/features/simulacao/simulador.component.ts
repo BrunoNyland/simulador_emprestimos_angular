@@ -5,6 +5,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
 import { EventoCalc } from '../../core/engine/eventos';
+import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
+import { Decimal } from '../../core/engine/decimal.config';
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
 
@@ -69,16 +71,42 @@ export class SimuladorComponent {
   // --- Painel de eventos pos-simulacao ---
   readonly eventoForm = this.fb.nonNullable.group({
     tipo: 'amortizacao',
+    indexarPor: 'parcela',
     apos: 1,
+    data: '2026-07-01',
     valor: '1000',
     opcao: 'reduzir-prazo',
     quantidade: 2,
     diasAtraso: 30,
+    valorPago: '',
   });
+
+  /** Mapeia uma data para {apos, fracao} usando a data-base mensal (30/360). */
+  private resolverPorData(data: string): { apos: number; fracao: Decimal } {
+    const dataBase = this.store.dataBase();
+    const prazo = this.store.prazo();
+    let apos = 0;
+    for (let k = 1; k <= prazo; k++) {
+      if (adicionarMeses(dataBase, k) <= data) {
+        apos = k;
+      } else {
+        break;
+      }
+    }
+    const vencApos = apos === 0 ? dataBase : adicionarMeses(dataBase, apos);
+    const dias = Math.max(0, diasCorridos(vencApos, data));
+    let fracao = new Decimal(Math.min(dias, 30)).div(30);
+    if (fracao.greaterThanOrEqualTo(1)) {
+      fracao = new Decimal('0.999999');
+    }
+    return { apos, fracao };
+  }
 
   adicionarEvento(): void {
     const v = this.eventoForm.getRawValue();
-    const apos = Number(v.apos);
+    const porData = v.indexarPor === 'data';
+    const mapeado = porData ? this.resolverPorData(v.data) : null;
+    const apos = mapeado ? mapeado.apos : Number(v.apos);
     let evento: EventoCalc;
     switch (v.tipo) {
       case 'amortizacao':
@@ -98,10 +126,19 @@ export class SimuladorComponent {
         };
         break;
       case 'pagamento':
-        evento = { tipo: 'pagamento', apos, diasAtraso: Number(v.diasAtraso) };
+        evento = {
+          tipo: 'pagamento',
+          apos,
+          diasAtraso: Number(v.diasAtraso),
+          ...(v.valorPago ? { valorPago: String(v.valorPago) } : {}),
+        };
         break;
       default:
-        evento = { tipo: 'quitacao', apos };
+        evento = {
+          tipo: 'quitacao',
+          apos,
+          ...(mapeado ? { fracaoPeriodo: mapeado.fracao.toString() } : {}),
+        };
     }
     this.store.adicionarEvento(evento);
   }

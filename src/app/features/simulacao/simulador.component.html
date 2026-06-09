@@ -86,7 +86,7 @@
       <span class="rotulo">Total de juros</span>
       <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</strong>
     </div>
-    @if (!res.dados.resumoEventos) {
+    @if (res.dados.cetMensal) {
       <div class="card">
         <span class="rotulo">CET mensal</span>
         <strong>{{ +res.dados.cetMensal | percent: '1.2-4' }}</strong>
@@ -94,11 +94,6 @@
       <div class="card">
         <span class="rotulo">CET anual</span>
         <strong>{{ +res.dados.cetAnual | percent: '1.2-2' }}</strong>
-      </div>
-    } @else {
-      <div class="card">
-        <span class="rotulo">CET</span>
-        <strong title="CET recalculado apenas sem eventos nesta fase">—</strong>
       </div>
     }
   </section>
@@ -179,9 +174,24 @@
       </select>
     </label>
     <label>
-      <span>Após a parcela nº</span>
-      <input type="number" formControlName="apos" min="0" step="1" />
+      <span>Indexar por</span>
+      <select formControlName="indexarPor">
+        <option value="parcela">Nº da parcela</option>
+        <option value="data">Data</option>
+      </select>
     </label>
+    @if (eventoForm.controls.indexarPor.value === 'parcela') {
+      <label>
+        <span>Após a parcela nº</span>
+        <input type="number" formControlName="apos" min="0" step="1" />
+      </label>
+    } @else {
+      <label>
+        <span>Data do evento</span>
+        <input type="date" formControlName="data" />
+        <small>Quitação usa juros pro-rata até a data.</small>
+      </label>
+    }
     @if (eventoForm.controls.tipo.value === 'amortizacao') {
       <label>
         <span>Valor (R$)</span>
@@ -207,6 +217,10 @@
       <label>
         <span>Dias de atraso</span>
         <input type="number" formControlName="diasAtraso" min="0" step="1" />
+      </label>
+      <label>
+        <span>Valor pago (R$, opc.)</span>
+        <input type="number" formControlName="valorPago" min="0" step="0.01" placeholder="parcial" />
       </label>
     }
     <label class="acao">

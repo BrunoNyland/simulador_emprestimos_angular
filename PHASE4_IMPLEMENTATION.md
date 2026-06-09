@@ -36,12 +36,26 @@ encargos/pago, **amortizações extras**, **economia de juros** vs. base, **praz
   economia **R$ 21,36**; **cancelar** → volta a 12; quitação após parc. 6 →
   6 linhas com obs "Quitacao antecipada: 514.92"; 0 erros de console.
 
-## Escopo / limites
-- **Antecipação de parcelas só Price** (SAC lança erro — consistente com o solver).
-- **CET não recalculado** quando há eventos (mostra "—").
-- Eventos indexados por **número de parcela** (`apos`); mapeamento por data exata
-  fica para integração futura.
-- Pagamento parcial (re-amortização) não modelado; apenas atraso com mora.
+## Pendências resolvidas (segunda rodada)
+- ✅ **Antecipação no SAC**: VP das próximas N parcelas projetadas a partir do
+  saldo (Price e SAC).
+- ✅ **CET com eventos**: `projetarComEventos` monta o fluxo de caixa real
+  (parcelas + pré-pagamentos no período em que ocorrem) e chama `calcularCet`;
+  `resumo.cetMensal/cetAnual` exibidos na UI. Sem tarifas, o CET ≈ taxa do
+  contrato mesmo com pré-pagamentos (correto).
+- ✅ **Pagamento parcial**: evento `pagamento` aceita `valorPago`; cobre juros e
+  amortiza o resto, **re-amortizando mantendo o prazo**; pagar < juros gera erro
+  (amortização negativa).
+- ✅ **Eventos por data**: a UI permite indexar por data; mapeia para `apos` e,
+  na **quitação**, calcula juros **pro-rata** até a data (`fracaoPeriodo`),
+  separando o principal (amortização) da parte de juros pro-rata.
+
+## Escopo / limites restantes
+- Mapeamento por data aplica pro-rata na **quitação**; amortização/antecipação
+  por data usam o vencimento anterior como referência (sem pro-rata no extra).
+- IOF/tarifas de abertura ainda não entram no CET (Fase 5/encargos).
+- Regra de pagamento parcial é a default (re-amortizar mantendo prazo);
+  parametrizável depois.
 
 ## Próximo passo (Fase 5)
 Exportação Excel (.xlsx via exceljs) e PDF (via pdfmake) do cronograma e resumo,

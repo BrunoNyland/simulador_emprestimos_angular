@@ -51,8 +51,9 @@ parametrizável.
 - [x] Amortização extra (reduz prazo/parcela); quitação antecipada (VP);
       antecipação de parcelas (Price); pagamento com atraso (mora).
 - [x] Cancelamento determinístico (cronograma = projeção da lista de eventos).
-- [x] Engine `eventos.ts` + UI (painel de eventos) + 52 testes; build/verify ok.
-- [ ] Pendências: antecipação SAC, CET com eventos, mapeamento por data, pgto parcial.
+- [x] Engine `eventos.ts` + UI (painel de eventos) + 56 testes; build/verify ok.
+- [x] Pendências resolvidas: antecipação SAC, CET com eventos, eventos por data
+      (quitação pro-rata) e pagamento parcial. Resta IOF/tarifas no CET.
 
 ### Fase 5 — Exportação
 - Excel (`exceljs`) e PDF (`pdfmake`), com metadata (versões + hash).

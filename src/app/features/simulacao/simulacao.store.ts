@@ -180,8 +180,8 @@ export class SimulacaoStore {
         parcelaCalculada: this.sistema() === 'price' ? parcelaCalculada : proj.parcelas[0].valorParcela,
         parcelas: proj.parcelas,
         totais: totaisEv,
-        cetMensal: '',
-        cetAnual: '',
+        cetMensal: proj.resumo.cetMensal,
+        cetAnual: proj.resumo.cetAnual,
         resumoEventos: proj.resumo,
       };
     }

@@ -64,15 +64,49 @@ describe('eventos (pos-simulacao)', () => {
     expect(r.resumo.totalEncargos).toBe('2.67');
   });
 
-  it('antecipacao em SAC lanca erro nesta fase', () => {
+  it('antecipacao de parcelas no SAC: reduz o prazo via valor presente', () => {
+    const r = projetarComEventos({
+      principal: d(1000),
+      taxaPeriodo: d('0.01'),
+      prazo: 12,
+      sistema: 'sac',
+      eventos: [{ tipo: 'antecipacao', apos: 3, quantidade: 2 }],
+    });
+    expect(r.resumo.prazoFinal).toBeLessThan(12);
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+    expect(r.parcelas[2].observacao).toContain('Antecipacao');
+  });
+
+  it('CET com eventos: sem tarifas, o CET ~ taxa do contrato (1%)', () => {
+    const r = basePrice([{ tipo: 'amortizacao', apos: 3, valor: '300', opcao: 'reduzir-prazo' }]);
+    expect(Number(r.resumo.cetMensal)).toBeGreaterThan(0.0099);
+    expect(Number(r.resumo.cetMensal)).toBeLessThan(0.0102);
+  });
+
+  it('quitacao pro-rata: paga saldo corrigido por fracao de periodo', () => {
+    // quitacao apos parcela 6 com meio periodo decorrido: payoff = saldo*(1+i)^0.5
+    const r = basePrice([{ tipo: 'quitacao', apos: 6, fracaoPeriodo: '0.5' }]);
+    expect(r.resumo.prazoFinal).toBe(6);
+    // saldo apos parc.6 = 514.92 ; payoff = 514.92*(1.01)^0.5 ~ 517.49
+    expect(r.parcelas[5].observacao).toContain('pro-rata');
+    // principal vai p/ amortizacao; o excedente pro-rata vira juros
+    expect(r.resumo.amortizacoesExtras).toBe('514.92');
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+    expect(Number(r.resumo.totalPago)).toBeGreaterThan(1000);
+  });
+
+  it('pagamento parcial: re-amortiza mantendo o prazo', () => {
+    // parcela agendada 88.85; paga 70 na parcela 1 (juros 10 -> amort 60)
+    const r = basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 0, valorPago: '70' }]);
+    expect(r.parcelas[0].amortizacao).toBe('60.00');
+    expect(r.parcelas[0].valorParcela).toBe('70.00');
+    expect(r.resumo.prazoFinal).toBe(12); // prazo mantido
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+  });
+
+  it('pagamento inferior aos juros lanca erro (amortizacao negativa)', () => {
     expect(() =>
-      projetarComEventos({
-        principal: d(1000),
-        taxaPeriodo: d('0.01'),
-        prazo: 12,
-        sistema: 'sac',
-        eventos: [{ tipo: 'antecipacao', apos: 3, quantidade: 2 }],
-      }),
+      basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 0, valorPago: '5' }]),
     ).toThrow();
   });
 });

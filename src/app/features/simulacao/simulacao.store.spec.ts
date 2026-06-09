@@ -82,7 +82,8 @@ describe('SimulacaoStore', () => {
       expect(r.dados.resumoEventos).toBeDefined();
       expect(r.dados.resumoEventos!.prazoFinal).toBeLessThan(12);
       expect(r.dados.totais.totalAmortizacao).toBe('1000.00');
-      expect(r.dados.cetMensal).toBe('');
+      // CET agora e recalculado com eventos (~ taxa do contrato, sem tarifas)
+      expect(Number(r.dados.cetMensal)).toBeGreaterThan(0.0099);
     }
   });
 
