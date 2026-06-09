@@ -83,6 +83,31 @@ describe('eventos (pos-simulacao)', () => {
     expect(Number(r.resumo.cetMensal)).toBeLessThan(0.0102);
   });
 
+  it('CET com eventos usa BACEN (dias/365) quando dataBase e informada', () => {
+    const ev = [
+      { tipo: 'amortizacao' as const, apos: 3, valor: '100', opcao: 'reduzir-prazo' as const },
+    ];
+    const comData = projetarComEventos({
+      principal: d(1000),
+      taxaPeriodo: d('0.01'),
+      prazo: 12,
+      sistema: 'price',
+      eventos: ev,
+      dataBase: '2026-01-01',
+    });
+    const semData = projetarComEventos({
+      principal: d(1000),
+      taxaPeriodo: d('0.01'),
+      prazo: 12,
+      sistema: 'price',
+      eventos: ev,
+    });
+    // Convencoes distintas -> valores distintos, ambos ~ 1% a.m.
+    expect(comData.resumo.cetMensal).not.toBe(semData.resumo.cetMensal);
+    expect(Number(comData.resumo.cetMensal)).toBeGreaterThan(0.0099);
+    expect(Number(comData.resumo.cetMensal)).toBeLessThan(0.0102);
+  });
+
   it('quitacao pro-rata: paga saldo corrigido por fracao de periodo', () => {
     // quitacao apos parcela 6 com meio periodo decorrido: payoff = saldo*(1+i)^0.5
     const r = basePrice([{ tipo: 'quitacao', apos: 6, fracaoPeriodo: '0.5' }]);
@@ -102,6 +127,17 @@ describe('eventos (pos-simulacao)', () => {
     expect(r.parcelas[0].valorParcela).toBe('70.00');
     expect(r.resumo.prazoFinal).toBe(12); // prazo mantido
     expect(r.resumo.totalAmortizacao).toBe('1000.00');
+  });
+
+  it('amortizacao por data (pro-rata): divide os juros da proxima parcela', () => {
+    // amort 200 reduzir-parcela apos parc.1 com meio periodo decorrido (frac 0.5)
+    // saldo apos parc.1 = 921.15; juros parc.2 pro-rata =
+    //   921.15*0.01*0.5 + 721.15*0.01*0.5 = 8.21 (vs 7.21 sem pro-rata)
+    const r = basePrice([
+      { tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-parcela', fracaoPeriodo: '0.5' },
+    ]);
+    expect(r.parcelas[1].juros).toBe('8.21');
+    expect(r.parcelas[0].observacao).toContain('pro-rata');
   });
 
   it('pagamento inferior aos juros lanca erro (amortizacao negativa)', () => {

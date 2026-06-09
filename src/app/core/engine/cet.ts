@@ -2,7 +2,7 @@ import { Decimal } from './decimal.config';
 
 /** Um fluxo de caixa datado (em periodos-base a partir da liberacao). */
 export interface FluxoCaixa {
-  /** Prazo ate o fluxo, em periodos-base (ex.: dias/30 ou indice da parcela). */
+  /** Prazo ate o fluxo, em periodos-base (ex.: dias/365 para CET BACEN, ou indice da parcela). */
   periodo: Decimal;
   /** Valor pago pelo cliente no periodo (parcela + encargos + tributos). */
   valor: Decimal;
@@ -14,6 +14,7 @@ export interface ResultadoCet {
 }
 
 export interface OpcoesCet {
+  /** Se os periodos fornecidos estao em anos (dias/365), i sera a taxa anual. Se for mensal, i sera mensal. */
   periodosAno?: number;
   tolerancia?: Decimal.Value;
   maxIteracoes?: number;
@@ -32,6 +33,8 @@ export function calcularCet(
   fluxos: FluxoCaixa[],
   opcoes: OpcoesCet = {},
 ): ResultadoCet {
+  // Se periodosAno = 1 (fluxos em dias/365), a TIR encontrada já é a taxa anual.
+  // Se periodosAno = 12 (fluxos em meses), a TIR encontrada é mensal.
   const periodosAno = opcoes.periodosAno ?? 12;
   const tol = new Decimal(opcoes.tolerancia ?? '1e-10');
   const maxIter = opcoes.maxIteracoes ?? 200;
@@ -79,8 +82,19 @@ export function calcularCet(
     i = bisseccao(f, new Decimal('-0.9999'), new Decimal('100'), tol, 1000);
   }
 
-  const mensal = i;
-  const anual = mensal.plus(1).pow(periodosAno).minus(1);
+  let mensal: Decimal;
+  let anual: Decimal;
+
+  if (periodosAno === 1) {
+    // Calculo padrao BACEN p/ CET (periodos em anos = dias/365)
+    anual = i;
+    mensal = anual.plus(1).pow(new Decimal(1).div(12)).minus(1);
+  } else {
+    // Calculo mensalista tradicional
+    mensal = i;
+    anual = mensal.plus(1).pow(periodosAno).minus(1);
+  }
+
   return { mensal, anual };
 }
 

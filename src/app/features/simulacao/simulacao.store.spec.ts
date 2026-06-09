@@ -103,6 +103,58 @@ describe('SimulacaoStore', () => {
     }
   });
 
+  it('IOF: reduz o liquido e eleva o CET (PF, credito pessoal)', () => {
+    store.sistema.set('price');
+    store.campoAlvo.set('parcela');
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.publico.set('PF');
+    store.produto.set('credito-pessoal');
+    store.incluirIof.set(true);
+    store.tarifaAbertura.set('0');
+
+    const r = store.resultado();
+    if (r.tipo === 'ok') {
+      expect(Number(r.dados.iof)).toBeGreaterThan(3.8); // diario + adicional 0,38%
+      expect(Number(r.dados.valorLiquido)).toBeLessThan(1000);
+      expect(Number(r.dados.cetMensal)).toBeGreaterThan(0.01); // CET > taxa por causa do IOF
+    }
+  });
+
+  it('sem IOF: CET (BACEN, dias/365) ~ taxa do contrato', () => {
+    store.sistema.set('price');
+    store.campoAlvo.set('parcela');
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.incluirIof.set(false);
+    store.tarifaAbertura.set('0');
+
+    const r = store.resultado();
+    if (r.tipo === 'ok') {
+      expect(r.dados.valorLiquido).toBe('1000.00');
+      // CET mensal ~ 1% (convencao BACEN dias/365 + arredondamento da parcela)
+      const cet = Number(r.dados.cetMensal);
+      expect(cet).toBeGreaterThan(0.0099);
+      expect(cet).toBeLessThan(0.0102);
+    }
+  });
+
+  it('IOF: produto habitacional e isento (liquido = bruto)', () => {
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.incluirIof.set(true);
+    store.produto.set('habitacional');
+
+    const r = store.resultado();
+    if (r.tipo === 'ok') {
+      expect(r.dados.iof).toBe('0.00');
+      expect(r.dados.valorLiquido).toBe('1000.00');
+    }
+  });
+
   it('reporta erro para prazo invalido', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');

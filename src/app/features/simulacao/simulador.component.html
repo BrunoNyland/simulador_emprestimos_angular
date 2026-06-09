@@ -10,9 +10,9 @@
       </select>
     </label>
 
-    <label [class.desabilitado]="form.controls.sistema.value !== 'price'">
+    <label>
       <span>Campo-alvo (resolver)</span>
-      <select formControlName="campoAlvo" [attr.disabled]="form.controls.sistema.value !== 'price' ? true : null">
+      <select formControlName="campoAlvo">
         <option value="parcela">Parcela</option>
         <option value="valorBruto">Valor bruto</option>
         <option value="taxa">Taxa</option>
@@ -52,11 +52,11 @@
       <input type="number" formControlName="prazo" min="1" step="1" />
     </label>
 
-    <label [class.alvo]="store.travado('parcela') || form.controls.sistema.value === 'sac'">
+    <label [class.alvo]="store.travado('parcela')">
       <span>
         Parcela (R$)
         @if (store.travado('parcela')) {<em>· calculado</em>}
-        @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela (SAC)</em>}
+        @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela</em>}
       </span>
       <input type="number" formControlName="parcela" min="0" step="0.01" />
     </label>
@@ -64,6 +64,39 @@
     <label>
       <span>Data-base</span>
       <input type="date" formControlName="dataBase" />
+    </label>
+  </div>
+
+  <h2>Custos de abertura (entram no CET)</h2>
+  <div class="grid">
+    <label>
+      <span>Público</span>
+      <select formControlName="publico">
+        <option value="PF">Pessoa Física</option>
+        <option value="PJ">Pessoa Jurídica</option>
+      </select>
+    </label>
+    <label>
+      <span>Produto</span>
+      <select formControlName="produto">
+        <option value="credito-pessoal">Crédito pessoal</option>
+        <option value="consignado">Consignado</option>
+        <option value="cdc-veiculo">CDC/Veículo</option>
+        <option value="penhor">Penhor</option>
+        <option value="habitacional">Habitacional (isento de IOF)</option>
+        <option value="desconto-bancario">Desconto bancário</option>
+      </select>
+    </label>
+    <label>
+      <span>IOF</span>
+      <select formControlName="incluirIof">
+        <option [ngValue]="true">Incluir no CET</option>
+        <option [ngValue]="false">Não incluir</option>
+      </select>
+    </label>
+    <label>
+      <span>Tarifa de abertura (R$)</span>
+      <input type="number" formControlName="tarifaAbertura" min="0" step="0.01" />
     </label>
   </div>
 </form>
@@ -77,6 +110,14 @@
     <div class="card">
       <span class="rotulo">Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
       <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL' }}</strong>
+    </div>
+    <div class="card">
+      <span class="rotulo">Valor líquido liberado</span>
+      <strong>{{ +res.dados.valorLiquido | currency: 'BRL' }}</strong>
+    </div>
+    <div class="card">
+      <span class="rotulo">IOF</span>
+      <strong>{{ +res.dados.iof | currency: 'BRL' }}</strong>
     </div>
     <div class="card">
       <span class="rotulo">Total pago</span>

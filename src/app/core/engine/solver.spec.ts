@@ -57,9 +57,42 @@ describe('solver (Price)', () => {
     ).toThrow();
   });
 
-  it('rejeita SAC nesta fase', () => {
-    expect(() =>
-      resolverCampoAlvo({ sistema: 'sac', parametros: base, campoAlvo: 'parcela' }),
-    ).toThrow();
+});
+
+describe('solver (SAC)', () => {
+  // SAC: 1a parcela = PV/n + PV*i = 1000/12 + 1000*0.01 = 83.3333 + 10 = 93.3333
+  it('alvo=parcela: resolve a 1a parcela', () => {
+    const r = resolverCampoAlvo({ sistema: 'sac', parametros: base, campoAlvo: 'parcela' });
+    expect(r.parcela).toBe('93.33');
+  });
+
+  it('alvo=valorBruto: PV a partir da 1a parcela, i, n', () => {
+    const r = resolverCampoAlvo({
+      sistema: 'sac',
+      parametros: base,
+      parcela: '93.333333',
+      campoAlvo: 'valorBruto',
+    });
+    expect(r.parametros.valorBruto).toBe('1000.00');
+  });
+
+  it('alvo=prazo: n a partir de PV, 1a parcela, i', () => {
+    const r = resolverCampoAlvo({
+      sistema: 'sac',
+      parametros: base,
+      parcela: '93.333333',
+      campoAlvo: 'prazo',
+    });
+    expect(r.parametros.prazo).toBe(12);
+  });
+
+  it('alvo=taxa: i a partir de PV, 1a parcela, n', () => {
+    const r = resolverCampoAlvo({
+      sistema: 'sac',
+      parametros: base,
+      parcela: '93.333333',
+      campoAlvo: 'taxa',
+    });
+    expect(new Decimal(r.parametros.taxa).toDecimalPlaces(6).toString()).toBe('0.01');
   });
 });

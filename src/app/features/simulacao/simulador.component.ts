@@ -32,6 +32,10 @@ export class SimuladorComponent {
     prazo: this.store.prazo(),
     parcela: this.store.parcela(),
     dataBase: this.store.dataBase(),
+    publico: this.store.publico(),
+    produto: this.store.produto(),
+    incluirIof: this.store.incluirIof(),
+    tarifaAbertura: this.store.tarifaAbertura(),
   });
 
   constructor() {
@@ -47,13 +51,17 @@ export class SimuladorComponent {
       this.store.prazo.set(Number(v.prazo));
       this.store.parcela.set(String(v.parcela));
       this.store.dataBase.set(v.dataBase);
+      this.store.publico.set(v.publico as 'PF' | 'PJ');
+      this.store.produto.set(v.produto);
+      this.store.incluirIof.set(Boolean(v.incluirIof));
+      this.store.tarifaAbertura.set(String(v.tarifaAbertura));
       this.aplicarTravas();
     });
 
     // Resultado -> reflete o valor resolvido no campo-alvo (somente leitura).
     effect(() => {
       const r = this.store.resultado();
-      if (r.tipo !== 'ok' || this.store.sistema() !== 'price') {
+      if (r.tipo !== 'ok') {
         return;
       }
       const alvo = this.store.campoAlvo();
@@ -115,6 +123,9 @@ export class SimuladorComponent {
           apos,
           valor: String(v.valor),
           opcao: v.opcao as 'reduzir-prazo' | 'reduzir-parcela',
+          ...(mapeado && mapeado.fracao.greaterThan(0)
+            ? { fracaoPeriodo: mapeado.fracao.toString() }
+            : {}),
         };
         break;
       case 'antecipacao':
@@ -123,6 +134,9 @@ export class SimuladorComponent {
           apos,
           quantidade: Number(v.quantidade),
           opcao: v.opcao as 'reduzir-prazo' | 'reduzir-parcela',
+          ...(mapeado && mapeado.fracao.greaterThan(0)
+            ? { fracaoPeriodo: mapeado.fracao.toString() }
+            : {}),
         };
         break;
       case 'pagamento':
@@ -156,13 +170,12 @@ export class SimuladorComponent {
     }
   }
 
-  /** Trava (disable) o campo-alvo no Price; no SAC trava a parcela. */
+  /** Trava (disable) o campo-alvo (Price e SAC; no SAC a parcela e a 1a). */
   private aplicarTravas(): void {
-    const sis = this.form.controls.sistema.value;
     const alvo = this.form.controls.campoAlvo.value as CampoAlvo;
     for (const c of CAMPOS) {
       const ctrl = this.form.get(c)!;
-      const deveTravar = sis === 'price' ? c === alvo : c === 'parcela';
+      const deveTravar = c === alvo;
       if (deveTravar && ctrl.enabled) {
         ctrl.disable({ emitEvent: false });
       } else if (!deveTravar && ctrl.disabled) {

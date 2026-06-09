@@ -41,6 +41,36 @@ export function prazoPrice(pv: Decimal, pmt: Decimal, i: Decimal): number {
   return Math.round(n.toNumber());
 }
 
+// --- SAC: relacoes pela 1a parcela (parcela1 = PV/n + PV*i) ---
+
+/** 1a parcela SAC: PV/n + PV*i. */
+export function primeiraParcelaSac(pv: Decimal, i: Decimal, n: number): Decimal {
+  return pv.div(n).plus(pv.times(i));
+}
+
+/** PV SAC a partir da 1a parcela: parcela1 / (1/n + i). */
+export function valorPresenteSac(parcela1: Decimal, i: Decimal, n: number): Decimal {
+  return parcela1.div(new Decimal(1).div(n).plus(i));
+}
+
+/** Prazo SAC a partir de PV, 1a parcela e i: PV / (parcela1 - PV*i). */
+export function prazoSac(pv: Decimal, parcela1: Decimal, i: Decimal): number {
+  const denom = parcela1.minus(pv.times(i));
+  if (denom.lessThanOrEqualTo(0)) {
+    throw new Error('1a parcela insuficiente (<= juros): prazo invalido no SAC.');
+  }
+  return Math.round(pv.div(denom).toNumber());
+}
+
+/** Taxa efetiva mensal SAC a partir de PV, 1a parcela e n: (parcela1 - PV/n)/PV. */
+export function taxaSac(pv: Decimal, parcela1: Decimal, n: number): Decimal {
+  const i = parcela1.minus(pv.div(n)).div(pv);
+  if (i.lessThan(0)) {
+    throw new Error('1a parcela menor que a amortizacao (PV/n): nao ha taxa >= 0.');
+  }
+  return i;
+}
+
 /** Taxa efetiva mensal Price a partir de PV, PMT e n (bissecao). */
 export function taxaPrice(pv: Decimal, pmt: Decimal, n: number): Decimal {
   const tol = new Decimal('1e-12');
@@ -73,16 +103,44 @@ export function taxaPrice(pv: Decimal, pmt: Decimal, n: number): Decimal {
 }
 
 /**
- * Resolve o campo-alvo a partir dos demais (relacao Price "fixar 3, resolver 1").
+ * Conjunto de formulas de um sistema (Price ou SAC) para o solver.
+ * No SAC, "parcela" refere-se a 1a parcela.
+ */
+interface KitSolver {
+  parcelaDe: (pv: Decimal, i: Decimal, n: number) => Decimal;
+  pvDe: (parcela: Decimal, i: Decimal, n: number) => Decimal;
+  prazoDe: (pv: Decimal, parcela: Decimal, i: Decimal) => number;
+  taxaDe: (pv: Decimal, parcela: Decimal, n: number) => Decimal;
+}
+
+const KIT_PRICE: KitSolver = {
+  parcelaDe: valorParcelaPrice,
+  pvDe: valorPresentePrice,
+  prazoDe: prazoPrice,
+  taxaDe: taxaPrice,
+};
+
+const KIT_SAC: KitSolver = {
+  parcelaDe: primeiraParcelaSac,
+  pvDe: valorPresenteSac,
+  prazoDe: prazoSac,
+  taxaDe: taxaSac,
+};
+
+/**
+ * Resolve o campo-alvo a partir dos demais ("fixar 3, resolver 1").
+ * Suporta Price e SAC (no SAC, a "parcela" e a 1a parcela).
  * Ver CALCULATION_REFERENCE.md secao 8.
- *
- * Nota: o solver inverso para SAC sera adicionado em fase posterior; o cronograma
- * SAC ja e gerado por gerarCronogramaSac.
  */
 export function resolverCampoAlvo(entrada: EntradaSolver): SaidaSolver {
   const { sistema, parametros, parcela, campoAlvo } = entrada;
-  if (sistema !== 'price') {
-    throw new Error(`Solver inverso disponivel apenas para Price nesta fase (recebido: ${sistema}).`);
+  let kit: KitSolver;
+  if (sistema === 'price') {
+    kit = KIT_PRICE;
+  } else if (sistema === 'sac') {
+    kit = KIT_SAC;
+  } else {
+    throw new Error(`Solver disponivel para price ou sac (recebido: ${sistema}).`);
   }
 
   const pv = new Decimal(parametros.valorBruto);
@@ -103,23 +161,22 @@ export function resolverCampoAlvo(entrada: EntradaSolver): SaidaSolver {
 
   switch (campoAlvo) {
     case 'parcela': {
-      const pmt = arredondarMoeda(valorParcelaPrice(pv, i, n));
+      const pmt = arredondarMoeda(kit.parcelaDe(pv, i, n));
       return { parametros: { ...parametros }, parcela: pmt.toFixed(2) };
     }
     case 'valorBruto': {
-      const novoPv = valorPresentePrice(exigeParcela(), i, n);
-      const novoBruto = arredondarMoeda(novoPv);
+      const novoBruto = arredondarMoeda(kit.pvDe(exigeParcela(), i, n));
       return {
         parametros: { ...parametros, valorBruto: novoBruto.toFixed(2) },
         parcela: exigeParcela().toFixed(2),
       };
     }
     case 'prazo': {
-      const novoN = prazoPrice(pv, exigeParcela(), i);
+      const novoN = kit.prazoDe(pv, exigeParcela(), i);
       return { parametros: { ...parametros, prazo: novoN }, parcela: exigeParcela().toFixed(2) };
     }
     case 'taxa': {
-      const im = taxaPrice(pv, exigeParcela(), n);
+      const im = kit.taxaDe(pv, exigeParcela(), n);
       const novaTaxa = mensalParaUnidade(im, parametros.tipoTaxa, parametros.unidadeTaxa);
       return {
         parametros: { ...parametros, taxa: novaTaxa.toDecimalPlaces(10).toString() },

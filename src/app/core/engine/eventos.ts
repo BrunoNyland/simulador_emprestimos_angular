@@ -1,6 +1,6 @@
 import { Decimal, arredondarMoeda } from './decimal.config';
 import { OpcaoAmortizacao, Parcela, SistemaAmortizacao } from './models';
-import { adicionarMeses } from './dates';
+import { adicionarMeses, diasCorridos } from './dates';
 import { gerarCronogramaPrice, valorParcelaPrice } from './price';
 import { gerarCronogramaSac } from './sac';
 import { somarTotais } from './totais';
@@ -11,9 +11,15 @@ import { calcularCet, FluxoCaixa } from './cet';
  * `apos` = numero da parcela apos a qual o evento ocorre (0 = antes da 1a).
  */
 export type EventoCalc =
-  | { tipo: 'amortizacao'; apos: number; valor: string; opcao: OpcaoAmortizacao }
+  | { tipo: 'amortizacao'; apos: number; valor: string; opcao: OpcaoAmortizacao; fracaoPeriodo?: string }
   | { tipo: 'quitacao'; apos: number; fracaoPeriodo?: string }
-  | { tipo: 'antecipacao'; apos: number; quantidade: number; opcao?: OpcaoAmortizacao }
+  | {
+      tipo: 'antecipacao';
+      apos: number;
+      quantidade: number;
+      opcao?: OpcaoAmortizacao;
+      fracaoPeriodo?: string;
+    }
   | { tipo: 'pagamento'; apos: number; diasAtraso: number; valorPago?: string };
 
 /** Linha do cronograma com observacao opcional (evento aplicado). */
@@ -34,6 +40,8 @@ export interface EntradaProjecao {
   eventos: EventoCalc[];
   dataBase?: string;
   mora?: ParametrosMora;
+  /** Valor efetivamente liberado ao cliente (base do CET). Default: principal. */
+  valorLiberado?: Decimal;
 }
 
 export interface ResumoProjecao {
@@ -79,6 +87,22 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
 
   const eventosApos = (k: number): EventoCalc[] => eventos.filter((ev) => ev.apos === k);
 
+  // Periodo de um fluxo para o CET. Com dataBase: padrao BACEN (dias/365);
+  // sem dataBase: meses inteiros (compatibilidade com testes do motor).
+  const usarDias = !!dataBase;
+  const periodoFluxo = (k: number, frac: Decimal): Decimal => {
+    if (!usarDias) {
+      return new Decimal(k).plus(frac);
+    }
+    const vencK = k === 0 ? dataBase! : adicionarMeses(dataBase!, k);
+    const diasBase = new Decimal(diasCorridos(dataBase!, vencK));
+    if (frac.lessThanOrEqualTo(0)) {
+      return diasBase.div(365);
+    }
+    const diasPeriodo = new Decimal(diasCorridos(vencK, adicionarMeses(dataBase!, k + 1)));
+    return diasBase.plus(frac.times(diasPeriodo)).div(365);
+  };
+
   let saldo = principal;
   let prazoAlvo: number | null = n; // null => prazo aberto (reduzir-prazo)
   let pmt =
@@ -90,6 +114,11 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   let extras = new Decimal(0); // principal amortizado fora das parcelas
   let jurosExtras = new Decimal(0); // juros pro-rata (ex.: quitacao no meio do periodo)
   let encargos = new Decimal(0);
+  // Quando um pre-pagamento ocorre no meio do periodo, a proxima parcela divide
+  // os juros entre o saldo antigo (fracao decorrida) e o novo (restante).
+  let ajusteAtivo = false;
+  let ajusteSaldoAntes = new Decimal(0);
+  let ajusteFrac = new Decimal(0);
   const CAP = n * 2 + 12;
 
   const reamortizar = (numeroAtual: number): void => {
@@ -137,19 +166,39 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   const aplicarEventos = (numeroAtual: number, linha?: LinhaCronograma): void => {
     for (const ev of eventosApos(numeroAtual)) {
       if (ev.tipo === 'amortizacao') {
+        const frac = new Decimal(ev.fracaoPeriodo ?? '0');
+        const saldoAntes = saldo;
         const v = prepagar(new Decimal(ev.valor), ev.opcao, numeroAtual);
-        fluxos.push({ periodo: new Decimal(numeroAtual), valor: v });
-        marcar(linha, `Amortizacao extra ${v.toFixed(2)} (${rotuloOpcao(ev.opcao)})`);
+        fluxos.push({ periodo: periodoFluxo(numeroAtual, frac), valor: v });
+        if (frac.greaterThan(0)) {
+          ajusteAtivo = true;
+          ajusteSaldoAntes = saldoAntes;
+          ajusteFrac = frac;
+        }
+        const nota = frac.greaterThan(0) ? ` pro-rata ${frac.toDecimalPlaces(4)}` : '';
+        marcar(linha, `Amortizacao extra ${v.toFixed(2)} (${rotuloOpcao(ev.opcao)})${nota}`);
       } else if (ev.tipo === 'antecipacao') {
-        const v = prepagar(pvProximasParcelas(ev.quantidade), ev.opcao ?? 'reduzir-prazo', numeroAtual);
-        fluxos.push({ periodo: new Decimal(numeroAtual), valor: v });
-        marcar(linha, `Antecipacao de ${ev.quantidade} parcela(s): VP ${v.toFixed(2)}`);
+        const frac = new Decimal(ev.fracaoPeriodo ?? '0');
+        const saldoAntes = saldo;
+        const v = prepagar(
+          pvProximasParcelas(ev.quantidade),
+          ev.opcao ?? 'reduzir-prazo',
+          numeroAtual,
+        );
+        fluxos.push({ periodo: periodoFluxo(numeroAtual, frac), valor: v });
+        if (frac.greaterThan(0)) {
+          ajusteAtivo = true;
+          ajusteSaldoAntes = saldoAntes;
+          ajusteFrac = frac;
+        }
+        const nota = frac.greaterThan(0) ? ` pro-rata ${frac.toDecimalPlaces(4)}` : '';
+        marcar(linha, `Antecipacao de ${ev.quantidade} parcela(s): VP ${v.toFixed(2)}${nota}`);
       } else if (ev.tipo === 'quitacao') {
         const frac = new Decimal(ev.fracaoPeriodo ?? '0');
         const payoff = frac.greaterThan(0) ? saldo.times(i.plus(1).pow(frac)) : saldo;
         extras = extras.plus(saldo); // principal
         jurosExtras = jurosExtras.plus(payoff.minus(saldo)); // juros pro-rata
-        fluxos.push({ periodo: new Decimal(numeroAtual).plus(frac), valor: payoff });
+        fluxos.push({ periodo: periodoFluxo(numeroAtual, frac), valor: payoff });
         saldo = new Decimal(0);
         const nota = frac.greaterThan(0) ? ` (pro-rata ${frac.toDecimalPlaces(4)} periodo)` : '';
         marcar(linha, `Quitacao antecipada: ${arredondarMoeda(payoff).toFixed(2)}${nota}`);
@@ -182,11 +231,15 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
         // Mora por atraso (calculada sobre a parcela agendada).
         if (ev.diasAtraso > 0 && mora) {
           const multa = agendada.times(mora.multa);
-          const jurosMora = agendada.times(mora.jurosMensal).times(new Decimal(ev.diasAtraso).div(30));
+          const jurosMora = agendada
+            .times(mora.jurosMensal)
+            .times(new Decimal(ev.diasAtraso).div(30));
           const moraTotal = arredondarMoeda(multa.plus(jurosMora));
           encargos = encargos.plus(moraTotal);
           linha.encargos = moraTotal.toFixed(2);
-          linha.valorParcela = arredondarMoeda(new Decimal(linha.valorParcela).plus(moraTotal)).toFixed(2);
+          linha.valorParcela = arredondarMoeda(
+            new Decimal(linha.valorParcela).plus(moraTotal),
+          ).toFixed(2);
           marcar(linha, `Atraso ${ev.diasAtraso} dia(s): mora ${moraTotal.toFixed(2)}`);
         }
       }
@@ -200,7 +253,19 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   while (saldo.greaterThan(QUASE_ZERO) && numero < CAP) {
     numero++;
     const saldoInicial = saldo;
-    const juros = arredondarMoeda(saldoInicial.times(i));
+    let juros: Decimal;
+    if (ajusteAtivo) {
+      // Pro-rata: juros do saldo antigo na fracao decorrida + saldo novo no restante.
+      juros = arredondarMoeda(
+        ajusteSaldoAntes
+          .times(i)
+          .times(ajusteFrac)
+          .plus(saldoInicial.times(i).times(new Decimal(1).minus(ajusteFrac))),
+      );
+      ajusteAtivo = false;
+    } else {
+      juros = arredondarMoeda(saldoInicial.times(i));
+    }
 
     let amort: Decimal;
     if (sistema === 'price') {
@@ -231,7 +296,9 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
     aplicarEventos(numero, linha);
 
     // Fluxo da parcela (apos eventuais ajustes de pagamento/mora).
-    fluxos.push({ periodo: new Decimal(numero), valor: new Decimal(linha.valorParcela) });
+    const dias = dataBase ? diasCorridos(dataBase, linha.dataVencimento) : numero * 30;
+    const periodo = dataBase ? new Decimal(dias).div(365) : new Decimal(numero);
+    fluxos.push({ periodo, valor: new Decimal(linha.valorParcela) });
 
     if (saldo.lessThanOrEqualTo(QUASE_ZERO)) {
       break;
@@ -248,7 +315,8 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   let cetAnual = '';
   if (fluxos.length > 0) {
     try {
-      const cet = calcularCet(principal, fluxos);
+      const opcoesCet = dataBase ? { periodosAno: 1 } : { periodosAno: 12 };
+      const cet = calcularCet(e.valorLiberado ?? principal, fluxos, opcoesCet);
       cetMensal = cet.mensal.toDecimalPlaces(6).toString();
       cetAnual = cet.anual.toDecimalPlaces(6).toString();
     } catch {

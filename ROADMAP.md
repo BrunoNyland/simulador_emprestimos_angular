@@ -53,7 +53,12 @@ parametrizável.
 - [x] Cancelamento determinístico (cronograma = projeção da lista de eventos).
 - [x] Engine `eventos.ts` + UI (painel de eventos) + 56 testes; build/verify ok.
 - [x] Pendências resolvidas: antecipação SAC, CET com eventos, eventos por data
-      (quitação pro-rata) e pagamento parcial. Resta IOF/tarifas no CET.
+      (quitação pro-rata) e pagamento parcial.
+- [x] Pendências menores: solver inverso de SAC, pro-rata em amortização/
+      antecipação por data, IOF + tarifa de abertura no CET (CET no padrão BACEN
+      dias/365 no caminho sem eventos). 63 testes; build/verify ok.
+- [x] CET unificado no padrão BACEN (dias/365) também no caminho com eventos
+      (incl. pré-pagamentos com data fracionária). 64 testes; build/verify ok.
 
 ### Fase 5 — Exportação
 - Excel (`exceljs`) e PDF (`pdfmake`), com metadata (versões + hash).

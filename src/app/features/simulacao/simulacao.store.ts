@@ -1,7 +1,9 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { Decimal } from '../../core/engine/decimal.config';
 import {
   ParametrosSimulacao,
+  Parcela,
+  Publico,
   SistemaAmortizacao,
   TipoTaxa,
   UnidadeTaxa,
@@ -12,6 +14,8 @@ import { somarTotais, TotaisCronograma } from '../../core/engine/totais';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
 import { CampoAlvo, resolverCampoAlvo } from '../../core/engine/solver';
 import { calcularCet, FluxoCaixa } from '../../core/engine/cet';
+import { diasCorridos } from '../../core/engine/dates';
+import { calcularIof } from '../../core/engine/iof';
 import {
   EventoCalc,
   LinhaCronograma,
@@ -19,6 +23,8 @@ import {
   projetarComEventos,
   ResumoProjecao,
 } from '../../core/engine/eventos';
+import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
+import { resolverParametrosIof } from '../../core/products/regulatory-config';
 
 /** Mora default (espelha regulatory-config.jsonc; idealmente vem da config). */
 const MORA_DEFAULT: ParametrosMora = {
@@ -33,6 +39,10 @@ export interface ResultadoSimulacao {
   totais: TotaisCronograma;
   cetMensal: string;
   cetAnual: string;
+  /** Valor liquido liberado (bruto - IOF - tarifa de abertura). */
+  valorLiquido: string;
+  /** IOF total da operacao. */
+  iof: string;
   /** Presente quando ha eventos pos-simulacao aplicados. */
   resumoEventos?: ResumoProjecao;
 }
@@ -58,6 +68,14 @@ export class SimulacaoStore {
   readonly parcela = signal('500');
   readonly dataBase = signal('2026-01-01');
 
+  // --- Custos de abertura (entram no CET) ---
+  readonly publico = signal<Publico>('PF');
+  readonly produto = signal('credito-pessoal');
+  readonly incluirIof = signal(true);
+  readonly tarifaAbertura = signal('0');
+
+  private readonly config = inject(RegulatoryConfigService);
+
   // --- Eventos pos-simulacao (lista ordenada; cronograma = projecao dela) ---
   readonly eventos = signal<EventoCalc[]>([]);
 
@@ -73,9 +91,8 @@ export class SimulacaoStore {
     this.eventos.set([]);
   }
 
-  /** Campos que ficam travados (somente leitura) = todos menos o campo-alvo. */
-  readonly travado = (campo: CampoAlvo): boolean =>
-    this.sistema() === 'price' && this.campoAlvo() === campo;
+  /** Campos que ficam travados (somente leitura) = o campo-alvo (Price ou SAC). */
+  readonly travado = (campo: CampoAlvo): boolean => this.campoAlvo() === campo;
 
   // --- Resultado reativo ---
   readonly resultado = computed<EstadoResultado>(() => {
@@ -126,20 +143,16 @@ export class SimulacaoStore {
     };
     const dataBase = this.dataBase();
 
-    let resolvidos = params;
-    let parcelaCalculada = this.parcela();
-
-    if (this.sistema() === 'price') {
-      const alvo = this.campoAlvo();
-      const saida = resolverCampoAlvo({
-        sistema: 'price',
-        parametros: params,
-        parcela: alvo === 'parcela' ? undefined : this.parcela(),
-        campoAlvo: alvo,
-      });
-      resolvidos = saida.parametros;
-      parcelaCalculada = saida.parcela;
-    }
+    // Solver de campo-alvo (Price e SAC; no SAC a "parcela" e a 1a parcela).
+    const alvo = this.campoAlvo();
+    const saida = resolverCampoAlvo({
+      sistema: this.sistema(),
+      parametros: params,
+      parcela: alvo === 'parcela' ? undefined : this.parcela(),
+      campoAlvo: alvo,
+    });
+    const resolvidos = saida.parametros;
+    const parcelaCalculada = saida.parcela;
 
     const principal = new Decimal(resolvidos.valorBruto);
     const i = taxaEfetivaMensal(
@@ -156,9 +169,15 @@ export class SimulacaoStore {
     }
 
     const entrada = { principal, taxaPeriodo: i, prazo: n, dataBase };
-    const eventos = this.eventos();
 
-    // Com eventos: reprojecao deterministica (CET omitido por incluir extras).
+    // Cronograma base (contrato) — usado p/ IOF e p/ o caso sem eventos.
+    const baseParcelas =
+      this.sistema() === 'price' ? gerarCronogramaPrice(entrada) : gerarCronogramaSac(entrada);
+
+    // IOF + tarifa de abertura -> valor liquido liberado (base do CET).
+    const { iofTotal, valorLiberado } = this.custosAbertura(principal, baseParcelas, dataBase);
+
+    const eventos = this.eventos();
     if (eventos.length > 0) {
       const proj = projetarComEventos({
         principal,
@@ -168,6 +187,7 @@ export class SimulacaoStore {
         eventos,
         dataBase,
         mora: MORA_DEFAULT,
+        valorLiberado,
       });
       const totaisEv: TotaisCronograma = {
         totalJuros: proj.resumo.totalJuros,
@@ -177,39 +197,60 @@ export class SimulacaoStore {
       };
       return {
         parametros: resolvidos,
-        parcelaCalculada: this.sistema() === 'price' ? parcelaCalculada : proj.parcelas[0].valorParcela,
+        parcelaCalculada,
         parcelas: proj.parcelas,
         totais: totaisEv,
         cetMensal: proj.resumo.cetMensal,
         cetAnual: proj.resumo.cetAnual,
+        valorLiquido: valorLiberado.toFixed(2),
+        iof: iofTotal.toFixed(2),
         resumoEventos: proj.resumo,
       };
     }
 
-    const parcelas =
-      this.sistema() === 'price' ? gerarCronogramaPrice(entrada) : gerarCronogramaSac(entrada);
-
-    const totais = somarTotais(parcelas);
-
-    // CET a partir do fluxo (liberado = principal; sem encargos nesta fase).
-    const fluxos: FluxoCaixa[] = parcelas.map((p) => ({
-      periodo: new Decimal(p.numero),
+    const totais = somarTotais(baseParcelas);
+    const fluxos: FluxoCaixa[] = baseParcelas.map((p) => ({
+      // BACEN: t_j = dias / 365
+      periodo: new Decimal(diasCorridos(dataBase, p.dataVencimento)).div(365),
       valor: new Decimal(p.valorParcela),
     }));
-    const cet = calcularCet(principal, fluxos);
-
-    if (this.sistema() !== 'price') {
-      // SAC: parcela varia; mostra a primeira parcela como referencia.
-      parcelaCalculada = parcelas[0]?.valorParcela ?? '0.00';
-    }
+    const cet = calcularCet(valorLiberado, fluxos, { periodosAno: 1 });
 
     return {
       parametros: resolvidos,
       parcelaCalculada,
-      parcelas,
+      parcelas: baseParcelas,
       totais,
       cetMensal: cet.mensal.toDecimalPlaces(6).toString(),
       cetAnual: cet.anual.toDecimalPlaces(6).toString(),
+      valorLiquido: valorLiberado.toFixed(2),
+      iof: iofTotal.toFixed(2),
     };
+  }
+
+  /** IOF (se habilitado) + tarifa de abertura; retorna o liquido liberado. */
+  private custosAbertura(
+    principal: Decimal,
+    baseParcelas: Parcela[],
+    dataBase: string,
+  ): { iofTotal: Decimal; valorLiberado: Decimal } {
+    let iofTotal = new Decimal(0);
+    if (this.incluirIof() && dataBase) {
+      const parametros = resolverParametrosIof(
+        this.config.config(),
+        this.publico(),
+        this.produto(),
+      );
+      iofTotal = calcularIof({
+        publico: this.publico(),
+        principal,
+        parcelas: baseParcelas,
+        dataLiberacao: dataBase,
+        parametros,
+      }).total;
+    }
+    const tarifa = new Decimal(this.tarifaAbertura() || '0');
+    const valorLiberado = principal.minus(iofTotal).minus(tarifa);
+    return { iofTotal, valorLiberado };
   }
 }
