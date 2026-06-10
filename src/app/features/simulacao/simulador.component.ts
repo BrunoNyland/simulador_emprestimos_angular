@@ -8,6 +8,7 @@ import { EventoCalc } from '../../core/engine/eventos';
 import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
 import { Decimal } from '../../core/engine/decimal.config';
 import { MoedaInputDirective } from '../../shared/moeda-input.directive';
+import { SecaoComponent } from '../../shared/secao.component';
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
 /** Teto de valores monetarios (R$ 100 milhoes). */
@@ -18,7 +19,7 @@ export const TAXA_MAX_PCT = 100;
 @Component({
   selector: 'app-simulador',
   standalone: true,
-  imports: [ReactiveFormsModule, CurrencyPipe, PercentPipe, MoedaInputDirective],
+  imports: [ReactiveFormsModule, CurrencyPipe, PercentPipe, MoedaInputDirective, SecaoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './simulador.component.html',
   styleUrl: './simulador.component.scss',

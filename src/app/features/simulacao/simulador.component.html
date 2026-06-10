@@ -1,125 +1,121 @@
-<form [formGroup]="form" class="cartao">
-  <div class="cartao__cab">
-    <h2>Parâmetros da simulação</h2>
-    <p class="cartao__sub">Escolha o sistema e o campo a calcular; os demais você edita.</p>
-  </div>
+<app-secao
+  titulo="Parâmetros da simulação"
+  sub="Escolha o sistema e o campo a calcular; os demais você edita."
+  id="params"
+>
+  <form [formGroup]="form">
+    <div class="grid">
+      <label>
+        <span>Sistema</span>
+        <select formControlName="sistema">
+          <option value="price">Price (parcela constante)</option>
+          <option value="sac">SAC (amortização constante)</option>
+        </select>
+      </label>
 
-  <div class="grid">
-    <label>
-      <span>Sistema</span>
-      <select formControlName="sistema">
-        <option value="price">Price (parcela constante)</option>
-        <option value="sac">SAC (amortização constante)</option>
-      </select>
-    </label>
+      <label>
+        <span>Campo-alvo (resolver)</span>
+        <select formControlName="campoAlvo">
+          <option value="parcela">Parcela</option>
+          <option value="valorBruto">Valor bruto</option>
+          <option value="taxa">Taxa</option>
+          <option value="prazo">Prazo</option>
+        </select>
+      </label>
 
-    <label>
-      <span>Campo-alvo (resolver)</span>
-      <select formControlName="campoAlvo">
-        <option value="parcela">Parcela</option>
-        <option value="valorBruto">Valor bruto</option>
-        <option value="taxa">Taxa</option>
-        <option value="prazo">Prazo</option>
-      </select>
-    </label>
+      <label [class.alvo]="store.travado('valorBruto')">
+        <span>Valor bruto (R$) @if (store.travado('valorBruto')) {<em>· calculado</em>}</span>
+        <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="valorBruto" />
+      </label>
 
-    <label [class.alvo]="store.travado('valorBruto')">
-      <span>Valor bruto (R$) @if (store.travado('valorBruto')) {<em>· calculado</em>}</span>
-      <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="valorBruto" />
-    </label>
+      <label [class.alvo]="store.travado('taxa')">
+        <span>
+          Taxa ({{ form.controls.unidadeTaxa.value === 'mensal' ? '% a.m.' : '% a.a.' }})
+          @if (store.travado('taxa')) {<em>· calculado</em>}
+        </span>
+        <input type="text" inputmode="decimal" appMoeda [max]="taxaMaxPct" formControlName="taxa" />
+      </label>
 
-    <label [class.alvo]="store.travado('taxa')">
-      <span>
-        Taxa ({{ form.controls.unidadeTaxa.value === 'mensal' ? '% a.m.' : '% a.a.' }})
-        @if (store.travado('taxa')) {<em>· calculado</em>}
-      </span>
-      <input type="text" inputmode="decimal" appMoeda [max]="taxaMaxPct" formControlName="taxa" />
-    </label>
+      <label>
+        <span>Tipo de taxa</span>
+        <select formControlName="tipoTaxa">
+          <option value="efetiva">Efetiva</option>
+          <option value="nominal">Nominal</option>
+        </select>
+        @if (form.controls.unidadeTaxa.value === 'mensal') {
+          <small>Só afeta taxa anual (em base mensal, efetiva = nominal).</small>
+        }
+      </label>
 
-    <label>
-      <span>Tipo de taxa</span>
-      <select formControlName="tipoTaxa">
-        <option value="efetiva">Efetiva</option>
-        <option value="nominal">Nominal</option>
-      </select>
-      @if (form.controls.unidadeTaxa.value === 'mensal') {
-        <small>Só afeta taxa anual (em base mensal, efetiva = nominal).</small>
-      }
-    </label>
+      <label>
+        <span>Unidade da taxa</span>
+        <select formControlName="unidadeTaxa">
+          <option value="mensal">Mensal</option>
+          <option value="anual">Anual</option>
+        </select>
+      </label>
 
-    <label>
-      <span>Unidade da taxa</span>
-      <select formControlName="unidadeTaxa">
-        <option value="mensal">Mensal</option>
-        <option value="anual">Anual</option>
-      </select>
-    </label>
+      <label [class.alvo]="store.travado('prazo')">
+        <span>Prazo (meses) @if (store.travado('prazo')) {<em>· calculado</em>}</span>
+        <input type="number" formControlName="prazo" min="1" step="1" />
+      </label>
 
-    <label [class.alvo]="store.travado('prazo')">
-      <span>Prazo (meses) @if (store.travado('prazo')) {<em>· calculado</em>}</span>
-      <input type="number" formControlName="prazo" min="1" step="1" />
-    </label>
+      <label [class.alvo]="store.travado('parcela')">
+        <span>
+          Parcela (R$)
+          @if (store.travado('parcela')) {<em>· calculado</em>}
+          @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela</em>}
+        </span>
+        <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="parcela" />
+      </label>
 
-    <label [class.alvo]="store.travado('parcela')">
-      <span>
-        Parcela (R$)
-        @if (store.travado('parcela')) {<em>· calculado</em>}
-        @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela</em>}
-      </span>
-      <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="parcela" />
-    </label>
+      <label>
+        <span>Data da liberação do crédito</span>
+        <input type="date" formControlName="dataBase" />
+      </label>
+    </div>
 
-    <label>
-      <span>Data da liberação do crédito</span>
-      <input type="date" formControlName="dataBase" />
-    </label>
-  </div>
-
-  <div class="cartao__cab cartao__cab--interno">
-    <h3>Custos de abertura (entram no CET)</h3>
-  </div>
-  <div class="grid">
-    <label>
-      <span>Público</span>
-      <select formControlName="publico">
-        <option value="PF">Pessoa Física</option>
-        <option value="PJ">Pessoa Jurídica</option>
-      </select>
-    </label>
-    <label>
-      <span>Produto</span>
-      <select formControlName="produto">
-        <option value="credito-pessoal">Crédito pessoal</option>
-        <option value="consignado">Consignado</option>
-        <option value="cdc-veiculo">CDC/Veículo</option>
-        <option value="penhor">Penhor</option>
-        <option value="habitacional">Habitacional (isento de IOF)</option>
-        <option value="desconto-bancario">Desconto bancário</option>
-      </select>
-    </label>
-    <label>
-      <span>IOF</span>
-      <select formControlName="incluirIof">
-        <option [ngValue]="true">Incluir no CET</option>
-        <option [ngValue]="false">Não incluir</option>
-      </select>
-    </label>
-    <label>
-      <span>Tarifa de abertura (R$)</span>
-      <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="tarifaAbertura" />
-    </label>
-  </div>
-</form>
+    <h3 class="sub-titulo">Custos de abertura (entram no CET)</h3>
+    <div class="grid">
+      <label>
+        <span>Público</span>
+        <select formControlName="publico">
+          <option value="PF">Pessoa Física</option>
+          <option value="PJ">Pessoa Jurídica</option>
+        </select>
+      </label>
+      <label>
+        <span>Produto</span>
+        <select formControlName="produto">
+          <option value="credito-pessoal">Crédito pessoal</option>
+          <option value="consignado">Consignado</option>
+          <option value="cdc-veiculo">CDC/Veículo</option>
+          <option value="penhor">Penhor</option>
+          <option value="habitacional">Habitacional (isento de IOF)</option>
+          <option value="desconto-bancario">Desconto bancário</option>
+        </select>
+      </label>
+      <label>
+        <span>IOF</span>
+        <select formControlName="incluirIof">
+          <option [ngValue]="true">Incluir no CET</option>
+          <option [ngValue]="false">Não incluir</option>
+        </select>
+      </label>
+      <label>
+        <span>Tarifa de abertura (R$)</span>
+        <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="tarifaAbertura" />
+      </label>
+    </div>
+  </form>
+</app-secao>
 
 @let res = store.resultado();
 
 @if (res.tipo === 'erro') {
   <p class="erro" role="alert">⚠️ {{ res.mensagem }}</p>
 } @else {
-  <section class="cartao">
-    <div class="cartao__cab">
-      <h2>Resultado da simulação</h2>
-    </div>
+  <app-secao titulo="Resultado da simulação" id="resultado">
     <div class="resumo">
       <div class="card card--destaque">
         <span class="rotulo">Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
@@ -150,13 +146,9 @@
         <strong>{{ +res.dados.cetAnual | percent: '1.2-2' }}</strong>
       </div>
     </div>
-  </section>
+  </app-secao>
 
-  <section class="cartao">
-    <div class="cartao__cab">
-      <h2>Cronograma da simulação</h2>
-      <p class="cartao__sub">{{ res.dados.parcelas.length }} parcelas</p>
-    </div>
+  <app-secao titulo="Cronograma da simulação" [sub]="res.dados.parcelas.length + ' parcelas'" id="cronograma">
     <div class="tabela-wrap">
       <table>
         <thead>
@@ -194,15 +186,15 @@
         </tfoot>
       </table>
     </div>
-  </section>
+  </app-secao>
 
   @let comp = store.comparativo();
   @if (comp) {
-    <section class="cartao">
-      <div class="cartao__cab">
-        <h2>Comparativo Price × SAC</h2>
-        <p class="cartao__sub">SAC costuma ter 1ª parcela maior e menos juros no total.</p>
-      </div>
+    <app-secao
+      titulo="Comparativo Price × SAC"
+      sub="SAC costuma ter 1ª parcela maior e menos juros no total."
+      id="comparativo"
+    >
       <div class="tabela-wrap">
         <table>
           <thead>
@@ -232,15 +224,15 @@
           </tbody>
         </table>
       </div>
-    </section>
+    </app-secao>
   }
 }
 
-<section class="cartao">
-  <div class="cartao__cab">
-    <h2>Eventos pós-simulação</h2>
-    <p class="cartao__sub">Geram um novo cronograma abaixo, sem alterar a simulação base.</p>
-  </div>
+<app-secao
+  titulo="Eventos pós-simulação"
+  sub="Geram um novo cronograma abaixo, sem alterar a simulação base."
+  id="eventos"
+>
   <form [formGroup]="eventoForm" class="grid" (ngSubmit)="adicionarEvento()">
     <label>
       <span>Tipo</span>
@@ -320,15 +312,16 @@
   } @else {
     <p class="vazio">Nenhum evento. Adicione amortização, quitação, antecipação ou pagamento.</p>
   }
-</section>
+</app-secao>
 
 @let ev = store.eventosResultado();
 @if (ev) {
-  <section class="cartao cartao--evento">
-    <div class="cartao__cab">
-      <h2>Resultado após eventos</h2>
-      <p class="cartao__sub">Cronograma recomposto pelos eventos acima.</p>
-    </div>
+  <app-secao
+    titulo="Resultado após eventos"
+    sub="Cronograma recomposto pelos eventos acima."
+    [realce]="true"
+    id="pos-eventos"
+  >
     <div class="resumo">
       <div class="card card--destaque">
         <span class="rotulo">Prazo final</span>
@@ -386,7 +379,7 @@
         </tbody>
       </table>
     </div>
-  </section>
+  </app-secao>
 }
 
 <p class="disclaimer">Simulação meramente informativa — não constitui oferta de crédito.</p>

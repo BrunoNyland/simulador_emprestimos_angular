@@ -51,6 +51,17 @@
   mesma máscara `appMoeda` (2 casas fixas, sem negativos, teto 100%); o componente
   converte %↔fração (`fracaoParaPct`/`pctParaFracao`).
 
+## Redesign (pegada profissional/dev)
+- **Lenis** (scroll suave do mouse): inicializado em `app.ts` via `afterNextRender`
+  (só no browser) + CSS recomendado em `styles.scss`.
+- **Paleta**: dark no padrão **Dracula** (`#282a36`, roxo `#bd93f9`, verde `#50fa7b`);
+  light em **cinza claro** (`#d8dbe1`). Header flat com prefixo mono `> `.
+- **Tudo quadrado**: `--radius: 2px`. Tipografia **monospace** em títulos, números
+  e tabelas (`tabular-nums`); cards de resumo flat (sem gradiente).
+- **Seções colapsáveis**: novo `shared/secao.component.ts` (`<app-secao>`) com
+  cabeçalho clicável, chevron e persistência do estado por `id` (localStorage).
+  Todo o conteúdo do simulador foi reorganizado em `<app-secao>`.
+
 ## Verificação (browser, Playwright)
 - Tema inicial claro; toggle → `data-theme="escuro"`, `body` escuro. 0 erros.
 - Zebra: linha ímpar ≠ par; hover muda a cor da linha.
