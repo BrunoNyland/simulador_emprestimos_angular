@@ -7,13 +7,18 @@ import { CampoAlvo } from '../../core/engine/solver';
 import { EventoCalc } from '../../core/engine/eventos';
 import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
 import { Decimal } from '../../core/engine/decimal.config';
+import { MoedaInputDirective } from '../../shared/moeda-input.directive';
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
+/** Teto de valores monetarios (R$ 100 milhoes). */
+export const VALOR_MAX = 100_000_000;
+/** Teto da taxa em % (a.m. ou a.a.). */
+export const TAXA_MAX_PCT = 100;
 
 @Component({
   selector: 'app-simulador',
   standalone: true,
-  imports: [ReactiveFormsModule, CurrencyPipe, PercentPipe],
+  imports: [ReactiveFormsModule, CurrencyPipe, PercentPipe, MoedaInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './simulador.component.html',
   styleUrl: './simulador.component.scss',
@@ -22,11 +27,15 @@ export class SimuladorComponent {
   private readonly fb = inject(FormBuilder);
   readonly store = inject(SimulacaoStore);
 
+  readonly valorMax = VALOR_MAX;
+  readonly taxaMaxPct = TAXA_MAX_PCT;
+
   readonly form = this.fb.nonNullable.group({
     sistema: this.store.sistema(),
     campoAlvo: this.store.campoAlvo(),
     valorBruto: this.store.valorBruto(),
-    taxa: this.store.taxa(),
+    // taxa exibida em PORCENTAGEM (store guarda fracao).
+    taxa: this.fracaoParaPct(this.store.taxa()),
     tipoTaxa: this.store.tipoTaxa(),
     unidadeTaxa: this.store.unidadeTaxa(),
     prazo: this.store.prazo(),
@@ -45,7 +54,7 @@ export class SimuladorComponent {
       this.store.sistema.set(v.sistema);
       this.store.campoAlvo.set(v.campoAlvo as CampoAlvo);
       this.store.valorBruto.set(String(v.valorBruto));
-      this.store.taxa.set(String(v.taxa));
+      this.store.taxa.set(this.pctParaFracao(v.taxa));
       this.store.tipoTaxa.set(v.tipoTaxa);
       this.store.unidadeTaxa.set(v.unidadeTaxa);
       this.store.prazo.set(Number(v.prazo));
@@ -56,6 +65,7 @@ export class SimuladorComponent {
       this.store.incluirIof.set(Boolean(v.incluirIof));
       this.store.tarifaAbertura.set(String(v.tarifaAbertura));
       this.aplicarTravas();
+      this.sincronizarTipoTaxa();
     });
 
     // Resultado -> reflete o valor resolvido no campo-alvo (somente leitura).
@@ -68,12 +78,46 @@ export class SimuladorComponent {
       const patch: Record<string, string | number> = {};
       if (alvo === 'parcela') patch['parcela'] = r.dados.parcelaCalculada;
       if (alvo === 'valorBruto') patch['valorBruto'] = r.dados.parametros.valorBruto;
-      if (alvo === 'taxa') patch['taxa'] = r.dados.parametros.taxa;
+      if (alvo === 'taxa') patch['taxa'] = this.fracaoParaPct(r.dados.parametros.taxa);
       if (alvo === 'prazo') patch['prazo'] = r.dados.parametros.prazo;
       this.form.patchValue(patch, { emitEvent: false });
     });
 
     this.aplicarTravas();
+    this.sincronizarTipoTaxa();
+  }
+
+  /** Fracao -> porcentagem (2 casas) para exibicao. Ex.: 0.02 -> 2. */
+  private fracaoParaPct(fracao: string): number {
+    const v = new Decimal(fracao || '0').times(100);
+    return v.toDecimalPlaces(2).toNumber();
+  }
+
+  /** Porcentagem digitada -> fracao para o store, com limites [0, max%]. */
+  private pctParaFracao(pct: unknown): string {
+    let v = Number(pct);
+    if (!Number.isFinite(v) || v < 0) {
+      v = 0;
+    }
+    if (v > TAXA_MAX_PCT) {
+      v = TAXA_MAX_PCT;
+    }
+    return new Decimal(Math.round(v * 100) / 100).div(100).toString();
+  }
+
+  /**
+   * "Tipo de taxa" (efetiva/nominal) so faz diferenca para taxa ANUAL.
+   * Em base mensal, nominal = efetiva -> desabilita o campo.
+   */
+  private sincronizarTipoTaxa(): void {
+    const ctrl = this.form.controls.tipoTaxa;
+    if (this.form.controls.unidadeTaxa.value === 'mensal') {
+      if (ctrl.enabled) {
+        ctrl.disable({ emitEvent: false });
+      }
+    } else if (ctrl.disabled) {
+      ctrl.enable({ emitEvent: false });
+    }
   }
 
   // --- Painel de eventos pos-simulacao ---

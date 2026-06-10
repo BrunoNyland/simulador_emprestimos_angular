@@ -35,7 +35,7 @@ const MORA_DEFAULT: ParametrosMora = {
 export interface ResultadoSimulacao {
   parametros: ParametrosSimulacao;
   parcelaCalculada: string;
-  parcelas: LinhaCronograma[];
+  parcelas: Parcela[];
   totais: TotaisCronograma;
   cetMensal: string;
   cetAnual: string;
@@ -43,8 +43,15 @@ export interface ResultadoSimulacao {
   valorLiquido: string;
   /** IOF total da operacao. */
   iof: string;
-  /** Presente quando ha eventos pos-simulacao aplicados. */
-  resumoEventos?: ResumoProjecao;
+}
+
+/** Resultado da projecao com eventos (tabela separada, abaixo da base). */
+export interface ProjecaoEventos {
+  parcelas: LinhaCronograma[];
+  totais: TotaisCronograma;
+  cetMensal: string;
+  cetAnual: string;
+  resumo: ResumoProjecao;
 }
 
 export type EstadoResultado =
@@ -94,12 +101,47 @@ export class SimulacaoStore {
   /** Campos que ficam travados (somente leitura) = o campo-alvo (Price ou SAC). */
   readonly travado = (campo: CampoAlvo): boolean => this.campoAlvo() === campo;
 
-  // --- Resultado reativo ---
+  // --- Resultado reativo (sempre a SIMULACAO BASE, sem eventos) ---
   readonly resultado = computed<EstadoResultado>(() => {
     try {
-      return { tipo: 'ok', dados: this.calcular() };
+      return { tipo: 'ok', dados: this.calcularBase() };
     } catch (e) {
       return { tipo: 'erro', mensagem: e instanceof Error ? e.message : 'Erro de calculo' };
+    }
+  });
+
+  // --- Projecao com eventos (tabela separada, abaixo da base) ---
+  readonly eventosResultado = computed<ProjecaoEventos | null>(() => {
+    const eventos = this.eventos();
+    if (eventos.length === 0) {
+      return null;
+    }
+    try {
+      const ctx = this.contexto();
+      const proj = projetarComEventos({
+        principal: ctx.principal,
+        taxaPeriodo: ctx.i,
+        prazo: ctx.n,
+        sistema: this.sistema(),
+        eventos,
+        dataBase: ctx.dataBase,
+        mora: MORA_DEFAULT,
+        valorLiberado: ctx.valorLiberado,
+      });
+      return {
+        parcelas: proj.parcelas,
+        totais: {
+          totalJuros: proj.resumo.totalJuros,
+          totalAmortizacao: proj.resumo.totalAmortizacao,
+          totalEncargos: proj.resumo.totalEncargos,
+          totalParcelas: proj.resumo.totalPago,
+        },
+        cetMensal: proj.resumo.cetMensal,
+        cetAnual: proj.resumo.cetAnual,
+        resumo: proj.resumo,
+      };
+    } catch {
+      return null;
     }
   });
 
@@ -132,7 +174,8 @@ export class SimulacaoStore {
     }
   });
 
-  private calcular(): ResultadoSimulacao {
+  /** Contexto compartilhado (solver + cronograma base + custos de abertura). */
+  private contexto() {
     const params: ParametrosSimulacao = {
       valorBruto: this.valorBruto(),
       valorLiquido: this.valorBruto(),
@@ -169,62 +212,36 @@ export class SimulacaoStore {
     }
 
     const entrada = { principal, taxaPeriodo: i, prazo: n, dataBase };
-
-    // Cronograma base (contrato) — usado p/ IOF e p/ o caso sem eventos.
     const baseParcelas =
       this.sistema() === 'price' ? gerarCronogramaPrice(entrada) : gerarCronogramaSac(entrada);
-
-    // IOF + tarifa de abertura -> valor liquido liberado (base do CET).
     const { iofTotal, valorLiberado } = this.custosAbertura(principal, baseParcelas, dataBase);
 
-    const eventos = this.eventos();
-    if (eventos.length > 0) {
-      const proj = projetarComEventos({
-        principal,
-        taxaPeriodo: i,
-        prazo: n,
-        sistema: this.sistema(),
-        eventos,
-        dataBase,
-        mora: MORA_DEFAULT,
-        valorLiberado,
-      });
-      const totaisEv: TotaisCronograma = {
-        totalJuros: proj.resumo.totalJuros,
-        totalAmortizacao: proj.resumo.totalAmortizacao,
-        totalEncargos: proj.resumo.totalEncargos,
-        totalParcelas: proj.resumo.totalPago,
-      };
-      return {
-        parametros: resolvidos,
-        parcelaCalculada,
-        parcelas: proj.parcelas,
-        totais: totaisEv,
-        cetMensal: proj.resumo.cetMensal,
-        cetAnual: proj.resumo.cetAnual,
-        valorLiquido: valorLiberado.toFixed(2),
-        iof: iofTotal.toFixed(2),
-        resumoEventos: proj.resumo,
-      };
-    }
+    return { resolvidos, parcelaCalculada, principal, i, n, dataBase, baseParcelas, iofTotal, valorLiberado };
+  }
 
-    const totais = somarTotais(baseParcelas);
-    const fluxos: FluxoCaixa[] = baseParcelas.map((p) => ({
+  /** Simulacao base (sem eventos) — sempre exibida na tabela principal. */
+  private calcularBase(): ResultadoSimulacao {
+    const ctx = this.contexto();
+
+    const totais = somarTotais(ctx.baseParcelas);
+    const fluxos: FluxoCaixa[] = ctx.baseParcelas.map((p) => ({
       // BACEN: t_j = dias / 365
-      periodo: new Decimal(diasCorridos(dataBase, p.dataVencimento)).div(365),
+      periodo: ctx.dataBase
+        ? new Decimal(diasCorridos(ctx.dataBase, p.dataVencimento)).div(365)
+        : new Decimal(p.numero),
       valor: new Decimal(p.valorParcela),
     }));
-    const cet = calcularCet(valorLiberado, fluxos, { periodosAno: 1 });
+    const cet = calcularCet(ctx.valorLiberado, fluxos, { periodosAno: ctx.dataBase ? 1 : 12 });
 
     return {
-      parametros: resolvidos,
-      parcelaCalculada,
-      parcelas: baseParcelas,
+      parametros: ctx.resolvidos,
+      parcelaCalculada: ctx.parcelaCalculada,
+      parcelas: ctx.baseParcelas,
       totais,
       cetMensal: cet.mensal.toDecimalPlaces(6).toString(),
       cetAnual: cet.anual.toDecimalPlaces(6).toString(),
-      valorLiquido: valorLiberado.toFixed(2),
-      iof: iofTotal.toFixed(2),
+      valorLiquido: ctx.valorLiberado.toFixed(2),
+      iof: ctx.iofTotal.toFixed(2),
     };
   }
 

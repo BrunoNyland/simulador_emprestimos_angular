@@ -68,7 +68,7 @@ describe('SimulacaoStore', () => {
     expect(comp!.sac.ultimaParcela).toBe('84.20');
   });
 
-  it('eventos: amortizacao extra reduz o prazo e expoe resumoEventos', () => {
+  it('eventos: tabela base permanece intacta e a projecao vai p/ eventosResultado', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');
     store.valorBruto.set('1000');
@@ -76,30 +76,36 @@ describe('SimulacaoStore', () => {
     store.prazo.set(12);
     store.adicionarEvento({ tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-prazo' });
 
-    const r = store.resultado();
-    expect(r.tipo).toBe('ok');
-    if (r.tipo === 'ok') {
-      expect(r.dados.resumoEventos).toBeDefined();
-      expect(r.dados.resumoEventos!.prazoFinal).toBeLessThan(12);
-      expect(r.dados.totais.totalAmortizacao).toBe('1000.00');
-      // CET agora e recalculado com eventos (~ taxa do contrato, sem tarifas)
-      expect(Number(r.dados.cetMensal)).toBeGreaterThan(0.0099);
+    const base = store.resultado();
+    expect(base.tipo).toBe('ok');
+    if (base.tipo === 'ok') {
+      expect(base.dados.parcelas).toHaveLength(12); // base nao muda
     }
+
+    const ev = store.eventosResultado();
+    expect(ev).not.toBeNull();
+    expect(ev!.resumo.prazoFinal).toBeLessThan(12);
+    expect(ev!.totais.totalAmortizacao).toBe('1000.00');
+    expect(Number(ev!.cetMensal)).toBeGreaterThan(0.0099);
   });
 
-  it('eventos: cancelar (remover) reprojeta de volta ao cronograma base', () => {
+  it('eventos: cancelar (remover) zera a projecao; base intacta', () => {
     store.sistema.set('price');
     store.valorBruto.set('1000');
     store.taxa.set('0.01');
     store.prazo.set(12);
     store.adicionarEvento({ tipo: 'quitacao', apos: 6 });
-    expect((store.resultado() as { dados: { parcelas: unknown[] } }).dados.parcelas).toHaveLength(6);
+    expect(store.eventosResultado()!.parcelas).toHaveLength(6);
+    const base = store.resultado();
+    if (base.tipo === 'ok') {
+      expect(base.dados.parcelas).toHaveLength(12);
+    }
 
     store.removerEvento(0);
-    const r = store.resultado();
-    if (r.tipo === 'ok') {
-      expect(r.dados.parcelas).toHaveLength(12);
-      expect(r.dados.resumoEventos).toBeUndefined();
+    expect(store.eventosResultado()).toBeNull();
+    const base2 = store.resultado();
+    if (base2.tipo === 'ok') {
+      expect(base2.dados.parcelas).toHaveLength(12);
     }
   });
 

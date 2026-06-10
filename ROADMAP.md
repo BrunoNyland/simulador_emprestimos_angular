@@ -60,6 +60,16 @@ parametrizável.
 - [x] CET unificado no padrão BACEN (dias/365) também no caminho com eventos
       (incl. pré-pagamentos com data fracionária). 64 testes; build/verify ok.
 
+### Fase 4.5 — UX e identidade visual ✅ (concluída — ver PHASE4_5_IMPLEMENTATION.md)
+- [x] Design tokens (CSS variables) e **tema claro/escuro** (toggle + persistência +
+      `prefers-color-scheme`).
+- [x] Separação visual nítida entre seções (cartões com borda/sombra/cabeçalho).
+- [x] Tabela de parcelas profissional: zebra, realce no hover, cabeçalho fixo.
+- [x] **Eventos geram uma tabela nova abaixo**, preservando a tabela base
+      (store: `resultado` base + `eventosResultado` separado).
+- [x] Refinos de UX (foco acessível, transições, cards de destaque). 64 testes;
+      build/verify (claro+escuro) ok.
+
 ### Fase 5 — Exportação
 - Excel (`exceljs`) e PDF (`pdfmake`), com metadata (versões + hash).
 - `EXPORT_FORMATS.md`.

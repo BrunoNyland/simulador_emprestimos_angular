@@ -1,5 +1,8 @@
-<form [formGroup]="form" class="painel">
-  <h2>Parâmetros da simulação</h2>
+<form [formGroup]="form" class="cartao">
+  <div class="cartao__cab">
+    <h2>Parâmetros da simulação</h2>
+    <p class="cartao__sub">Escolha o sistema e o campo a calcular; os demais você edita.</p>
+  </div>
 
   <div class="grid">
     <label>
@@ -18,17 +21,19 @@
         <option value="taxa">Taxa</option>
         <option value="prazo">Prazo</option>
       </select>
-      <small>O campo escolhido é calculado (travado); os demais você edita.</small>
     </label>
 
     <label [class.alvo]="store.travado('valorBruto')">
       <span>Valor bruto (R$) @if (store.travado('valorBruto')) {<em>· calculado</em>}</span>
-      <input type="number" formControlName="valorBruto" min="0" step="0.01" />
+      <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="valorBruto" />
     </label>
 
     <label [class.alvo]="store.travado('taxa')">
-      <span>Taxa (fração, ex.: 0.02 = 2%) @if (store.travado('taxa')) {<em>· calculado</em>}</span>
-      <input type="number" formControlName="taxa" min="0" step="0.0001" />
+      <span>
+        Taxa ({{ form.controls.unidadeTaxa.value === 'mensal' ? '% a.m.' : '% a.a.' }})
+        @if (store.travado('taxa')) {<em>· calculado</em>}
+      </span>
+      <input type="text" inputmode="decimal" appMoeda [max]="taxaMaxPct" formControlName="taxa" />
     </label>
 
     <label>
@@ -37,6 +42,9 @@
         <option value="efetiva">Efetiva</option>
         <option value="nominal">Nominal</option>
       </select>
+      @if (form.controls.unidadeTaxa.value === 'mensal') {
+        <small>Só afeta taxa anual (em base mensal, efetiva = nominal).</small>
+      }
     </label>
 
     <label>
@@ -58,16 +66,18 @@
         @if (store.travado('parcela')) {<em>· calculado</em>}
         @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela</em>}
       </span>
-      <input type="number" formControlName="parcela" min="0" step="0.01" />
+      <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="parcela" />
     </label>
 
     <label>
-      <span>Data-base</span>
+      <span>Data da liberação do crédito</span>
       <input type="date" formControlName="dataBase" />
     </label>
   </div>
 
-  <h2>Custos de abertura (entram no CET)</h2>
+  <div class="cartao__cab cartao__cab--interno">
+    <h3>Custos de abertura (entram no CET)</h3>
+  </div>
   <div class="grid">
     <label>
       <span>Público</span>
@@ -96,7 +106,7 @@
     </label>
     <label>
       <span>Tarifa de abertura (R$)</span>
-      <input type="number" formControlName="tarifaAbertura" min="0" step="0.01" />
+      <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="tarifaAbertura" />
     </label>
   </div>
 </form>
@@ -104,30 +114,33 @@
 @let res = store.resultado();
 
 @if (res.tipo === 'erro') {
-  <p class="erro">⚠️ {{ res.mensagem }}</p>
+  <p class="erro" role="alert">⚠️ {{ res.mensagem }}</p>
 } @else {
-  <section class="resumo">
-    <div class="card">
-      <span class="rotulo">Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
-      <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL' }}</strong>
+  <section class="cartao">
+    <div class="cartao__cab">
+      <h2>Resultado da simulação</h2>
     </div>
-    <div class="card">
-      <span class="rotulo">Valor líquido liberado</span>
-      <strong>{{ +res.dados.valorLiquido | currency: 'BRL' }}</strong>
-    </div>
-    <div class="card">
-      <span class="rotulo">IOF</span>
-      <strong>{{ +res.dados.iof | currency: 'BRL' }}</strong>
-    </div>
-    <div class="card">
-      <span class="rotulo">Total pago</span>
-      <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</strong>
-    </div>
-    <div class="card">
-      <span class="rotulo">Total de juros</span>
-      <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</strong>
-    </div>
-    @if (res.dados.cetMensal) {
+    <div class="resumo">
+      <div class="card card--destaque">
+        <span class="rotulo">Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
+        <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Valor líquido liberado</span>
+        <strong>{{ +res.dados.valorLiquido | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">IOF</span>
+        <strong>{{ +res.dados.iof | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Total pago</span>
+        <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Total de juros</span>
+        <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</strong>
+      </div>
       <div class="card">
         <span class="rotulo">CET mensal</span>
         <strong>{{ +res.dados.cetMensal | percent: '1.2-4' }}</strong>
@@ -136,74 +149,98 @@
         <span class="rotulo">CET anual</span>
         <strong>{{ +res.dados.cetAnual | percent: '1.2-2' }}</strong>
       </div>
-    }
+    </div>
   </section>
 
-  <section class="tabela-wrap">
-    <h2>Cronograma de parcelas</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Vencimento</th>
-          <th>Saldo inicial</th>
-          <th>Juros</th>
-          <th>Amortização</th>
-          <th>Parcela</th>
-          <th>Saldo final</th>
-          <th>Obs.</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of res.dados.parcelas; track p.numero) {
-          <tr [class.tem-evento]="p.observacao">
-            <td>{{ p.numero }}</td>
-            <td>{{ p.dataVencimento }}</td>
-            <td>{{ +p.saldoInicial | currency: 'BRL' }}</td>
-            <td>{{ +p.juros | currency: 'BRL' }}</td>
-            <td>{{ +p.amortizacao | currency: 'BRL' }}</td>
-            <td>{{ +p.valorParcela | currency: 'BRL' }}</td>
-            <td>{{ +p.saldoFinal | currency: 'BRL' }}</td>
-            <td class="obs">{{ p.observacao }}</td>
+  <section class="cartao">
+    <div class="cartao__cab">
+      <h2>Cronograma da simulação</h2>
+      <p class="cartao__sub">{{ res.dados.parcelas.length }} parcelas</p>
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vencimento</th>
+            <th>Saldo inicial</th>
+            <th>Juros</th>
+            <th>Amortização</th>
+            <th>Parcela</th>
+            <th>Saldo final</th>
           </tr>
-        }
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3">Totais</td>
-          <td>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</td>
-          <td>{{ +res.dados.totais.totalAmortizacao | currency: 'BRL' }}</td>
-          <td>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</td>
-          <td colspan="2">—</td>
-        </tr>
-      </tfoot>
-    </table>
+        </thead>
+        <tbody>
+          @for (p of res.dados.parcelas; track p.numero) {
+            <tr>
+              <td>{{ p.numero }}</td>
+              <td>{{ p.dataVencimento }}</td>
+              <td>{{ +p.saldoInicial | currency: 'BRL' }}</td>
+              <td>{{ +p.juros | currency: 'BRL' }}</td>
+              <td>{{ +p.amortizacao | currency: 'BRL' }}</td>
+              <td class="num-forte">{{ +p.valorParcela | currency: 'BRL' }}</td>
+              <td>{{ +p.saldoFinal | currency: 'BRL' }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Totais</td>
+            <td>{{ +res.dados.totais.totalJuros | currency: 'BRL' }}</td>
+            <td>{{ +res.dados.totais.totalAmortizacao | currency: 'BRL' }}</td>
+            <td>{{ +res.dados.totais.totalParcelas | currency: 'BRL' }}</td>
+            <td>—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   </section>
 
-  @if (res.dados.resumoEventos; as rev) {
-    <section class="resumo">
-      <div class="card">
-        <span class="rotulo">Prazo final</span>
-        <strong>{{ rev.prazoFinal }} meses</strong>
+  @let comp = store.comparativo();
+  @if (comp) {
+    <section class="cartao">
+      <div class="cartao__cab">
+        <h2>Comparativo Price × SAC</h2>
+        <p class="cartao__sub">SAC costuma ter 1ª parcela maior e menos juros no total.</p>
       </div>
-      <div class="card">
-        <span class="rotulo">Economia de juros</span>
-        <strong>{{ +rev.economiaJuros | currency: 'BRL' }}</strong>
-      </div>
-      <div class="card">
-        <span class="rotulo">Amortizações extras</span>
-        <strong>{{ +rev.amortizacoesExtras | currency: 'BRL' }}</strong>
-      </div>
-      <div class="card">
-        <span class="rotulo">Mora/encargos</span>
-        <strong>{{ +rev.totalEncargos | currency: 'BRL' }}</strong>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr><th>Indicador</th><th>Price</th><th>SAC</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1ª parcela</td>
+              <td>{{ +comp.price.primeiraParcela | currency: 'BRL' }}</td>
+              <td>{{ +comp.sac.primeiraParcela | currency: 'BRL' }}</td>
+            </tr>
+            <tr>
+              <td>Última parcela</td>
+              <td>{{ +comp.price.ultimaParcela | currency: 'BRL' }}</td>
+              <td>{{ +comp.sac.ultimaParcela | currency: 'BRL' }}</td>
+            </tr>
+            <tr>
+              <td>Total de juros</td>
+              <td>{{ +comp.price.totais.totalJuros | currency: 'BRL' }}</td>
+              <td>{{ +comp.sac.totais.totalJuros | currency: 'BRL' }}</td>
+            </tr>
+            <tr>
+              <td>Total pago</td>
+              <td>{{ +comp.price.totais.totalParcelas | currency: 'BRL' }}</td>
+              <td>{{ +comp.sac.totais.totalParcelas | currency: 'BRL' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   }
 }
 
-<section class="eventos painel">
-  <h2>Eventos pós-simulação</h2>
+<section class="cartao">
+  <div class="cartao__cab">
+    <h2>Eventos pós-simulação</h2>
+    <p class="cartao__sub">Geram um novo cronograma abaixo, sem alterar a simulação base.</p>
+  </div>
   <form [formGroup]="eventoForm" class="grid" (ngSubmit)="adicionarEvento()">
     <label>
       <span>Tipo</span>
@@ -211,7 +248,7 @@
         <option value="amortizacao">Amortização extra</option>
         <option value="quitacao">Quitação antecipada</option>
         <option value="antecipacao">Antecipação de parcelas</option>
-        <option value="pagamento">Pagamento (atraso)</option>
+        <option value="pagamento">Pagamento (atraso/parcial)</option>
       </select>
     </label>
     <label>
@@ -230,13 +267,13 @@
       <label>
         <span>Data do evento</span>
         <input type="date" formControlName="data" />
-        <small>Quitação usa juros pro-rata até a data.</small>
+        <small>Pré-pagamento no meio do período usa juros pro-rata.</small>
       </label>
     }
     @if (eventoForm.controls.tipo.value === 'amortizacao') {
       <label>
         <span>Valor (R$)</span>
-        <input type="number" formControlName="valor" min="0" step="0.01" />
+        <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="valor" />
       </label>
     }
     @if (eventoForm.controls.tipo.value === 'antecipacao') {
@@ -261,12 +298,13 @@
       </label>
       <label>
         <span>Valor pago (R$, opc.)</span>
-        <input type="number" formControlName="valorPago" min="0" step="0.01" placeholder="parcial" />
+        <input type="text" inputmode="decimal" appMoeda [max]="valorMax" formControlName="valorPago"
+          placeholder="parcial" />
       </label>
     }
     <label class="acao">
       <span>&nbsp;</span>
-      <button type="submit">Adicionar evento</button>
+      <button type="submit" class="btn-primario">＋ Adicionar evento</button>
     </label>
   </form>
 
@@ -275,47 +313,79 @@
       @for (e of store.eventos(); track $index) {
         <li>
           <span>{{ descreverEvento(e) }}</span>
-          <button type="button" (click)="store.removerEvento($index)">Cancelar</button>
+          <button type="button" class="btn-remover" (click)="store.removerEvento($index)">Cancelar</button>
         </li>
       }
     </ul>
   } @else {
-    <p class="vazio">Nenhum evento. Adicione amortização, quitação ou antecipação para recompor o cronograma.</p>
+    <p class="vazio">Nenhum evento. Adicione amortização, quitação, antecipação ou pagamento.</p>
   }
 </section>
 
-@let comp = store.comparativo();
-@if (comp) {
-  <section class="comparativo">
-    <h2>Comparativo Price × SAC</h2>
-    <table>
-      <thead>
-        <tr><th>Indicador</th><th>Price</th><th>SAC</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1ª parcela</td>
-          <td>{{ +comp.price.primeiraParcela | currency: 'BRL' }}</td>
-          <td>{{ +comp.sac.primeiraParcela | currency: 'BRL' }}</td>
-        </tr>
-        <tr>
-          <td>Última parcela</td>
-          <td>{{ +comp.price.ultimaParcela | currency: 'BRL' }}</td>
-          <td>{{ +comp.sac.ultimaParcela | currency: 'BRL' }}</td>
-        </tr>
-        <tr>
-          <td>Total de juros</td>
-          <td>{{ +comp.price.totais.totalJuros | currency: 'BRL' }}</td>
-          <td>{{ +comp.sac.totais.totalJuros | currency: 'BRL' }}</td>
-        </tr>
-        <tr>
-          <td>Total pago</td>
-          <td>{{ +comp.price.totais.totalParcelas | currency: 'BRL' }}</td>
-          <td>{{ +comp.sac.totais.totalParcelas | currency: 'BRL' }}</td>
-        </tr>
-      </tbody>
-    </table>
-    <small>SAC normalmente tem 1ª parcela maior e total de juros menor que o Price.</small>
+@let ev = store.eventosResultado();
+@if (ev) {
+  <section class="cartao cartao--evento">
+    <div class="cartao__cab">
+      <h2>Resultado após eventos</h2>
+      <p class="cartao__sub">Cronograma recomposto pelos eventos acima.</p>
+    </div>
+    <div class="resumo">
+      <div class="card card--destaque">
+        <span class="rotulo">Prazo final</span>
+        <strong>{{ ev.resumo.prazoFinal }} meses</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Economia de juros</span>
+        <strong>{{ +ev.resumo.economiaJuros | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Amortizações extras</span>
+        <strong>{{ +ev.resumo.amortizacoesExtras | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Mora/encargos</span>
+        <strong>{{ +ev.resumo.totalEncargos | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Total pago</span>
+        <strong>{{ +ev.totais.totalParcelas | currency: 'BRL' }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">CET mensal</span>
+        <strong>{{ +ev.cetMensal | percent: '1.2-4' }}</strong>
+      </div>
+    </div>
+
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vencimento</th>
+            <th>Saldo inicial</th>
+            <th>Juros</th>
+            <th>Amortização</th>
+            <th>Parcela</th>
+            <th>Saldo final</th>
+            <th>Obs.</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of ev.parcelas; track p.numero) {
+            <tr [class.tem-evento]="p.observacao">
+              <td>{{ p.numero }}</td>
+              <td>{{ p.dataVencimento }}</td>
+              <td>{{ +p.saldoInicial | currency: 'BRL' }}</td>
+              <td>{{ +p.juros | currency: 'BRL' }}</td>
+              <td>{{ +p.amortizacao | currency: 'BRL' }}</td>
+              <td class="num-forte">{{ +p.valorParcela | currency: 'BRL' }}</td>
+              <td>{{ +p.saldoFinal | currency: 'BRL' }}</td>
+              <td class="obs">{{ p.observacao }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </section>
 }
 

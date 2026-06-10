@@ -1,6 +1,16 @@
 <header class="topo">
-  <h1>Simulador de Empréstimo</h1>
-  <p>Price · SAC · campo-alvo · CET — precisão bancária no front-end</p>
+  <div class="marca">
+    <h1>Simulador de Empréstimo</h1>
+    <p>Price · SAC · campo-alvo · CET (BACEN) — precisão bancária no front-end</p>
+  </div>
+  <button type="button" class="btn-tema" (click)="theme.alternar()"
+    [attr.aria-label]="theme.tema() === 'claro' ? 'Ativar modo escuro' : 'Ativar modo claro'">
+    @if (theme.tema() === 'claro') {
+      <span aria-hidden="true">🌙</span> Modo escuro
+    } @else {
+      <span aria-hidden="true">☀️</span> Modo claro
+    }
+  </button>
 </header>
 
 <main>
