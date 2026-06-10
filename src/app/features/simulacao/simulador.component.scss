@@ -127,6 +127,11 @@ select:disabled {
   border-radius: var(--radius);
 }
 
+/* Espaco entre os cards de resumo e a tabela na mesma secao */
+.resumo + .tabela-wrap {
+  margin-top: 1.1rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

@@ -377,6 +377,15 @@
             </tr>
           }
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Totais</td>
+            <td>{{ +ev.totais.totalJuros | currency: 'BRL' }}</td>
+            <td>{{ +ev.totais.totalAmortizacao | currency: 'BRL' }}</td>
+            <td>{{ +ev.totais.totalParcelas | currency: 'BRL' }}</td>
+            <td colspan="2">—</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </app-secao>
