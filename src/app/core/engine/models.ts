@@ -57,6 +57,8 @@ export interface Parcela {
   encargos: string;
   valorParcela: string;
   saldoFinal: string;
+  /** Valor absorvido de arredondamento (geralmente só na última parcela) */
+  residuo?: string;
 }
 
 export interface RegrasCalculo {

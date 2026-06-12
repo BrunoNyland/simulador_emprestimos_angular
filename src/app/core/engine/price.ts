@@ -1,4 +1,4 @@
-import { Decimal, arredondarMoeda } from './decimal.config';
+import { Decimal, arredondarMoeda, CASAS_MONETARIAS } from './decimal.config';
 import { Parcela } from './models';
 import { adicionarMeses } from './dates';
 
@@ -46,9 +46,12 @@ export function gerarCronogramaPrice(entrada: EntradaCronograma): Parcela[] {
 
     let amortizacao: Decimal;
     let valorParcela: Decimal;
+    let residuoValor: Decimal | undefined;
     if (k === n) {
+      const amortTeorica = pmt.minus(juros);
       amortizacao = saldoInicial; // ultima parcela absorve o residuo
       valorParcela = arredondarMoeda(amortizacao.plus(juros));
+      residuoValor = amortizacao.minus(amortTeorica);
     } else {
       amortizacao = pmt.minus(juros);
       valorParcela = pmt;
@@ -59,12 +62,13 @@ export function gerarCronogramaPrice(entrada: EntradaCronograma): Parcela[] {
     parcelas.push({
       numero: k,
       dataVencimento: dataBase ? adicionarMeses(dataBase, k) : '',
-      saldoInicial: arredondarMoeda(saldoInicial).toFixed(2),
-      juros: juros.toFixed(2),
-      amortizacao: arredondarMoeda(amortizacao).toFixed(2),
-      encargos: '0.00',
-      valorParcela: valorParcela.toFixed(2),
-      saldoFinal: arredondarMoeda(saldo).toFixed(2),
+      saldoInicial: arredondarMoeda(saldoInicial).toFixed(CASAS_MONETARIAS),
+      juros: juros.toFixed(CASAS_MONETARIAS),
+      amortizacao: arredondarMoeda(amortizacao).toFixed(CASAS_MONETARIAS),
+      encargos: new Decimal(0).toFixed(CASAS_MONETARIAS),
+      valorParcela: valorParcela.toFixed(CASAS_MONETARIAS),
+      saldoFinal: arredondarMoeda(saldo).toFixed(CASAS_MONETARIAS),
+      residuo: residuoValor && !residuoValor.isZero() ? residuoValor.toFixed(CASAS_MONETARIAS) : undefined,
     });
   }
 

@@ -38,7 +38,8 @@ export interface EntradaProjecao {
   prazo: number;
   sistema: SistemaAmortizacao;
   eventos: EventoCalc[];
-  dataBase?: string;
+  /** Data de liberacao (ISO). Obrigatoria: o CET usa dias corridos/365 (BACEN). */
+  dataBase: string;
   mora?: ParametrosMora;
   /** Valor efetivamente liberado ao cliente (base do CET). Default: principal. */
   valorLiberado?: Decimal;
@@ -77,6 +78,9 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   if (n < 1) {
     throw new Error('Prazo deve ser >= 1.');
   }
+  if (!dataBase) {
+    throw new Error('Eventos: dataBase (data de liberacao) e obrigatoria para o CET BACEN.');
+  }
 
   // Baseline (sem eventos) para a economia de juros.
   const base =
@@ -87,19 +91,14 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
 
   const eventosApos = (k: number): EventoCalc[] => eventos.filter((ev) => ev.apos === k);
 
-  // Periodo de um fluxo para o CET. Com dataBase: padrao BACEN (dias/365);
-  // sem dataBase: meses inteiros (compatibilidade com testes do motor).
-  const usarDias = !!dataBase;
+  // Periodo de um fluxo para o CET, no padrao BACEN: dias corridos / 365.
   const periodoFluxo = (k: number, frac: Decimal): Decimal => {
-    if (!usarDias) {
-      return new Decimal(k).plus(frac);
-    }
-    const vencK = k === 0 ? dataBase! : adicionarMeses(dataBase!, k);
-    const diasBase = new Decimal(diasCorridos(dataBase!, vencK));
+    const vencK = k === 0 ? dataBase : adicionarMeses(dataBase, k);
+    const diasBase = new Decimal(diasCorridos(dataBase, vencK));
     if (frac.lessThanOrEqualTo(0)) {
       return diasBase.div(365);
     }
-    const diasPeriodo = new Decimal(diasCorridos(vencK, adicionarMeses(dataBase!, k + 1)));
+    const diasPeriodo = new Decimal(diasCorridos(vencK, adicionarMeses(dataBase, k + 1)));
     return diasBase.plus(frac.times(diasPeriodo)).div(365);
   };
 
@@ -283,7 +282,7 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
     saldo = saldoInicial.minus(amort);
     const linha: LinhaCronograma = {
       numero,
-      dataVencimento: dataBase ? adicionarMeses(dataBase, numero) : '',
+      dataVencimento: adicionarMeses(dataBase, numero),
       saldoInicial: arredondarMoeda(saldoInicial).toFixed(2),
       juros: juros.toFixed(2),
       amortizacao: arredondarMoeda(amort).toFixed(2),
@@ -296,9 +295,8 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
     aplicarEventos(numero, linha);
 
     // Fluxo da parcela (apos eventuais ajustes de pagamento/mora).
-    const dias = dataBase ? diasCorridos(dataBase, linha.dataVencimento) : numero * 30;
-    const periodo = dataBase ? new Decimal(dias).div(365) : new Decimal(numero);
-    fluxos.push({ periodo, valor: new Decimal(linha.valorParcela) });
+    const dias = diasCorridos(dataBase, linha.dataVencimento);
+    fluxos.push({ periodo: new Decimal(dias).div(365), valor: new Decimal(linha.valorParcela) });
 
     if (saldo.lessThanOrEqualTo(QUASE_ZERO)) {
       break;
@@ -315,8 +313,7 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   let cetAnual = '';
   if (fluxos.length > 0) {
     try {
-      const opcoesCet = dataBase ? { periodosAno: 1 } : { periodosAno: 12 };
-      const cet = calcularCet(e.valorLiberado ?? principal, fluxos, opcoesCet);
+      const cet = calcularCet(e.valorLiberado ?? principal, fluxos, { periodosAno: 1 });
       cetMensal = cet.mensal.toDecimalPlaces(6).toString();
       cetAnual = cet.anual.toDecimalPlaces(6).toString();
     } catch {

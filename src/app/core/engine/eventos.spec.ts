@@ -11,6 +11,7 @@ function basePrice(eventos: EntradaProjecao['eventos'], extra?: Partial<EntradaP
     prazo: 12,
     sistema: 'price',
     eventos,
+    dataBase: '2026-01-01',
     ...extra,
   });
 }
@@ -71,6 +72,7 @@ describe('eventos (pos-simulacao)', () => {
       prazo: 12,
       sistema: 'sac',
       eventos: [{ tipo: 'antecipacao', apos: 3, quantidade: 2 }],
+      dataBase: '2026-01-01',
     });
     expect(r.resumo.prazoFinal).toBeLessThan(12);
     expect(r.resumo.totalAmortizacao).toBe('1000.00');
@@ -83,11 +85,11 @@ describe('eventos (pos-simulacao)', () => {
     expect(Number(r.resumo.cetMensal)).toBeLessThan(0.0102);
   });
 
-  it('CET com eventos usa BACEN (dias/365) quando dataBase e informada', () => {
+  it('CET sempre usa a convencao BACEN (dias/365); dataBase vazia e rejeitada', () => {
     const ev = [
       { tipo: 'amortizacao' as const, apos: 3, valor: '100', opcao: 'reduzir-prazo' as const },
     ];
-    const comData = projetarComEventos({
+    const r = projetarComEventos({
       principal: d(1000),
       taxaPeriodo: d('0.01'),
       prazo: 12,
@@ -95,17 +97,20 @@ describe('eventos (pos-simulacao)', () => {
       eventos: ev,
       dataBase: '2026-01-01',
     });
-    const semData = projetarComEventos({
-      principal: d(1000),
-      taxaPeriodo: d('0.01'),
-      prazo: 12,
-      sistema: 'price',
-      eventos: ev,
-    });
-    // Convencoes distintas -> valores distintos, ambos ~ 1% a.m.
-    expect(comData.resumo.cetMensal).not.toBe(semData.resumo.cetMensal);
-    expect(Number(comData.resumo.cetMensal)).toBeGreaterThan(0.0099);
-    expect(Number(comData.resumo.cetMensal)).toBeLessThan(0.0102);
+    expect(Number(r.resumo.cetMensal)).toBeGreaterThan(0.0099);
+    expect(Number(r.resumo.cetMensal)).toBeLessThan(0.0102);
+    expect(r.parcelas[0].dataVencimento).toBe('2026-02-01');
+
+    expect(() =>
+      projetarComEventos({
+        principal: d(1000),
+        taxaPeriodo: d('0.01'),
+        prazo: 12,
+        sistema: 'price',
+        eventos: ev,
+        dataBase: '',
+      }),
+    ).toThrow();
   });
 
   it('quitacao pro-rata: paga saldo corrigido por fracao de periodo', () => {
@@ -144,5 +149,56 @@ describe('eventos (pos-simulacao)', () => {
     expect(() =>
       basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 0, valorPago: '5' }]),
     ).toThrow();
+  });
+
+  it('amortizacao extra maior que o saldo: capa no saldo e quita a operacao', () => {
+    const r = basePrice([{ tipo: 'amortizacao', apos: 1, valor: '5000', opcao: 'reduzir-prazo' }]);
+    expect(r.resumo.prazoFinal).toBe(1);
+    // saldo apos parc.1 = 921.15 -> amortiza so o saldo, nao os 5000
+    expect(r.resumo.amortizacoesExtras).toBe('921.15');
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+  });
+
+  it('pagamento acima do saldo: amortizacao capada no saldo inicial (quita na parcela)', () => {
+    const r = basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 0, valorPago: '2000' }]);
+    expect(r.parcelas[0].amortizacao).toBe('1000.00');
+    expect(r.parcelas[0].valorParcela).toBe('1010.00');
+    expect(r.resumo.prazoFinal).toBe(1);
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+  });
+
+  it('atraso sem parametros de mora: nenhum encargo e aplicado', () => {
+    const r = basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 30 }]);
+    expect(r.parcelas[0].encargos).toBe('0.00');
+    expect(r.resumo.totalEncargos).toBe('0.00');
+  });
+
+  it('amortizacao reduzir-parcela no SAC: mantem o prazo e reduz a amortizacao constante', () => {
+    const r = projetarComEventos({
+      principal: d(1000),
+      taxaPeriodo: d('0.01'),
+      prazo: 12,
+      sistema: 'sac',
+      eventos: [{ tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-parcela' }],
+      dataBase: '2026-01-01',
+    });
+    expect(r.resumo.prazoFinal).toBe(12);
+    // saldo apos parc.1 = 916.67 - 200 = 716.67 em 11 parcelas -> amort 65.15
+    expect(r.parcelas[1].amortizacao).toBe('65.15');
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+  });
+
+  it('valorLiberado menor que o principal eleva o CET acima da taxa do contrato', () => {
+    // ex.: IOF/tarifas de 50 deduzidos na liberacao
+    const r = basePrice([], { valorLiberado: d(950) });
+    expect(Number(r.resumo.cetMensal)).toBeGreaterThan(0.01);
+  });
+
+  it('eventos antes da 1a parcela (apos=0) sao aplicados sobre o principal', () => {
+    const r = basePrice([{ tipo: 'amortizacao', apos: 0, valor: '200', opcao: 'reduzir-parcela' }]);
+    // saldo cai p/ 800 antes da 1a parcela -> juros da parc.1 = 8.00
+    expect(r.parcelas[0].juros).toBe('8.00');
+    expect(r.resumo.prazoFinal).toBe(12);
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
   });
 });

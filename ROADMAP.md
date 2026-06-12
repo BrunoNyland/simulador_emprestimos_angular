@@ -70,6 +70,13 @@ parametrizável.
 - [x] Refinos de UX (foco acessível, transições, cards de destaque). 64 testes;
       build/verify (claro+escuro) ok.
 
+### Fase 4.6 — Ferramentas de Validação e UX Técnica ✅ (concluída)
+- [x] Toggle de precisão estendida (2 vs 6+ casas) e exibição explícita do resíduo absorvido.
+- [x] Memória de cálculo com hash e dados não-arredondados (taxa efetiva, IOF diário vs adicional).
+- [x] Interface de validação/diff visual (JSON vs resultado do motor).
+- [x] Modo de densidade compacta para o corpo técnico.
+- [x] Persistência do estado na URL para compartilhamento de simulações.
+
 ### Fase 5 — Exportação
 - Excel (`exceljs`) e PDF (`pdfmake`), com metadata (versões + hash).
 - `EXPORT_FORMATS.md`.

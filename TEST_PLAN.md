@@ -49,6 +49,11 @@
 - IOF: cap de 365 dias; produto isento → 0.
 - Loader JSONC: remove `//` e `/* */` sem quebrar URLs em strings.
 
-## 4. Status
+## 4. Validação Técnica e Compliance (Fase 4.6)
+- **Diff:** JSON colado na seção de Validação bate perfeitamente ou exibe deltas explícitos de `>0.00` em parcelas/amortização contra o motor do backend.
+- **Alta Precisão:** Alternar toggle de precisão revela resíduos implícitos absorvidos na última parcela que ficariam invisíveis com 2 casas.
+- **URL Sync (Deep Linking):** Recarregar a página com `?valorBruto=X&altaPrecisao=true` hidrata o formulário de volta ao estado completo.
+
+## 5. Status
 - Fase 2: cobertura inicial do motor (este documento evolui com novos casos).
 - Pendente cliente: planilhas oficiais para ampliar os golden tests.

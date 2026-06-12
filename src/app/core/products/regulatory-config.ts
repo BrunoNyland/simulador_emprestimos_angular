@@ -27,6 +27,8 @@ export interface RegulatoryConfig {
   mora: { jurosMensal: string; multa: string };
   tac: { permitidaPF: boolean };
   cet: { toleranciaTir: string; anualizacaoPeriodosAno: number };
+  limites: { valorMaximo: number; taxaMaximaPct: number; prazoMaximo: number };
+  formatos: { valor: string; cetMensal: string; cetAnual: string };
 }
 
 /**

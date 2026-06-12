@@ -11,8 +11,11 @@ import Decimal from 'decimal.js';
 /** Precisao interna (digitos significativos) usada nos calculos intermediarios. */
 export const PRECISAO_INTERNA = 34;
 
-/** Casas decimais para exibicao/contabil (moeda). */
-export const CASAS_MONETARIAS = 2;
+export let CASAS_MONETARIAS = 2;
+
+export function setCasasMonetarias(casas: number): void {
+  CASAS_MONETARIAS = casas;
+}
 
 /** Modo de arredondamento padrao: half-even (bancario). */
 export const MODO_ARREDONDAMENTO: Decimal.Rounding = Decimal.ROUND_HALF_EVEN;
@@ -25,7 +28,7 @@ Decimal.set({
 
 export { Decimal };
 
-/** Arredonda um valor para casas monetarias (2) usando o modo configurado. */
+/** Arredonda um valor para casas monetarias usando o modo configurado. */
 export function arredondarMoeda(valor: Decimal.Value): Decimal {
   return new Decimal(valor).toDecimalPlaces(CASAS_MONETARIAS, MODO_ARREDONDAMENTO);
 }

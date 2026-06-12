@@ -23,6 +23,8 @@ export const CONFIG_PADRAO: RegulatoryConfig = {
   mora: { jurosMensal: '0.01', multa: '0.02' },
   tac: { permitidaPF: false },
   cet: { toleranciaTir: '1e-10', anualizacaoPeriodosAno: 12 },
+  limites: { valorMaximo: 100000000, taxaMaximaPct: 100, prazoMaximo: 420 },
+  formatos: { valor: '1.2-2', cetMensal: '1.2-4', cetAnual: '1.2-2' },
 };
 
 /**

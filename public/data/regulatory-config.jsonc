@@ -101,7 +101,27 @@
     "toleranciaTir": "1e-10",
 
     // Periodos no ano para anualizar o CET: (1+i)^p - 1.
-    // Inteiro. Escolhas tipicas: 12 (mensal) | 24 (quinzenal) | 1 (anual).
     "anualizacaoPeriodosAno": 12
+  },
+
+  // ----------------------------------------------------------------------------
+  // LIMITES (Tetos operacionais de simulação).
+  // ----------------------------------------------------------------------------
+  "limites": {
+    "valorMaximo": 100000000,
+    "taxaMaximaPct": 100,
+    "prazoMaximo": 420
+  },
+
+  // ----------------------------------------------------------------------------
+  // FORMATACAO (Formatos de exibicao na UI)
+  // ----------------------------------------------------------------------------
+  "formatos": {
+    // Formato decimal/monetario de exibicao (Angular DecimalPipe).
+    "valor": "1.2-2",
+    // Formato de exibicao de percentuais para CET mensal.
+    "cetMensal": "1.2-4",
+    // Formato de exibicao de percentuais para CET anual.
+    "cetAnual": "1.2-2"
   }
 }

@@ -57,6 +57,42 @@ describe('solver (Price)', () => {
     ).toThrow();
   });
 
+  it('taxa zero: PMT = PV/n e prazo = PV/PMT', () => {
+    const semJuros: ParametrosSimulacao = { ...base, taxa: '0' };
+    const r = resolverCampoAlvo({ sistema: 'price', parametros: semJuros, campoAlvo: 'parcela' });
+    expect(r.parcela).toBe('83.33');
+
+    const rPrazo = resolverCampoAlvo({
+      sistema: 'price',
+      parametros: semJuros,
+      parcela: '100',
+      campoAlvo: 'prazo',
+    });
+    expect(rPrazo.parametros.prazo).toBe(10);
+  });
+
+  it('alvo=prazo: rejeita parcela que nao cobre os juros (prazo infinito)', () => {
+    // PV*i = 10; PMT = 10 nunca amortiza
+    expect(() =>
+      resolverCampoAlvo({ sistema: 'price', parametros: base, parcela: '10', campoAlvo: 'prazo' }),
+    ).toThrow();
+  });
+
+  it('alvo=taxa: rejeita parcela menor que PV/n (taxa negativa)', () => {
+    expect(() =>
+      resolverCampoAlvo({ sistema: 'price', parametros: base, parcela: '80', campoAlvo: 'taxa' }),
+    ).toThrow();
+  });
+
+  it('rejeita sistema de amortizacao desconhecido', () => {
+    expect(() =>
+      resolverCampoAlvo({
+        sistema: 'americano' as never,
+        parametros: base,
+        campoAlvo: 'parcela',
+      }),
+    ).toThrow();
+  });
 });
 
 describe('solver (SAC)', () => {
@@ -94,5 +130,18 @@ describe('solver (SAC)', () => {
       campoAlvo: 'taxa',
     });
     expect(new Decimal(r.parametros.taxa).toDecimalPlaces(6).toString()).toBe('0.01');
+  });
+
+  it('alvo=prazo: rejeita 1a parcela que nao cobre os juros', () => {
+    // PV*i = 10; parcela1 = 10 -> denominador zero
+    expect(() =>
+      resolverCampoAlvo({ sistema: 'sac', parametros: base, parcela: '10', campoAlvo: 'prazo' }),
+    ).toThrow();
+  });
+
+  it('alvo=taxa: rejeita 1a parcela menor que a amortizacao (PV/n)', () => {
+    expect(() =>
+      resolverCampoAlvo({ sistema: 'sac', parametros: base, parcela: '80', campoAlvo: 'taxa' }),
+    ).toThrow();
   });
 });

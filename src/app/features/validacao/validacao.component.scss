@@ -1,0 +1,63 @@
+textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-fundo);
+  color: var(--cor-texto);
+  font-family: monospace;
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.erro-texto {
+  color: var(--cor-erro);
+}
+
+.ok-texto {
+  color: #10b981; /* green-500 */
+}
+
+.tem-erro {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.delta-erro {
+  color: var(--cor-erro);
+  font-weight: 600;
+}
+
+.delta-ok {
+  color: #10b981;
+}
+
+.resumo {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.card {
+  flex: 1;
+  background: var(--cor-fundo);
+  border: 1px solid var(--cor-borda);
+  padding: 1rem;
+  border-radius: var(--raio);
+  display: flex;
+  flex-direction: column;
+}
+
+.card--destaque {
+  border-color: var(--cor-primaria);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.rotulo {
+  font-size: 0.875rem;
+  color: var(--cor-texto-mutado);
+  margin-bottom: 0.5rem;
+}
+
+strong {
+  font-size: 1.25rem;
+}

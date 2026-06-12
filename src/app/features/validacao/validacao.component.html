@@ -1,0 +1,59 @@
+<app-secao titulo="Validação contra Backend (Diff)" id="validacao" [realce]="true">
+  <p class="sub-titulo">Cole o array JSON com as parcelas geradas pelo backend para bater os valores linha a linha.</p>
+  
+  <div class="grid">
+    <label style="grid-column: 1 / -1;">
+      <span>JSON de Entrada (Array de Parcelas)</span>
+      <textarea [(ngModel)]="jsonPasted" rows="5" placeholder='[{"numero": 1, "valorParcela": "500.00", "amortizacao": "300.00"}, ...]'></textarea>
+    </label>
+  </div>
+
+  @let diff = diffResult();
+  @if (diff) {
+    @if (diff.erro) {
+      <p class="erro">⚠️ {{ diff.erro }}</p>
+    } @else {
+      <div class="resumo">
+        <div class="card card--destaque">
+          <span class="rotulo">Total de Divergências</span>
+          <strong [class.erro-texto]="diff.totalDivergencias! > 0" [class.ok-texto]="diff.totalDivergencias! === 0">
+            {{ diff.totalDivergencias }}
+          </strong>
+        </div>
+      </div>
+
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Parcela (Nós)</th>
+              <th>Parcela (Eles)</th>
+              <th>Δ Parcela</th>
+              <th>Amort. (Nós)</th>
+              <th>Amort. (Eles)</th>
+              <th>Δ Amort.</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of diff.rows; track row.numero) {
+              <tr [class.tem-erro]="row.temDivergencia">
+                <td>{{ row.numero }}</td>
+                <td>{{ row.nossaParcela }}</td>
+                <td>{{ row.delesParcela }}</td>
+                <td [class.delta-erro]="row.deltaParcela !== '0.000000'" [class.delta-ok]="row.deltaParcela === '0.000000'">
+                  {{ row.deltaParcela }}
+                </td>
+                <td>{{ row.nossaAmortizacao }}</td>
+                <td>{{ row.delesAmortizacao }}</td>
+                <td [class.delta-erro]="row.deltaAmortizacao !== '0.000000'" [class.delta-ok]="row.deltaAmortizacao === '0.000000'">
+                  {{ row.deltaAmortizacao }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</app-secao>

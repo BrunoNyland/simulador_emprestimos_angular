@@ -161,6 +161,16 @@ describe('SimulacaoStore', () => {
     }
   });
 
+  it('reporta erro quando a data de liberacao esta vazia (CET BACEN exige datas)', () => {
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+    store.dataBase.set('');
+
+    const r = store.resultado();
+    expect(r.tipo).toBe('erro');
+  });
+
   it('reporta erro para prazo invalido', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');

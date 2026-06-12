@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { Decimal } from '../../core/engine/decimal.config';
+import { Decimal, setCasasMonetarias } from '../../core/engine/decimal.config';
 import {
   ParametrosSimulacao,
   Parcela,
@@ -26,11 +26,12 @@ import {
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
 import { resolverParametrosIof } from '../../core/products/regulatory-config';
 
-/** Mora default (espelha regulatory-config.jsonc; idealmente vem da config). */
-const MORA_DEFAULT: ParametrosMora = {
-  jurosMensal: new Decimal('0.01'),
-  multa: new Decimal('0.02'),
-};
+export interface MemoriaCalculo {
+  iofDiario: string;
+  iofAdicional: string;
+  engineVersion: string;
+  hash: string;
+}
 
 export interface ResultadoSimulacao {
   parametros: ParametrosSimulacao;
@@ -43,6 +44,7 @@ export interface ResultadoSimulacao {
   valorLiquido: string;
   /** IOF total da operacao. */
   iof: string;
+  memoriaCalculo: MemoriaCalculo;
 }
 
 /** Resultado da projecao com eventos (tabela separada, abaixo da base). */
@@ -64,6 +66,8 @@ export type EstadoResultado =
  */
 @Injectable({ providedIn: 'root' })
 export class SimulacaoStore {
+  private readonly config = inject(RegulatoryConfigService);
+
   // --- Entradas (signals) ---
   readonly sistema = signal<SistemaAmortizacao>('price');
   readonly campoAlvo = signal<CampoAlvo>('parcela');
@@ -81,7 +85,8 @@ export class SimulacaoStore {
   readonly incluirIof = signal(true);
   readonly tarifaAbertura = signal('0');
 
-  private readonly config = inject(RegulatoryConfigService);
+  readonly moraJurosMensal = signal(this.config.config().mora.jurosMensal);
+  readonly moraMulta = signal(this.config.config().mora.multa);
 
   // --- Eventos pos-simulacao (lista ordenada; cronograma = projecao dela) ---
   readonly eventos = signal<EventoCalc[]>([]);
@@ -125,7 +130,10 @@ export class SimulacaoStore {
         sistema: this.sistema(),
         eventos,
         dataBase: ctx.dataBase,
-        mora: MORA_DEFAULT,
+        mora: {
+          jurosMensal: new Decimal(this.moraJurosMensal()),
+          multa: new Decimal(this.moraMulta()),
+        },
         valorLiberado: ctx.valorLiberado,
       });
       return {
@@ -176,6 +184,8 @@ export class SimulacaoStore {
 
   /** Contexto compartilhado (solver + cronograma base + custos de abertura). */
   private contexto() {
+    setCasasMonetarias(2);
+
     const params: ParametrosSimulacao = {
       valorBruto: this.valorBruto(),
       valorLiquido: this.valorBruto(),
@@ -185,6 +195,9 @@ export class SimulacaoStore {
       prazo: this.prazo(),
     };
     const dataBase = this.dataBase();
+    if (!dataBase) {
+      throw new Error('Data de liberacao obrigatória (CET BACEN usa dias corridos/365).');
+    }
 
     // Solver de campo-alvo (Price e SAC; no SAC a "parcela" e a 1a parcela).
     const alvo = this.campoAlvo();
@@ -214,9 +227,25 @@ export class SimulacaoStore {
     const entrada = { principal, taxaPeriodo: i, prazo: n, dataBase };
     const baseParcelas =
       this.sistema() === 'price' ? gerarCronogramaPrice(entrada) : gerarCronogramaSac(entrada);
-    const { iofTotal, valorLiberado } = this.custosAbertura(principal, baseParcelas, dataBase);
+    const { iofTotal, iofDiario, iofAdicional, valorLiberado } = this.custosAbertura(
+      principal,
+      baseParcelas,
+      dataBase,
+    );
 
-    return { resolvidos, parcelaCalculada, principal, i, n, dataBase, baseParcelas, iofTotal, valorLiberado };
+    return {
+      resolvidos,
+      parcelaCalculada,
+      principal,
+      i,
+      n,
+      dataBase,
+      baseParcelas,
+      iofTotal,
+      iofDiario,
+      iofAdicional,
+      valorLiberado,
+    };
   }
 
   /** Simulacao base (sem eventos) — sempre exibida na tabela principal. */
@@ -226,12 +255,10 @@ export class SimulacaoStore {
     const totais = somarTotais(ctx.baseParcelas);
     const fluxos: FluxoCaixa[] = ctx.baseParcelas.map((p) => ({
       // BACEN: t_j = dias / 365
-      periodo: ctx.dataBase
-        ? new Decimal(diasCorridos(ctx.dataBase, p.dataVencimento)).div(365)
-        : new Decimal(p.numero),
+      periodo: new Decimal(diasCorridos(ctx.dataBase, p.dataVencimento)).div(365),
       valor: new Decimal(p.valorParcela),
     }));
-    const cet = calcularCet(ctx.valorLiberado, fluxos, { periodosAno: ctx.dataBase ? 1 : 12 });
+    const cet = calcularCet(ctx.valorLiberado, fluxos, { periodosAno: 1 });
 
     return {
       parametros: ctx.resolvidos,
@@ -242,32 +269,64 @@ export class SimulacaoStore {
       cetAnual: cet.anual.toDecimalPlaces(6).toString(),
       valorLiquido: ctx.valorLiberado.toFixed(2),
       iof: ctx.iofTotal.toFixed(2),
+      memoriaCalculo: {
+        iofDiario: ctx.iofDiario.toFixed(2),
+        iofAdicional: ctx.iofAdicional.toFixed(2),
+        engineVersion: this.config.config().version,
+        hash: this.gerarHash(
+          JSON.stringify({
+            ...ctx.resolvidos,
+            parcelaCalculada: ctx.parcelaCalculada,
+            sistema: this.sistema(),
+            dataBase: ctx.dataBase,
+            publico: this.publico(),
+            produto: this.produto(),
+            incluirIof: this.incluirIof(),
+            tarifaAbertura: this.tarifaAbertura(),
+            campoAlvo: this.campoAlvo(),
+          }),
+        ),
+      },
     };
   }
 
-  /** IOF (se habilitado) + tarifa de abertura; retorna o liquido liberado. */
+  private gerarHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash |= 0; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(16).padStart(8, '0').toUpperCase();
+  }
+
   private custosAbertura(
     principal: Decimal,
     baseParcelas: Parcela[],
     dataBase: string,
-  ): { iofTotal: Decimal; valorLiberado: Decimal } {
+  ): { iofTotal: Decimal; iofDiario: Decimal; iofAdicional: Decimal; valorLiberado: Decimal } {
     let iofTotal = new Decimal(0);
-    if (this.incluirIof() && dataBase) {
+    let iofDiario = new Decimal(0);
+    let iofAdicional = new Decimal(0);
+    if (this.incluirIof()) {
       const parametros = resolverParametrosIof(
         this.config.config(),
         this.publico(),
         this.produto(),
       );
-      iofTotal = calcularIof({
+      const result = calcularIof({
         publico: this.publico(),
         principal,
         parcelas: baseParcelas,
         dataLiberacao: dataBase,
         parametros,
-      }).total;
+      });
+      iofTotal = result.total;
+      iofDiario = result.diario;
+      iofAdicional = result.adicional;
     }
     const tarifa = new Decimal(this.tarifaAbertura() || '0');
     const valorLiberado = principal.minus(iofTotal).minus(tarifa);
-    return { iofTotal, valorLiberado };
+    return { iofTotal, iofDiario, iofAdicional, valorLiberado };
   }
 }

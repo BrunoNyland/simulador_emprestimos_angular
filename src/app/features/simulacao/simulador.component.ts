@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
-import { CurrencyPipe, PercentPipe } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, effect, inject, HostBinding, signal } from '@angular/core';
+import { CurrencyPipe, DecimalPipe, PercentPipe } from '@angular/common';
+import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { take } from 'rxjs';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
 import { EventoCalc } from '../../core/engine/eventos';
@@ -9,17 +11,16 @@ import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
 import { Decimal } from '../../core/engine/decimal.config';
 import { MoedaInputDirective } from '../../shared/moeda-input.directive';
 import { SecaoComponent } from '../../shared/secao.component';
+import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
+import { obterExplicacaoMatematica, Explicacao } from './explicador';
+
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
-/** Teto de valores monetarios (R$ 100 milhoes). */
-export const VALOR_MAX = 100_000_000;
-/** Teto da taxa em % (a.m. ou a.a.). */
-export const TAXA_MAX_PCT = 100;
 
 @Component({
   selector: 'app-simulador',
   standalone: true,
-  imports: [ReactiveFormsModule, CurrencyPipe, PercentPipe, MoedaInputDirective, SecaoComponent],
+  imports: [FormsModule, ReactiveFormsModule, CurrencyPipe, DecimalPipe, PercentPipe, MoedaInputDirective, SecaoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './simulador.component.html',
   styleUrl: './simulador.component.scss',
@@ -27,9 +28,25 @@ export const TAXA_MAX_PCT = 100;
 export class SimuladorComponent {
   private readonly fb = inject(FormBuilder);
   readonly store = inject(SimulacaoStore);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly configService = inject(RegulatoryConfigService);
 
-  readonly valorMax = VALOR_MAX;
-  readonly taxaMaxPct = TAXA_MAX_PCT;
+  readonly explicacaoAtiva = signal<string | null>(null);
+
+  get limites() {
+    return this.configService.config().limites;
+  }
+
+  get moraJurosMensalMax() {
+    return this.fracaoParaPct(this.configService.config().mora.jurosMensal);
+  }
+
+  get moraMultaMax() {
+    return this.fracaoParaPct(this.configService.config().mora.multa);
+  }
+
+
 
   readonly form = this.fb.nonNullable.group({
     sistema: this.store.sistema(),
@@ -46,9 +63,25 @@ export class SimuladorComponent {
     produto: this.store.produto(),
     incluirIof: this.store.incluirIof(),
     tarifaAbertura: this.store.tarifaAbertura(),
+    moraJurosMensal: this.fracaoParaPct(this.store.moraJurosMensal()),
+    moraMulta: this.fracaoParaPct(this.store.moraMulta()),
   });
 
   constructor() {
+    // Hidratação inicial pela URL
+    this.route.queryParams.pipe(take(1)).subscribe(params => {
+      if (Object.keys(params).length > 0) {
+        // Converte as strings da query param para os tipos corretos onde necessario
+        const patch: any = { ...params };
+        if (params['incluirIof'] !== undefined) patch.incluirIof = params['incluirIof'] === 'true';
+        if (params['moraJurosMensal'] !== undefined) patch.moraJurosMensal = params['moraJurosMensal'];
+        if (params['moraMulta'] !== undefined) patch.moraMulta = params['moraMulta'];
+        
+        this.form.patchValue(patch, { emitEvent: true });
+        
+      }
+    });
+
     // Formulario -> store (le getRawValue p/ incluir campos travados).
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
       const v = this.form.getRawValue();
@@ -65,8 +98,18 @@ export class SimuladorComponent {
       this.store.produto.set(v.produto);
       this.store.incluirIof.set(Boolean(v.incluirIof));
       this.store.tarifaAbertura.set(String(v.tarifaAbertura));
+      this.store.moraJurosMensal.set(this.pctParaFracao(v.moraJurosMensal));
+      this.store.moraMulta.set(this.pctParaFracao(v.moraMulta));
       this.aplicarTravas();
       this.sincronizarTipoTaxa();
+
+      // Serializar na URL
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { ...v },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
     });
 
     // Resultado -> reflete o valor resolvido no campo-alvo (somente leitura).
@@ -88,6 +131,75 @@ export class SimuladorComponent {
     this.sincronizarTipoTaxa();
   }
 
+
+
+  get formatoMoeda(): string {
+    return this.configService.config().formatos.valor;
+  }
+
+  get formatoCetMensal(): string {
+    return this.configService.config().formatos.cetMensal;
+  }
+
+  get formatoCetAnual(): string {
+    return this.configService.config().formatos.cetAnual;
+  }
+
+  selecionarExplicacao(topico: string): void {
+    this.explicacaoAtiva.set(topico);
+    setTimeout(() => {
+      document.getElementById('demonstracao')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
+
+  get explicacao(): Explicacao | null {
+    const topico = this.explicacaoAtiva();
+    if (!topico) return null;
+
+    const res = this.store.resultado();
+    const evRes = this.store.eventosResultado();
+
+    const topicosPosEventos = [
+      'prazoFinal',
+      'economiaJuros',
+      'amortizacoesExtras',
+      'moraEncargos',
+      'totalPagoPos',
+      'cetMensalPos',
+    ];
+
+    if (topicosPosEventos.includes(topico)) {
+      if (!evRes) return null;
+      const dadosExplicacao = {
+        ...evRes,
+        totaisOriginal: res.tipo === 'ok' ? res.dados.totais : null,
+        parametros: res.tipo === 'ok' ? res.dados.parametros : null,
+      };
+      return obterExplicacaoMatematica(
+        topico,
+        dadosExplicacao,
+        this.store.sistema(),
+        this.configService.config().defaults.arredondamento,
+      );
+    }
+
+    if (res.tipo !== 'ok') return null;
+
+    return obterExplicacaoMatematica(
+      topico,
+      res.dados,
+      this.store.sistema(),
+      this.configService.config().defaults.arredondamento,
+    );
+  }
+
+  formatarData(iso: string): string {
+    if (!iso) return '';
+    const partes = iso.split('-');
+    if (partes.length !== 3) return iso;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+
   /** Fracao -> porcentagem (2 casas) para exibicao. Ex.: 0.02 -> 2. */
   private fracaoParaPct(fracao: string): number {
     const v = new Decimal(fracao || '0').times(100);
@@ -100,8 +212,9 @@ export class SimuladorComponent {
     if (!Number.isFinite(v) || v < 0) {
       v = 0;
     }
-    if (v > TAXA_MAX_PCT) {
-      v = TAXA_MAX_PCT;
+    const max = this.limites.taxaMaximaPct;
+    if (v > max) {
+      v = max;
     }
     return new Decimal(Math.round(v * 100) / 100).div(100).toString();
   }
