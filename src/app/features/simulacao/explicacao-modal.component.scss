@@ -250,54 +250,6 @@
   }
 }
 
-/* ===== Mini-cronograma (suggestion 4) ===== */
-.demo-mini-cronograma {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  margin-bottom: 0.35rem;
-
-  th,
-  td {
-    padding: 0.22rem 0.4rem;
-    border-bottom: 1px solid var(--border);
-    text-align: right;
-    white-space: nowrap;
-  }
-  th {
-    font-weight: 700;
-    color: var(--text-muted);
-    text-align: right;
-  }
-  th:first-child,
-  td.mc-num {
-    text-align: center;
-  }
-  td.mc-juros {
-    color: var(--danger);
-  }
-  td.mc-amort {
-    color: var(--accent);
-  }
-  td.mc-forte {
-    font-weight: 700;
-    color: var(--text);
-  }
-  tr.mc-reticencias td {
-    text-align: center;
-    color: var(--text-muted);
-    border-bottom: none;
-  }
-}
-
-.demo-mini-nota {
-  font-size: 0.74rem;
-  line-height: 1.4;
-  color: var(--text-muted);
-  margin: 0 0 0.6rem;
-}
-
 /* ===== Glossário (suggestion 5) ===== */
 .demo-glossario {
   display: flex;

@@ -60,40 +60,6 @@
         }
       </ul>
 
-      @if (exp.demonstracaoCronograma; as demo) {
-        <div class="demo-sub">{{ demo.titulo }}</div>
-        <div class="tabela-wrap">
-          <table class="demo-mini-cronograma">
-            <thead>
-              <tr>
-                <th>Parc.</th>
-                <th>Saldo inicial</th>
-                <th>Juros</th>
-                <th>Amortização</th>
-                <th>Parcela</th>
-                <th>Saldo final</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (l of demo.linhas; track l.parcela) {
-                <tr>
-                  <td class="mc-num">{{ l.parcela }}</td>
-                  <td>{{ l.saldoInicial }}</td>
-                  <td class="mc-juros">{{ l.juros }}</td>
-                  <td class="mc-amort">{{ l.amortizacao }}</td>
-                  <td class="mc-forte">{{ l.valorParcela }}</td>
-                  <td>{{ l.saldoFinal }}</td>
-                </tr>
-              }
-              <tr class="mc-reticencias">
-                <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="demo-mini-nota">{{ demo.nota }}</p>
-      }
-
       @if (exp.hp12c.length > 0) {
         <div class="demo-sub">Como Calcular na HP12C</div>
         <ul class="demo-calculadora demo-calculadora--hp">

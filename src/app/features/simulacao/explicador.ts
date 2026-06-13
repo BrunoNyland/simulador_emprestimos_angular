@@ -9,23 +9,6 @@ export interface ReferenciaNormativa {
   url: string;
 }
 
-/** Linha de uma mini-demonstração de cronograma (saldo → juros → amortização). */
-export interface PassoCronograma {
-  parcela: string;
-  saldoInicial: string;
-  juros: string;
-  amortizacao: string;
-  valorParcela: string;
-  saldoFinal: string;
-}
-
-/** Mini-cronograma que "constrói" as primeiras parcelas linha a linha. */
-export interface DemonstracaoCronograma {
-  titulo: string;
-  nota: string;
-  linhas: PassoCronograma[];
-}
-
 /** Termo de glossário expansível (didático). */
 export interface ItemGlossario {
   termo: string;
@@ -56,8 +39,6 @@ export interface Explicacao {
   excel: string[];
   /** Base legal e normativa aplicável ao cálculo. */
   normas: ReferenciaNormativa[];
-  /** Mini-cronograma "máquina funcionando" (só onde faz sentido: parcela). */
-  demonstracaoCronograma?: DemonstracaoCronograma;
   /** Glossário dos termos-chave do tópico (preenchido pelo wrapper). */
   glossario?: ItemGlossario[];
   /** Links para explicações relacionadas (preenchido pelo wrapper). */
@@ -153,48 +134,6 @@ function fmtPct(v: string | number | Decimal, dec = 2): string {
 function fmtNum(v: Decimal | number, dec = 2): string {
   const n = typeof v === 'number' ? v : Number(v.toString());
   return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false });
-}
-
-/** Arredonda para 2 casas (half-even, como o motor) sem importar do engine. */
-function r2(v: Decimal): Decimal {
-  return v.toDecimalPlaces(2);
-}
-
-/**
- * Constrói as 3 primeiras linhas do cronograma, mostrando a "máquina
- * funcionando": saldo → juros → amortização → novo saldo (CALC_REF 2 e 3).
- */
-function demonstracaoLinhas(
-  pv: Decimal,
-  i: Decimal,
-  n: number,
-  sistema: SistemaAmortizacao,
-  pmt: Decimal,
-): DemonstracaoCronograma {
-  const linhas: PassoCronograma[] = [];
-  const amortConst = r2(pv.div(n));
-  let saldo = pv;
-  const total = Math.min(3, n);
-  for (let k = 1; k <= total; k++) {
-    const saldoInicial = saldo;
-    const juros = r2(saldoInicial.times(i));
-    const amort = sistema === 'price' ? r2(pmt.minus(juros)) : amortConst;
-    const parcela = sistema === 'price' ? pmt : r2(amort.plus(juros));
-    saldo = saldoInicial.minus(amort);
-    linhas.push({
-      parcela: String(k),
-      saldoInicial: fmtBRL(saldoInicial),
-      juros: fmtBRL(juros),
-      amortizacao: fmtBRL(amort),
-      valorParcela: fmtBRL(parcela),
-      saldoFinal: fmtBRL(saldo),
-    });
-  }
-  const nota =
-    sistema === 'price'
-      ? `A parcela fica fixa em ${fmtBRL(pmt)}: repare que os juros caem a cada mês (incidem sobre o saldo) e a amortização cresce na mesma medida. As ${Math.max(0, n - 3)} parcelas restantes seguem o mesmo padrão até o saldo zerar.`
-      : `A amortização fica fixa em ${fmtBRL(amortConst)}: os juros caem a cada mês porque o saldo diminui, então a parcela decresce. As ${Math.max(0, n - 3)} parcelas restantes seguem o mesmo padrão.`;
-  return { titulo: 'Vendo a máquina funcionar (primeiras parcelas)', nota, linhas };
 }
 
 // ---------------------------------------------------------------------------
@@ -428,10 +367,6 @@ function construirExplicacao(
             NOTA_EXCEL_REGIONAL,
           ],
           normas: [NORMA_CDC_TRANSPARENCIA, NORMA_LEI_4595],
-          demonstracaoCronograma:
-            n >= 1 && pv.greaterThan(0)
-              ? demonstracaoLinhas(pv, iMensal, n, 'price', new Decimal(dados.parcelaCalculada || pmtCalculado))
-              : undefined,
         };
       } else {
         // SAC
@@ -486,10 +421,6 @@ function construirExplicacao(
             NOTA_EXCEL_REGIONAL,
           ],
           normas: [NORMA_CDC_TRANSPARENCIA, NORMA_LEI_4595],
-          demonstracaoCronograma:
-            n >= 1 && pv.greaterThan(0)
-              ? demonstracaoLinhas(pv, iMensal, n, 'sac', pmt1)
-              : undefined,
         };
       }
     }

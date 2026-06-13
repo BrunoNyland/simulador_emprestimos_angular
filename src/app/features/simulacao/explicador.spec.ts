@@ -181,43 +181,6 @@ describe('explicador', () => {
     expect(exp!.excel.some((l) => l.includes('XTIR'))).toBe(true);
   });
 
-  // --- Mini-cronograma (suggestion 4) ---
-  // a taxa no motor e fracao (0.02 = 2% a.m.); dadosBase usa '2' so para campos nao calculados
-  const dadosReais = { ...dadosBase, parametros: { ...dadosBase.parametros, taxa: '0.02' } };
-
-  it('Parcela Price traz mini-cronograma com 3 linhas coerentes (juros + amort = parcela)', () => {
-    const exp = obterExplicacaoMatematica('parcela', dadosReais, 'price', 'half-even');
-    const demo = exp!.demonstracaoCronograma;
-    expect(demo).toBeDefined();
-    expect(demo!.linhas).toHaveLength(3);
-    // 1a linha: saldo inicial = PV; juros = 10000*0.02 = 200,00
-    const l1 = demo!.linhas[0];
-    expect(l1.parcela).toBe('1');
-    expect(l1.juros).toContain('200,00');
-    expect(l1.valorParcela).toContain('945,60');
-    // parcela Price constante nas 3 linhas
-    expect(demo!.linhas.every((l) => l.valorParcela === l1.valorParcela)).toBe(true);
-  });
-
-  it('Parcela SAC traz mini-cronograma com amortizacao constante e parcela decrescente', () => {
-    const exp = obterExplicacaoMatematica('parcela', dadosReais, 'sac', 'half-even');
-    const demo = exp!.demonstracaoCronograma;
-    expect(demo).toBeDefined();
-    // amortizacao = 10000/12 = 833,33 constante
-    expect(demo!.linhas.every((l) => l.amortizacao === demo!.linhas[0].amortizacao)).toBe(true);
-    // parcela decresce (juros caem)
-    const p0 = Number(demo!.linhas[0].valorParcela.replace(/[^\d,]/g, '').replace(',', '.'));
-    const p1 = Number(demo!.linhas[1].valorParcela.replace(/[^\d,]/g, '').replace(',', '.'));
-    expect(p1).toBeLessThan(p0);
-  });
-
-  it('topicos que nao sao parcela NAO trazem mini-cronograma', () => {
-    for (const t of ['valorLiquido', 'iof', 'cetMensal', 'totalJuros']) {
-      const exp = obterExplicacaoMatematica(t, dadosBase, 'price', 'half-even');
-      expect(exp!.demonstracaoCronograma, `sem cronograma em ${t}`).toBeUndefined();
-    }
-  });
-
   // --- Glossário e links cruzados (suggestion 5) ---
   it('todos os topicos trazem glossario e links relacionados validos', () => {
     const dadosEventos = {
