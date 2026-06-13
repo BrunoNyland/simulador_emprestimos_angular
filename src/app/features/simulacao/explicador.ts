@@ -12,6 +12,11 @@ export interface ReferenciaNormativa {
 export interface Explicacao {
   titulo: string;
   formula: string;
+  /**
+   * Fórmula em MathML (renderização nativa do navegador). As variáveis levam
+   * classes fx-v0..fx-v5 com as MESMAS cores da tabela de legenda (por índice).
+   */
+  formulaMathML: string;
   descricao: string;
   legenda: { simbolo: string; nome: string; valor: string }[];
   passos: string[];
@@ -156,6 +161,13 @@ export function obterExplicacaoMatematica(
         return {
           titulo: 'Parcela (PMT) — Sistema Price (Tabela Price)',
           formula: 'PMT = PV × [ i / (1 − (1 + i)^−n) ]',
+          formulaMathML:
+            '<math display="block"><mrow>' +
+            '<mi class="fx-v0">PMT</mi><mo>=</mo><mi class="fx-v1">PV</mi><mo>·</mo>' +
+            '<mfrac><mi class="fx-v2">i</mi>' +
+            '<mrow><mn>1</mn><mo>−</mo><msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mi class="fx-v2">i</mi><mo>)</mo></mrow>' +
+            '<mrow><mo>−</mo><mi class="fx-v3">n</mi></mrow></msup></mrow></mfrac>' +
+            '</mrow></math>',
           descricao:
             'No sistema Price (também chamado de Sistema Francês de Amortização), todas as parcelas têm o MESMO valor do início ao fim do contrato. Cada parcela é composta de uma parte de juros (calculados sobre o saldo devedor do mês) e uma parte de amortização (que abate o saldo). Como o saldo devedor diminui mês a mês, os juros caem e a amortização cresce — mas a soma das duas partes permanece constante. A fórmula vem da soma de uma progressão geométrica: ela encontra o pagamento fixo cujo valor presente, descontado a juros compostos, é exatamente igual ao valor financiado.',
           legenda: [
@@ -200,6 +212,15 @@ export function obterExplicacaoMatematica(
         return {
           titulo: 'Primeira Parcela (PMT₁) — Sistema SAC',
           formula: 'PMT_k = A + J_k    onde  A = PV / n   e   J_k = Saldo_(k−1) × i',
+          formulaMathML:
+            '<math display="block"><mrow>' +
+            '<msub><mi class="fx-v0">PMT</mi><mi>k</mi></msub><mo>=</mo><mi class="fx-v1">A</mi><mo>+</mo><msub><mi class="fx-v2">J</mi><mi>k</mi></msub>' +
+            '<mspace width="1.2em"></mspace><mtext>com</mtext><mspace width="1.2em"></mspace>' +
+            '<mi class="fx-v1">A</mi><mo>=</mo><mfrac><mi class="fx-v3">PV</mi><mi class="fx-v5">n</mi></mfrac>' +
+            '<mspace width="1.2em"></mspace><mtext>e</mtext><mspace width="1.2em"></mspace>' +
+            '<msub><mi class="fx-v2">J</mi><mi>k</mi></msub><mo>=</mo>' +
+            '<msub><mi>S</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>·</mo><mi class="fx-v4">i</mi>' +
+            '</mrow></math>',
           descricao:
             'No Sistema de Amortização Constante (SAC), o que é fixo não é a parcela, e sim a AMORTIZAÇÃO: todo mês o cliente abate exatamente PV/n do principal. Os juros de cada mês incidem sobre o saldo devedor restante — por isso começam altos e caem linearmente, fazendo as parcelas serem DECRESCENTES. Comparado ao Price com a mesma taxa e prazo, o SAC tem primeira parcela maior, última parcela menor e paga MENOS juros no total, porque amortiza o principal mais rápido no início. É o sistema mais comum no crédito imobiliário brasileiro.',
           legenda: [
@@ -252,6 +273,12 @@ export function obterExplicacaoMatematica(
         return {
           titulo: 'Valor Bruto (PV) — Sistema Price',
           formula: 'PV = PMT × [ (1 − (1 + i)^−n) / i ]',
+          formulaMathML:
+            '<math display="block"><mrow>' +
+            '<mi class="fx-v0">PV</mi><mo>=</mo><mi class="fx-v1">PMT</mi><mo>·</mo>' +
+            '<mfrac><mrow><mn>1</mn><mo>−</mo><msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mi class="fx-v2">i</mi><mo>)</mo></mrow>' +
+            '<mrow><mo>−</mo><mi class="fx-v3">n</mi></mrow></msup></mrow><mi class="fx-v2">i</mi></mfrac>' +
+            '</mrow></math>',
           descricao:
             'Resolve o problema inverso do financiamento: "se eu consigo pagar uma parcela PMT por mês, quanto posso financiar?". Matematicamente, o valor financiável é o VALOR PRESENTE da série de parcelas — cada parcela futura é descontada pela taxa de juros (uma parcela daqui a 12 meses "vale menos" hoje do que uma daqui a 1 mês), e a soma desses valores descontados é o principal.',
           legenda: [
@@ -292,6 +319,12 @@ export function obterExplicacaoMatematica(
         return {
           titulo: 'Valor Bruto (PV) — Sistema SAC',
           formula: 'PV = PMT₁ / ( 1/n + i )',
+          formulaMathML:
+            '<math display="block"><mrow>' +
+            '<mi class="fx-v0">PV</mi><mo>=</mo>' +
+            '<mfrac><msub><mi class="fx-v1">PMT</mi><mn>1</mn></msub>' +
+            '<mrow><mfrac><mn>1</mn><mi class="fx-v3">n</mi></mfrac><mo>+</mo><mi class="fx-v2">i</mi></mrow></mfrac>' +
+            '</mrow></math>',
           descricao:
             'No SAC, a primeira parcela é a soma da amortização constante (PV/n) com os juros do primeiro mês (PV×i). Colocando PV em evidência: PMT₁ = PV × (1/n + i). Basta inverter a relação para descobrir quanto pode ser financiado a partir da primeira parcela que cabe no orçamento — lembrando que, no SAC, as parcelas seguintes serão sempre MENORES que a primeira.',
           legenda: [
@@ -326,6 +359,13 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Taxa de Juros (i) — Resolução por Métodos Numéricos',
         formula: 'Encontrar i tal que:  PV = Σ [ PMT_k / (1 + i)^k ]',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mi class="fx-v1">PV</mi><mo>=</mo>' +
+          '<munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi class="fx-v3">n</mi></munderover>' +
+          '<mfrac><msub><mi class="fx-v2">PMT</mi><mi>k</mi></msub>' +
+          '<msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mi class="fx-v0">i</mi><mo>)</mo></mrow><mi>k</mi></msup></mfrac>' +
+          '</mrow></math>',
         descricao:
           'Quando a incógnita é a taxa, NÃO existe fórmula algébrica fechada para n > 4 (é uma equação polinomial de grau n — consequência do teorema de Abel-Ruffini). Toda calculadora financeira e o Excel resolvem por tentativa e erro estruturado: o método de Newton-Raphson parte de um chute inicial e refina a estimativa usando a derivada da função; se ele oscilar ou divergir, o motor troca para a bisseção, que estreita um intervalo onde a raiz certamente está. A taxa encontrada é aquela que faz o valor presente das parcelas bater exatamente com o valor financiado.',
         legenda: [
@@ -372,6 +412,14 @@ export function obterExplicacaoMatematica(
         return {
           titulo: 'Prazo (n) — Sistema Price',
           formula: 'n = − ln( 1 − PV × i / PMT ) / ln( 1 + i )',
+          formulaMathML:
+            '<math display="block"><mrow>' +
+            '<mi class="fx-v0">n</mi><mo>=</mo><mo>−</mo>' +
+            '<mfrac><mrow><mi>ln</mi><mo>(</mo><mn>1</mn><mo>−</mo>' +
+            '<mfrac><mrow><mi class="fx-v1">PV</mi><mo>·</mo><mi class="fx-v2">i</mi></mrow><mi class="fx-v3">PMT</mi></mfrac>' +
+            '<mo>)</mo></mrow>' +
+            '<mrow><mi>ln</mi><mo>(</mo><mn>1</mn><mo>+</mo><mi class="fx-v2">i</mi><mo>)</mo></mrow></mfrac>' +
+            '</mrow></math>',
           descricao:
             'Resolve a equação do Price para o número de períodos: "pagando PMT por mês a esta taxa, em quantos meses quito o financiamento?". O logaritmo aparece porque o prazo está no expoente da fórmula de juros compostos — para "descer" uma incógnita do expoente, aplica-se ln dos dois lados. Atenção à condição de existência: a parcela precisa ser MAIOR que os juros do primeiro mês (PV×i), senão a dívida nunca diminui.',
           legenda: [
@@ -415,6 +463,13 @@ export function obterExplicacaoMatematica(
         return {
           titulo: 'Prazo (n) — Sistema SAC',
           formula: 'n = PV / A    onde  A = PMT₁ − PV × i',
+          formulaMathML:
+            '<math display="block"><mrow>' +
+            '<mi class="fx-v0">n</mi><mo>=</mo><mfrac><mi class="fx-v1">PV</mi><mi class="fx-v2">A</mi></mfrac>' +
+            '<mspace width="1.2em"></mspace><mtext>com</mtext><mspace width="1.2em"></mspace>' +
+            '<mi class="fx-v2">A</mi><mo>=</mo><msub><mi>PMT</mi><mn>1</mn></msub><mo>−</mo>' +
+            '<mi class="fx-v1">PV</mi><mo>·</mo><mi>i</mi>' +
+            '</mrow></math>',
           descricao:
             'No SAC a conta é direta, sem logaritmos: a primeira parcela é amortização + juros do 1º mês. Deduzindo os juros (PV×i) da primeira parcela, sobra a cota de amortização constante A. Como toda parcela abate exatamente A do principal, o prazo é simplesmente quantas cotas A cabem no valor financiado.',
           legenda: [
@@ -454,6 +509,11 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Valor Líquido Liberado',
         formula: 'Líquido = Bruto − Tarifa de Abertura − IOF total',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Líquido</mtext><mo>=</mo><mtext class="fx-v1">Bruto</mtext><mo>−</mo>' +
+          '<mtext class="fx-v2">Tarifa</mtext><mo>−</mo><msub><mtext class="fx-v3">IOF</mtext><mtext>total</mtext></msub>' +
+          '</mrow></math>',
         descricao:
           'O valor que efetivamente cai na conta do cliente é o principal financiado MENOS os custos retidos na fonte: a tarifa de abertura de crédito (TAC, quando cobrada) e o IOF. É uma distinção fundamental: os JUROS incidem sobre o valor BRUTO, mas o cliente só recebe o LÍQUIDO — por isso o CET (custo efetivo) é sempre maior que a taxa de juros contratada. A Resolução CMN 4.881/2020 exige que o CET seja calculado justamente sobre o valor líquido liberado.',
         legenda: [
@@ -491,6 +551,12 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'IOF Total (Imposto sobre Operações Financeiras)',
         formula: 'IOF_total = IOF_diário + IOF_adicional',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<msub><mtext class="fx-v0">IOF</mtext><mtext>total</mtext></msub><mo>=</mo>' +
+          '<msub><mtext class="fx-v1">IOF</mtext><mtext>diário</mtext></msub><mo>+</mo>' +
+          '<msub><mtext class="fx-v2">IOF</mtext><mtext>adicional</mtext></msub>' +
+          '</mrow></math>',
         descricao:
           'O IOF sobre operações de crédito, regulamentado pelo Decreto 6.306/2007, tem DUAS componentes somadas: (1) o IOF diário, proporcional ao prazo — cada parcela de amortização paga a alíquota diária multiplicada pelos dias corridos entre a liberação e o seu vencimento, limitados a 365; e (2) o IOF adicional, uma alíquota fixa de 0,38% sobre o valor total liberado, independente do prazo. O imposto é retido na fonte: sai do valor liberado, não é somado às parcelas.',
         legenda: [
@@ -529,6 +595,13 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'IOF Diário Acumulado',
         formula: 'IOF_diário = Σ [ Amortização_k × alíquota_diária × min(dias_k, 365) ]',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<msub><mtext class="fx-v0">IOF</mtext><mtext>diário</mtext></msub><mo>=</mo>' +
+          '<munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover>' +
+          '<msub><mi class="fx-v1">A</mi><mi>k</mi></msub><mo>·</mo><mi class="fx-v2">α</mi><mo>·</mo>' +
+          '<mi>min</mi><mo>(</mo><msub><mi class="fx-v3">d</mi><mi>k</mi></msub><mo>,</mo><mn>365</mn><mo>)</mo>' +
+          '</mrow></math>',
         descricao:
           `Cada parcela do cronograma devolve uma fatia do principal (a amortização). O IOF diário tributa cada fatia proporcionalmente ao tempo que ela ficou emprestada: amortização × alíquota diária (${aliquota} ao dia para ${publicoPJ ? 'pessoa jurídica' : 'pessoa física'}) × dias corridos da liberação até o vencimento da parcela. O Decreto 6.306/2007 limita a contagem a 365 dias — parcelas que vencem após 1 ano pagam o teto, o que torna o IOF percentualmente menos relevante em prazos longos.`,
         legenda: [
@@ -568,6 +641,11 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'IOF Adicional Fixo (0,38%)',
         formula: 'IOF_adicional = PV × 0,0038',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<msub><mtext class="fx-v0">IOF</mtext><mtext>adicional</mtext></msub><mo>=</mo>' +
+          '<mi class="fx-v1">PV</mi><mo>·</mo><mn class="fx-v2">0,0038</mn>' +
+          '</mrow></math>',
         descricao:
           'Componente fixa do IOF criada pelo Decreto 6.306/2007 (art. 7º, § 15): 0,38% sobre o valor total da operação de crédito, cobrada uma única vez no ato da liberação, independentemente do prazo. Diferente do IOF diário, ela não cresce com o tempo — incide igualmente sobre uma operação de 1 mês ou de 5 anos.',
         legenda: [
@@ -598,6 +676,13 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Total Pago pelo Cliente',
         formula: 'Total Pago = Σ PMT_k = PV + Total de Juros',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Total</mtext><mo>=</mo>' +
+          '<munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover>' +
+          '<msub><mi>PMT</mi><mi>k</mi></msub><mo>=</mo>' +
+          '<mi class="fx-v1">PV</mi><mo>+</mo><mtext class="fx-v2">Juros</mtext>' +
+          '</mrow></math>',
         descricao:
           'Soma nominal de todas as prestações do cronograma. Como cada parcela é composta de amortização + juros, e a soma das amortizações fecha exatamente no principal, o total pago equivale ao valor financiado mais o total de juros. Atenção: é uma soma NOMINAL — não desconta o valor do dinheiro no tempo. Para comparar o custo real entre propostas, use o CET, não o total pago.',
         legenda: [
@@ -629,6 +714,12 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Total de Juros Acumulado',
         formula: 'Total Juros = Σ ( Saldo_(k−1) × i )',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Juros</mtext><mo>=</mo>' +
+          '<munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover>' +
+          '<msub><mi class="fx-v1">S</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>·</mo><mi class="fx-v2">i</mi>' +
+          '</mrow></math>',
         descricao:
           'Acumula os juros cobrados em todas as parcelas. Em ambos os sistemas (Price e SAC), os juros de cada mês são calculados aplicando a taxa sobre o SALDO DEVEDOR do início do período — nunca sobre o valor original. É por isso que amortizações antecipadas economizam juros: elas reduzem o saldo sobre o qual os juros futuros incidiriam.',
         legenda: [
@@ -662,6 +753,18 @@ export function obterExplicacaoMatematica(
       return {
         titulo: topico === 'cetMensal' ? 'CET Mensal (Custo Efetivo Total)' : 'CET Anual (Custo Efetivo Total)',
         formula: 'Líquido = Σ [ PMT_k / (1 + CET_anual)^(dias_k/365) ]    e    CET_mensal = (1 + CET_anual)^(1/12) − 1',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Líquido</mtext><mo>=</mo>' +
+          '<munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover>' +
+          '<mfrac><msub><mi class="fx-v1">PMT</mi><mi>k</mi></msub>' +
+          '<msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><msub><mtext class="fx-v4">CET</mtext><mtext>a</mtext></msub><mo>)</mo></mrow>' +
+          '<mfrac><msub><mi class="fx-v2">d</mi><mi>k</mi></msub><mn>365</mn></mfrac></msup></mfrac>' +
+          '<mspace width="1.2em"></mspace><mtext>e</mtext><mspace width="1.2em"></mspace>' +
+          '<msub><mtext class="fx-v3">CET</mtext><mtext>m</mtext></msub><mo>=</mo>' +
+          '<msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><msub><mtext class="fx-v4">CET</mtext><mtext>a</mtext></msub><mo>)</mo></mrow>' +
+          '<mfrac><mn>1</mn><mn>12</mn></mfrac></msup><mo>−</mo><mn>1</mn>' +
+          '</mrow></math>',
         descricao:
           'O CET é a medida OFICIAL do custo de um crédito no Brasil, exigida pela Resolução CMN 4.881/2020. Ele responde: "considerando TUDO que pago (parcelas) e o que de fato recebi (líquido, já descontados IOF e tarifas), qual taxa única resume esta operação?". Tecnicamente é a Taxa Interna de Retorno (TIR) do fluxo de caixa, com uma regra de contagem específica do BACEN: o prazo de cada pagamento entra como dias corridos divididos por 365. Como o CET incorpora tributos e tarifas, ele é SEMPRE maior ou igual à taxa de juros contratada — é o número certo para comparar propostas de bancos diferentes.',
         legenda: [
@@ -709,6 +812,11 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Prazo Final Pós-Eventos',
         formula: 'Prazo final = nº da parcela em que o saldo devedor chega a zero',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Prazo final</mtext><mo>=</mo><mi>min</mi>' +
+          '<mo>{</mo><mi>k</mi><mo>:</mo><msub><mi>S</mi><mi>k</mi></msub><mo>=</mo><mn>0</mn><mo>}</mo>' +
+          '</mrow></math>',
         descricao:
           'Quando o cliente faz amortizações extraordinárias com a opção "reduzir prazo", o valor da parcela é mantido e o cronograma simplesmente acaba mais cedo: o aporte abate o saldo devedor, e o motor reprojeta o cronograma até detectar a parcela em que o saldo zera. Pelo CDC (art. 52, § 2º), a liquidação antecipada total ou parcial é um DIREITO do consumidor, com redução proporcional dos juros — o banco não pode cobrar os juros "futuros" das parcelas eliminadas.',
         legenda: [
@@ -742,6 +850,12 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Economia de Juros Obtida',
         formula: 'Economia = Juros_do_cronograma_original − Juros_do_cronograma_com_eventos',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Economia</mtext><mo>=</mo>' +
+          '<msub><mtext class="fx-v1">Juros</mtext><mtext>original</mtext></msub><mo>−</mo>' +
+          '<msub><mtext class="fx-v2">Juros</mtext><mtext>eventos</mtext></msub>' +
+          '</mrow></math>',
         descricao:
           'Mede quanto o cliente deixou de pagar em juros graças às amortizações extras e antecipações. O mecanismo: juros são sempre calculados sobre o saldo devedor; cada real amortizado antecipadamente para de render juros para o banco em todos os meses seguintes. Por isso, quanto MAIS CEDO o aporte, maior a economia — o mesmo valor amortizado na parcela 2 economiza mais do que na parcela 10.',
         legenda: [
@@ -774,6 +888,11 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Amortizações Extras Totais',
         formula: 'Amortizações Extras = Σ aportes voluntários de principal',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Extras</mtext><mo>=</mo>' +
+          '<mo>∑</mo><mtext>aportes de principal fora das parcelas</mtext>' +
+          '</mrow></math>',
         descricao:
           'Acumula todo o principal pago FORA das parcelas regulares: amortizações avulsas, antecipações de parcelas (pelo valor presente) e quitação antecipada. Importante: na antecipação de parcelas, o cliente NÃO paga o valor nominal das parcelas futuras — paga o valor presente delas, descontado pela taxa do contrato (os juros embutidos são abatidos), conforme a Resolução CMN 3.516/2007.',
         legenda: [
@@ -805,6 +924,13 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Mora e Multas de Atraso Acumuladas',
         formula: 'Encargos = Σ [ Parcela × multa ] + Σ [ Parcela × i_mora × (dias_atraso / 30) ]',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Encargos</mtext><mo>=</mo>' +
+          '<mi>P</mi><mo>·</mo><mtext class="fx-v1">multa</mtext><mo>+</mo>' +
+          '<mi>P</mi><mo>·</mo><msub><mi class="fx-v2">i</mi><mtext>mora</mtext></msub><mo>·</mo>' +
+          '<mfrac><mtext>dias</mtext><mn>30</mn></mfrac>' +
+          '</mrow></math>',
         descricao:
           'Quando uma parcela é paga com atraso, incidem dois encargos sobre o valor da prestação vencida: a MULTA moratória, percentual fixo cobrado uma única vez (limitada a 2% pelo CDC art. 52, § 1º), e os JUROS DE MORA, proporcionais ao tempo de atraso — a taxa mensal é convertida pro-rata pelos dias (dias/30). Os encargos não alteram o saldo devedor: são uma penalidade somada à parcela em atraso.',
         legenda: [
@@ -842,6 +968,13 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'Total Pago Pós-Eventos',
         formula: 'Total Pago = Σ parcelas reprojetadas + amortizações extras + encargos de mora',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext class="fx-v0">Total</mtext><mo>=</mo>' +
+          '<mo>∑</mo><mtext>parcelas</mtext><mo>+</mo>' +
+          '<mo>∑</mo><mtext>extras</mtext><mo>+</mo>' +
+          '<mo>∑</mo><mtext>mora</mtext>' +
+          '</mrow></math>',
         descricao:
           'Soma TODAS as saídas de caixa do cliente no cronograma com eventos: as parcelas regulares (possivelmente recalculadas pelos eventos), os aportes extraordinários de amortização e as penalidades por atraso. Compare com o "Total Pago" da simulação base para ver o efeito líquido dos eventos no desembolso total.',
         legenda: [
@@ -870,6 +1003,14 @@ export function obterExplicacaoMatematica(
       return {
         titulo: 'CET Mensal Pós-Eventos (fluxo realizado)',
         formula: 'Resolver a TIR do fluxo de caixa REAL:  Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<mtext>Liberado</mtext><mo>=</mo>' +
+          '<mo>∑</mo>' +
+          '<mfrac><msub><mtext>pagamento</mtext><mi>k</mi></msub>' +
+          '<msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo><mtext class="fx-v0">CET</mtext><mo>)</mo></mrow>' +
+          '<mfrac><msub><mi>d</mi><mi>k</mi></msub><mn>365</mn></mfrac></msup></mfrac>' +
+          '</mrow></math>',
         descricao:
           'Recalcula o Custo Efetivo Total considerando o que de fato aconteceu: parcelas pagas, amortizações extras nas suas datas reais, antecipações e encargos de mora. É o "CET realizado" da operação, em contraste com o CET contratado da simulação base. Usa a mesma convenção regulatória do BACEN (dias corridos / 365). Amortizações antecipadas tendem a manter o CET próximo à taxa contratual; atrasos com mora o elevam.',
         legenda: [

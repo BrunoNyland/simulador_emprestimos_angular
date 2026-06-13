@@ -26,6 +26,14 @@
   --thead-bg: #e3e6eb;
   --header-bg: #ffffff;
 
+  /* Cores das variáveis nas fórmulas (legenda <-> MathML) */
+  --fx-0: #6d44d9;
+  --fx-1: #15824a;
+  --fx-2: #b35c00;
+  --fx-3: #0c697f;
+  --fx-4: #b3186d;
+  --fx-5: #7a5c00;
+
   --shadow-sm: 0 1px 2px rgba(20, 24, 33, 0.06);
   --shadow-md: 0 4px 14px rgba(20, 24, 33, 0.08);
   --radius: 2px;
@@ -60,6 +68,14 @@
   --row-hover: #343746;
   --thead-bg: #21222c;
   --header-bg: #21222c;
+
+  /* Cores das variáveis nas fórmulas (Dracula) */
+  --fx-0: #bd93f9;
+  --fx-1: #50fa7b;
+  --fx-2: #ffb86c;
+  --fx-3: #8be9fd;
+  --fx-4: #ff79c6;
+  --fx-5: #f1fa8c;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
@@ -101,6 +117,39 @@ html.lenis body {
 /* Com um <dialog> modal aberto, trava a rolagem da pagina ao fundo. */
 html:has(dialog[open]) {
   overflow: hidden;
+}
+
+/* ===== Fórmulas MathML (conteúdo via innerHTML, fora do encapsulamento) ===== */
+/* Cada variável recebe a mesma cor na fórmula e na tabela de legenda. */
+.fx-v0 { color: var(--fx-0); }
+.fx-v1 { color: var(--fx-1); }
+.fx-v2 { color: var(--fx-2); }
+.fx-v3 { color: var(--fx-3); }
+.fx-v4 { color: var(--fx-4); }
+.fx-v5 { color: var(--fx-5); }
+
+/*
+ * Quando a classe de cor está no BASE de um sub/sobrescrito (ex.: IOF em
+ * IOF_total), o índice é um irmão e ficaria sem cor. Coloramos o wrapper
+ * inteiro para o sub/sobrescrito herdar a mesma cor do nome da variável.
+ */
+@each $i in (0, 1, 2, 3, 4, 5) {
+  .demo-formula :is(msub, msup, msubsup):has(> .fx-v#{$i}) {
+    color: var(--fx-#{$i});
+  }
+}
+
+.demo-formula math {
+  font-size: 1.15rem;
+  font-family: 'Latin Modern Math', 'STIX Two Math', 'Cambria Math', serif;
+
+  mi, mn, mo, mtext {
+    font-weight: 600;
+  }
+
+  mi[class^='fx-v'] {
+    font-weight: 700;
+  }
 }
 
 /* ===== Header (nao fixo) ===== */

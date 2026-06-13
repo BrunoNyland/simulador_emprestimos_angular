@@ -28,7 +28,8 @@
       <p class="demo-texto">{{ exp.descricao }}</p>
 
       <div class="demo-sub">Fórmula Aplicada</div>
-      <div class="demo-formula">{{ exp.formula }}</div>
+      <div class="demo-formula" [innerHTML]="formulaSegura()"></div>
+      <p class="demo-formula-ascii">{{ exp.formula }}</p>
 
       <div class="demo-sub">Valores e Legenda</div>
       <div class="tabela-wrap">
@@ -41,9 +42,9 @@
             </tr>
           </thead>
           <tbody>
-            @for (item of exp.legenda; track item.simbolo) {
+            @for (item of exp.legenda; track item.simbolo; let i = $index) {
               <tr>
-                <td class="simbolo">{{ item.simbolo }}</td>
+                <td class="simbolo" [class]="'fx-v' + (i % 6)">{{ item.simbolo }}</td>
                 <td>{{ item.nome }}</td>
                 <td class="valor">{{ item.valor }}</td>
               </tr>

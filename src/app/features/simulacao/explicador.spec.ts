@@ -95,6 +95,44 @@ describe('explicador', () => {
     }
   });
 
+  it('todos os topicos (base e pos-eventos, Price e SAC) entregam MathML valido', () => {
+    const dadosEventos = {
+      ...dadosBase,
+      resumo: {
+        prazoFinal: 10,
+        economiaJuros: '120.00',
+        amortizacoesExtras: '500.00',
+        totalEncargos: '18.91',
+      },
+      totaisOriginal: dadosBase.totais,
+    };
+    const topicos = [
+      'parcela', 'valorBruto', 'taxa', 'prazo', 'valorLiquido',
+      'iof', 'iofDiario', 'iofAdicional', 'totalPago', 'totalJuros', 'cetMensal', 'cetAnual',
+      'prazoFinal', 'economiaJuros', 'amortizacoesExtras', 'moraEncargos', 'totalPagoPos', 'cetMensalPos',
+    ];
+    for (const sistema of ['price', 'sac'] as const) {
+      for (const t of topicos) {
+        const exp = obterExplicacaoMatematica(t, dadosEventos, sistema, 'half-even');
+        expect(exp, `${t}/${sistema}`).not.toBeNull();
+        // MathML presente e balanceado
+        expect(exp!.formulaMathML, `mathml de ${t}/${sistema}`).toContain('<math');
+        expect(exp!.formulaMathML).toContain('</math>');
+        const abre = (exp!.formulaMathML.match(/<math/g) || []).length;
+        const fecha = (exp!.formulaMathML.match(/<\/math>/g) || []).length;
+        expect(abre, `tags math balanceadas em ${t}/${sistema}`).toBe(fecha);
+      }
+    }
+  });
+
+  it('cada variavel da legenda tem cor correspondente (classe fx-v{i}) na formula MathML', () => {
+    // a UI colore a legenda por indice; a formula deve referenciar as mesmas classes
+    const exp = obterExplicacaoMatematica('parcela', dadosBase, 'price', 'half-even');
+    for (let i = 0; i < exp!.legenda.length; i++) {
+      expect(exp!.formulaMathML, `fx-v${i} presente`).toContain(`fx-v${i}`);
+    }
+  });
+
   it('HP12C da parcela Price usa os registradores financeiros (PV, i, n, PMT)', () => {
     const exp = obterExplicacaoMatematica('parcela', dadosBase, 'price', 'half-even');
     const teclas = exp!.hp12c.join(' ');
