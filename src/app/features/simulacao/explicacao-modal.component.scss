@@ -200,6 +200,9 @@
   gap: 0.25rem;
 
   li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     font-family: var(--mono);
     font-size: 0.74rem;
     line-height: 1.4;
@@ -207,7 +210,13 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 0.3rem 0.5rem;
+  }
+
+  .dc-texto {
+    flex: 1;
     overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 }
 
@@ -217,6 +226,133 @@
 
 .demo-calculadora--excel li {
   border-left: 4px solid var(--ok, #2e7d32);
+}
+
+.dc-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0.15rem 0.4rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+}
+
+/* ===== Mini-cronograma (suggestion 4) ===== */
+.demo-mini-cronograma {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  margin-bottom: 0.35rem;
+
+  th,
+  td {
+    padding: 0.22rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+  }
+  th {
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: right;
+  }
+  th:first-child,
+  td.mc-num {
+    text-align: center;
+  }
+  td.mc-juros {
+    color: var(--danger);
+  }
+  td.mc-amort {
+    color: var(--accent);
+  }
+  td.mc-forte {
+    font-weight: 700;
+    color: var(--text);
+  }
+  tr.mc-reticencias td {
+    text-align: center;
+    color: var(--text-muted);
+    border-bottom: none;
+  }
+}
+
+.demo-mini-nota {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  margin: 0 0 0.6rem;
+}
+
+/* ===== Glossário (suggestion 5) ===== */
+.demo-glossario {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.6rem;
+
+  details {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.3rem 0.5rem;
+  }
+
+  summary {
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  p {
+    margin: 0.35rem 0 0;
+    font-size: 0.74rem;
+    line-height: 1.45;
+    color: var(--text);
+  }
+}
+
+/* ===== Links cruzados "Veja também" (suggestion 5) ===== */
+.demo-relacionados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.demo-rel-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+    border-color: var(--primary);
+  }
 }
 
 .demo-normas {

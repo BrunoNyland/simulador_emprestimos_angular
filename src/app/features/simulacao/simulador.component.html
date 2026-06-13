@@ -543,7 +543,11 @@
 
 @let exp = explicacao();
 @if (exp) {
-  <app-explicacao-modal [explicacao]="exp" (fechar)="fecharExplicacao()" />
+  <app-explicacao-modal
+    [explicacao]="exp"
+    (fechar)="fecharExplicacao()"
+    (navegar)="selecionarExplicacao($event)"
+  />
 }
 
 <p class="disclaimer">Simulação meramente informativa — não constitui oferta de crédito.</p>

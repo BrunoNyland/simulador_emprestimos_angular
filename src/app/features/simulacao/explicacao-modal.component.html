@@ -24,7 +24,7 @@
       </button>
     </header>
 
-    <div class="modal-corpo">
+    <div #corpo class="modal-corpo">
       <p class="demo-texto">{{ exp.descricao }}</p>
 
       <div class="demo-sub">Fórmula Aplicada</div>
@@ -60,6 +60,40 @@
         }
       </ul>
 
+      @if (exp.demonstracaoCronograma; as demo) {
+        <div class="demo-sub">{{ demo.titulo }}</div>
+        <div class="tabela-wrap">
+          <table class="demo-mini-cronograma">
+            <thead>
+              <tr>
+                <th>Parc.</th>
+                <th>Saldo inicial</th>
+                <th>Juros</th>
+                <th>Amortização</th>
+                <th>Parcela</th>
+                <th>Saldo final</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of demo.linhas; track l.parcela) {
+                <tr>
+                  <td class="mc-num">{{ l.parcela }}</td>
+                  <td>{{ l.saldoInicial }}</td>
+                  <td class="mc-juros">{{ l.juros }}</td>
+                  <td class="mc-amort">{{ l.amortizacao }}</td>
+                  <td class="mc-forte">{{ l.valorParcela }}</td>
+                  <td>{{ l.saldoFinal }}</td>
+                </tr>
+              }
+              <tr class="mc-reticencias">
+                <td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td><td>⋮</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="demo-mini-nota">{{ demo.nota }}</p>
+      }
+
       @if (exp.hp12c.length > 0) {
         <div class="demo-sub">Como Calcular na HP12C</div>
         <ul class="demo-calculadora demo-calculadora--hp">
@@ -73,7 +107,31 @@
         <div class="demo-sub">Como Calcular no Excel</div>
         <ul class="demo-calculadora demo-calculadora--excel">
           @for (linha of exp.excel; track $index) {
-            <li>{{ linha }}</li>
+            <li>
+              <span class="dc-texto">{{ linha }}</span>
+              @if (ehFormula(linha)) {
+                <button
+                  type="button"
+                  class="dc-copiar"
+                  (click)="copiarFormula(linha, $index)"
+                  [attr.aria-label]="'Copiar fórmula'"
+                  title="Copiar fórmula"
+                >
+                  @if (copiadoIdx() === $index) {
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 6 9 17l-5-5"></path>
+                    </svg>
+                    copiado
+                  } @else {
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    copiar
+                  }
+                </button>
+              }
+            </li>
           }
         </ul>
       }
@@ -95,6 +153,33 @@
             </li>
           }
         </ul>
+      }
+
+      @if (exp.glossario && exp.glossario.length > 0) {
+        <div class="demo-sub">Glossário</div>
+        <div class="demo-glossario">
+          @for (g of exp.glossario; track g.termo) {
+            <details>
+              <summary>{{ g.termo }}</summary>
+              <p>{{ g.definicao }}</p>
+            </details>
+          }
+        </div>
+      }
+
+      @if (exp.relacionados && exp.relacionados.length > 0) {
+        <div class="demo-sub">Veja Também</div>
+        <div class="demo-relacionados">
+          @for (rel of exp.relacionados; track rel.topico) {
+            <button type="button" class="demo-rel-link" (click)="navegar.emit(rel.topico)">
+              {{ rel.rotulo }}
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"></path>
+                <path d="m12 5 7 7-7 7"></path>
+              </svg>
+            </button>
+          }
+        </div>
       }
     </div>
   </div>

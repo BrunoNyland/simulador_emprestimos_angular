@@ -9,6 +9,35 @@ export interface ReferenciaNormativa {
   url: string;
 }
 
+/** Linha de uma mini-demonstração de cronograma (saldo → juros → amortização). */
+export interface PassoCronograma {
+  parcela: string;
+  saldoInicial: string;
+  juros: string;
+  amortizacao: string;
+  valorParcela: string;
+  saldoFinal: string;
+}
+
+/** Mini-cronograma que "constrói" as primeiras parcelas linha a linha. */
+export interface DemonstracaoCronograma {
+  titulo: string;
+  nota: string;
+  linhas: PassoCronograma[];
+}
+
+/** Termo de glossário expansível (didático). */
+export interface ItemGlossario {
+  termo: string;
+  definicao: string;
+}
+
+/** Link cruzado para outra explicação relacionada. */
+export interface LinkRelacionado {
+  topico: string;
+  rotulo: string;
+}
+
 export interface Explicacao {
   titulo: string;
   formula: string;
@@ -27,6 +56,12 @@ export interface Explicacao {
   excel: string[];
   /** Base legal e normativa aplicável ao cálculo. */
   normas: ReferenciaNormativa[];
+  /** Mini-cronograma "máquina funcionando" (só onde faz sentido: parcela). */
+  demonstracaoCronograma?: DemonstracaoCronograma;
+  /** Glossário dos termos-chave do tópico (preenchido pelo wrapper). */
+  glossario?: ItemGlossario[];
+  /** Links para explicações relacionadas (preenchido pelo wrapper). */
+  relacionados?: LinkRelacionado[];
 }
 
 // ---------------------------------------------------------------------------
@@ -120,8 +155,199 @@ function fmtNum(v: Decimal | number, dec = 2): string {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false });
 }
 
-/** Retorna a explicação detalhada do cálculo de um campo com valores dinâmicos */
+/** Arredonda para 2 casas (half-even, como o motor) sem importar do engine. */
+function r2(v: Decimal): Decimal {
+  return v.toDecimalPlaces(2);
+}
+
+/**
+ * Constrói as 3 primeiras linhas do cronograma, mostrando a "máquina
+ * funcionando": saldo → juros → amortização → novo saldo (CALC_REF 2 e 3).
+ */
+function demonstracaoLinhas(
+  pv: Decimal,
+  i: Decimal,
+  n: number,
+  sistema: SistemaAmortizacao,
+  pmt: Decimal,
+): DemonstracaoCronograma {
+  const linhas: PassoCronograma[] = [];
+  const amortConst = r2(pv.div(n));
+  let saldo = pv;
+  const total = Math.min(3, n);
+  for (let k = 1; k <= total; k++) {
+    const saldoInicial = saldo;
+    const juros = r2(saldoInicial.times(i));
+    const amort = sistema === 'price' ? r2(pmt.minus(juros)) : amortConst;
+    const parcela = sistema === 'price' ? pmt : r2(amort.plus(juros));
+    saldo = saldoInicial.minus(amort);
+    linhas.push({
+      parcela: String(k),
+      saldoInicial: fmtBRL(saldoInicial),
+      juros: fmtBRL(juros),
+      amortizacao: fmtBRL(amort),
+      valorParcela: fmtBRL(parcela),
+      saldoFinal: fmtBRL(saldo),
+    });
+  }
+  const nota =
+    sistema === 'price'
+      ? `A parcela fica fixa em ${fmtBRL(pmt)}: repare que os juros caem a cada mês (incidem sobre o saldo) e a amortização cresce na mesma medida. As ${Math.max(0, n - 3)} parcelas restantes seguem o mesmo padrão até o saldo zerar.`
+      : `A amortização fica fixa em ${fmtBRL(amortConst)}: os juros caem a cada mês porque o saldo diminui, então a parcela decresce. As ${Math.max(0, n - 3)} parcelas restantes seguem o mesmo padrão.`;
+  return { titulo: 'Vendo a máquina funcionar (primeiras parcelas)', nota, linhas };
+}
+
+// ---------------------------------------------------------------------------
+// Glossário: banco de termos reaproveitado entre tópicos.
+// ---------------------------------------------------------------------------
+
+const G = {
+  vp: {
+    termo: 'Valor Presente (VP)',
+    definicao:
+      'Quanto vale HOJE um pagamento futuro. Como o dinheiro rende juros, R$ 100 daqui a um ano valem menos que R$ 100 hoje. "Trazer a valor presente" é dividir o valor futuro por (1 + i) elevado ao número de períodos.',
+  },
+  tir: {
+    termo: 'TIR — Taxa Interna de Retorno',
+    definicao:
+      'A taxa que faz o valor presente de todas as entradas e saídas de um fluxo de caixa se anular (somar zero). No crédito, é a taxa que iguala o que você recebeu ao que vai pagar — é assim que o CET é calculado.',
+  },
+  jurosCompostos: {
+    termo: 'Juros compostos',
+    definicao:
+      'Juros que incidem sobre o saldo devedor atualizado (principal + juros já acumulados), não apenas sobre o valor original. É o regime usado em financiamentos no Brasil; por isso a fórmula da parcela tem o expoente (1 + i)^n.',
+  },
+  amortizacao: {
+    termo: 'Amortização',
+    definicao:
+      'A parte da parcela que efetivamente abate o saldo devedor (o principal). O restante da parcela é juros. A soma de todas as amortizações é igual ao valor financiado.',
+  },
+  saldoDevedor: {
+    termo: 'Saldo devedor',
+    definicao:
+      'O quanto ainda falta pagar do principal em determinado momento. Os juros de cada mês são calculados sobre ele, então quanto mais rápido ele cai, menos juros se paga no total.',
+  },
+  cet: {
+    termo: 'CET — Custo Efetivo Total',
+    definicao:
+      'A taxa que resume TODO o custo do crédito (juros + IOF + tarifas), expressa ao mês e ao ano. É o número oficial exigido pelo BACEN para comparar propostas — sempre maior ou igual à taxa de juros nominal.',
+  },
+  iof: {
+    termo: 'IOF',
+    definicao:
+      'Imposto sobre Operações Financeiras. No crédito tem duas partes: uma diária, proporcional ao prazo de cada parcela (com teto de 365 dias), e uma adicional fixa de 0,38% sobre o valor liberado.',
+  },
+  proRata: {
+    termo: 'Pro-rata',
+    definicao:
+      'Cálculo proporcional ao tempo decorrido. Ex.: juros de mora "pro-rata dia" cobram a fração da taxa mensal correspondente aos dias de atraso (dias ÷ 30).',
+  },
+  halfEven: {
+    termo: 'Arredondamento bancário (half-even)',
+    definicao:
+      'Quando o valor cai exatamente no meio (ex.: 2,345), arredonda para o dígito PAR mais próximo. Evita o viés de sempre subir, mantendo somas longas equilibradas.',
+  },
+  mora: {
+    termo: 'Mora',
+    definicao:
+      'O atraso no pagamento. Gera dois encargos sobre a parcela vencida: a multa (percentual fixo, limitado a 2% pelo CDC) e os juros de mora (proporcionais aos dias de atraso).',
+  },
+} as const;
+
+const GLOSSARIO_POR_TOPICO: Record<string, ItemGlossario[]> = {
+  parcela: [G.jurosCompostos, G.amortizacao, G.saldoDevedor, G.vp, G.halfEven],
+  valorBruto: [G.vp, G.jurosCompostos, G.amortizacao],
+  taxa: [G.tir, G.jurosCompostos, G.vp],
+  prazo: [G.jurosCompostos, G.saldoDevedor, G.amortizacao],
+  valorLiquido: [G.cet, G.iof],
+  iof: [G.iof, G.amortizacao],
+  iofDiario: [G.iof, G.amortizacao],
+  iofAdicional: [G.iof],
+  totalPago: [G.amortizacao, G.saldoDevedor],
+  totalJuros: [G.saldoDevedor, G.jurosCompostos],
+  cetMensal: [G.cet, G.tir, G.vp],
+  cetAnual: [G.cet, G.tir, G.vp],
+  prazoFinal: [G.saldoDevedor, G.amortizacao],
+  economiaJuros: [G.saldoDevedor, G.jurosCompostos],
+  amortizacoesExtras: [G.vp, G.amortizacao],
+  moraEncargos: [G.mora, G.proRata],
+  totalPagoPos: [G.amortizacao, G.saldoDevedor],
+  cetMensalPos: [G.cet, G.tir],
+};
+
+const RELACIONADOS_POR_TOPICO: Record<string, LinkRelacionado[]> = {
+  parcela: [
+    { topico: 'totalJuros', rotulo: 'Total de juros' },
+    { topico: 'cetMensal', rotulo: 'CET mensal' },
+  ],
+  valorBruto: [
+    { topico: 'parcela', rotulo: 'Parcela (PMT)' },
+    { topico: 'valorLiquido', rotulo: 'Valor líquido' },
+  ],
+  taxa: [
+    { topico: 'parcela', rotulo: 'Parcela (PMT)' },
+    { topico: 'cetMensal', rotulo: 'CET mensal' },
+  ],
+  prazo: [{ topico: 'parcela', rotulo: 'Parcela (PMT)' }],
+  valorLiquido: [
+    { topico: 'iof', rotulo: 'IOF total' },
+    { topico: 'cetMensal', rotulo: 'CET mensal' },
+  ],
+  iof: [
+    { topico: 'iofDiario', rotulo: 'IOF diário' },
+    { topico: 'iofAdicional', rotulo: 'IOF adicional' },
+    { topico: 'valorLiquido', rotulo: 'Valor líquido' },
+  ],
+  iofDiario: [
+    { topico: 'iof', rotulo: 'IOF total' },
+    { topico: 'iofAdicional', rotulo: 'IOF adicional' },
+  ],
+  iofAdicional: [
+    { topico: 'iof', rotulo: 'IOF total' },
+    { topico: 'iofDiario', rotulo: 'IOF diário' },
+  ],
+  totalPago: [
+    { topico: 'totalJuros', rotulo: 'Total de juros' },
+    { topico: 'parcela', rotulo: 'Parcela (PMT)' },
+  ],
+  totalJuros: [
+    { topico: 'totalPago', rotulo: 'Total pago' },
+    { topico: 'parcela', rotulo: 'Parcela (PMT)' },
+  ],
+  cetMensal: [
+    { topico: 'valorLiquido', rotulo: 'Valor líquido' },
+    { topico: 'cetAnual', rotulo: 'CET anual' },
+  ],
+  cetAnual: [
+    { topico: 'cetMensal', rotulo: 'CET mensal' },
+    { topico: 'valorLiquido', rotulo: 'Valor líquido' },
+  ],
+  prazoFinal: [{ topico: 'parcela', rotulo: 'Parcela (PMT)' }],
+  economiaJuros: [{ topico: 'totalJuros', rotulo: 'Total de juros' }],
+  amortizacoesExtras: [{ topico: 'cetMensal', rotulo: 'CET mensal' }],
+  moraEncargos: [{ topico: 'totalPago', rotulo: 'Total pago' }],
+  totalPagoPos: [{ topico: 'totalPago', rotulo: 'Total pago (base)' }],
+  cetMensalPos: [{ topico: 'cetMensal', rotulo: 'CET mensal (base)' }],
+};
+
+/**
+ * Retorna a explicação detalhada de um campo, com fórmula, passos, instruções
+ * de HP12C/Excel, base legal e — pelo wrapper — glossário e links cruzados.
+ */
 export function obterExplicacaoMatematica(
+  topico: string,
+  dados: any,
+  sistema: SistemaAmortizacao,
+  arredondamento: 'half-even' | 'half-up'
+): Explicacao | null {
+  const exp = construirExplicacao(topico, dados, sistema, arredondamento);
+  if (!exp) return null;
+  exp.glossario = GLOSSARIO_POR_TOPICO[topico] ?? [];
+  exp.relacionados = RELACIONADOS_POR_TOPICO[topico] ?? [];
+  return exp;
+}
+
+function construirExplicacao(
   topico: string,
   dados: any,
   sistema: SistemaAmortizacao,
@@ -202,6 +428,10 @@ export function obterExplicacaoMatematica(
             NOTA_EXCEL_REGIONAL,
           ],
           normas: [NORMA_CDC_TRANSPARENCIA, NORMA_LEI_4595],
+          demonstracaoCronograma:
+            n >= 1 && pv.greaterThan(0)
+              ? demonstracaoLinhas(pv, iMensal, n, 'price', new Decimal(dados.parcelaCalculada || pmtCalculado))
+              : undefined,
         };
       } else {
         // SAC
@@ -256,6 +486,10 @@ export function obterExplicacaoMatematica(
             NOTA_EXCEL_REGIONAL,
           ],
           normas: [NORMA_CDC_TRANSPARENCIA, NORMA_LEI_4595],
+          demonstracaoCronograma:
+            n >= 1 && pv.greaterThan(0)
+              ? demonstracaoLinhas(pv, iMensal, n, 'sac', pmt1)
+              : undefined,
         };
       }
     }
