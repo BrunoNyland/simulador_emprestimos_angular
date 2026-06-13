@@ -20,16 +20,16 @@
         </select>
       </label>
 
-      <label [class.alvo]="store.travado('valorBruto')">
+      <label [class.alvo]="store.campoAlvo() === 'valorBruto'">
         <span>Valor bruto (R$)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites.valorMaximo" formControlName="valorBruto" />
+        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorBruto" />
       </label>
 
-      <label [class.alvo]="store.travado('taxa')">
+      <label [class.alvo]="store.campoAlvo() === 'taxa'">
         <span>
           Taxa ({{ form.controls.unidadeTaxa.value === 'mensal' ? '% a.m.' : '% a.a.' }})
         </span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites.taxaMaximaPct" formControlName="taxa" />
+        <input type="text" inputmode="decimal" appMoeda [max]="limites().taxaMaximaPct" formControlName="taxa" />
       </label>
 
       <label>
@@ -51,17 +51,17 @@
         </select>
       </label>
 
-      <label [class.alvo]="store.travado('prazo')">
+      <label [class.alvo]="store.campoAlvo() === 'prazo'">
         <span>Prazo (meses)</span>
-        <input type="number" formControlName="prazo" min="1" step="1" [max]="limites.prazoMaximo" />
+        <input type="number" formControlName="prazo" min="1" step="1" [max]="limites().prazoMaximo" />
       </label>
 
-      <label [class.alvo]="store.travado('parcela')">
+      <label [class.alvo]="store.campoAlvo() === 'parcela'">
         <span>
           Parcela (R$)
           @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela</em>}
         </span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites.valorMaximo" formControlName="parcela" />
+        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="parcela" />
       </label>
 
       <label>
@@ -99,7 +99,7 @@
       </label>
       <label>
         <span>Tarifa de abertura (R$)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites.valorMaximo" formControlName="tarifaAbertura" />
+        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="tarifaAbertura" />
       </label>
     </div>
 
@@ -107,11 +107,11 @@
     <div class="grid">
       <label>
         <span>Juros de mora (% a.m.)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="moraJurosMensalMax" formControlName="moraJurosMensal" />
+        <input type="text" inputmode="decimal" appMoeda [max]="moraJurosMensalMax()" formControlName="moraJurosMensal" />
       </label>
       <label>
         <span>Multa por atraso (%)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="moraMultaMax" formControlName="moraMulta" />
+        <input type="text" inputmode="decimal" appMoeda [max]="moraMultaMax()" formControlName="moraMulta" />
       </label>
     </div>
   </form>
@@ -140,7 +140,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'valorLiquido'" (click)="selecionarExplicacao('valorLiquido')">
       <span class="rotulo">
@@ -151,7 +151,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.valorLiquido | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.valorLiquido | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'iof'" (click)="selecionarExplicacao('iof')">
       <span class="rotulo">
@@ -162,7 +162,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.iof | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.iof | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'totalPago'" (click)="selecionarExplicacao('totalPago')">
       <span class="rotulo">
@@ -173,7 +173,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'totalJuros'" (click)="selecionarExplicacao('totalJuros')">
       <span class="rotulo">
@@ -184,7 +184,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'cetMensal'" (click)="selecionarExplicacao('cetMensal')">
       <span class="rotulo">
@@ -195,7 +195,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.cetMensal | percent: formatoCetMensal }}</strong>
+      <strong>{{ +res.dados.cetMensal | percent: formatoCetMensal() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'cetAnual'" (click)="selecionarExplicacao('cetAnual')">
       <span class="rotulo">
@@ -206,7 +206,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.cetAnual | percent: formatoCetAnual }}</strong>
+      <strong>{{ +res.dados.cetAnual | percent: formatoCetAnual() }}</strong>
     </div>
   </div>
 </app-secao>
@@ -223,7 +223,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.memoriaCalculo.iofDiario | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.memoriaCalculo.iofDiario | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'iofAdicional'" (click)="selecionarExplicacao('iofAdicional')">
       <span class="rotulo">
@@ -234,7 +234,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.memoriaCalculo.iofAdicional | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +res.dados.memoriaCalculo.iofAdicional | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card">
       <span class="rotulo">Engine version</span>
@@ -266,22 +266,22 @@
         @for (p of res.dados.parcelas; track p.numero) {
         <tr>
           <td>{{ p.numero }}</td>
-          <td>{{ formatarData(p.dataVencimento) }}</td>
-          <td>{{ +p.saldoInicial | number:formatoMoeda }}</td>
-          <td>{{ +p.juros | number:formatoMoeda }}</td>
-          <td>{{ +p.amortizacao | number:formatoMoeda }}</td>
-          <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda }}</td>
-          <td>{{ +p.saldoFinal | number:formatoMoeda }}</td>
-          <td>{{ p.residuo ? (+p.residuo | number:formatoMoeda) : '' }}</td>
+          <td>{{ p.dataVencimento | dataBr }}</td>
+          <td>{{ +p.saldoInicial | number:formatoMoeda() }}</td>
+          <td>{{ +p.juros | number:formatoMoeda() }}</td>
+          <td>{{ +p.amortizacao | number:formatoMoeda() }}</td>
+          <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda() }}</td>
+          <td>{{ +p.saldoFinal | number:formatoMoeda() }}</td>
+          <td>{{ p.residuo ? (+p.residuo | number:formatoMoeda()) : '' }}</td>
         </tr>
         }
       </tbody>
       <tfoot>
         <tr>
           <td colspan="3">Totais</td>
-          <td>{{ +res.dados.totais.totalJuros | number:formatoMoeda }}</td>
-          <td>{{ +res.dados.totais.totalAmortizacao | number:formatoMoeda }}</td>
-          <td>{{ +res.dados.totais.totalParcelas | number:formatoMoeda }}</td>
+          <td>{{ +res.dados.totais.totalJuros | number:formatoMoeda() }}</td>
+          <td>{{ +res.dados.totais.totalAmortizacao | number:formatoMoeda() }}</td>
+          <td>{{ +res.dados.totais.totalParcelas | number:formatoMoeda() }}</td>
           <td>—</td>
           <td>—</td>
         </tr>
@@ -306,23 +306,23 @@
       <tbody>
         <tr>
           <td>1ª parcela</td>
-          <td>{{ +comp.price.primeiraParcela | currency: 'BRL':'symbol':formatoMoeda }}</td>
-          <td>{{ +comp.sac.primeiraParcela | currency: 'BRL':'symbol':formatoMoeda }}</td>
+          <td>{{ +comp.price.primeiraParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
+          <td>{{ +comp.sac.primeiraParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
         </tr>
         <tr>
           <td>Última parcela</td>
-          <td>{{ +comp.price.ultimaParcela | currency: 'BRL':'symbol':formatoMoeda }}</td>
-          <td>{{ +comp.sac.ultimaParcela | currency: 'BRL':'symbol':formatoMoeda }}</td>
+          <td>{{ +comp.price.ultimaParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
+          <td>{{ +comp.sac.ultimaParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
         </tr>
         <tr>
           <td>Total de juros</td>
-          <td>{{ +comp.price.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda }}</td>
-          <td>{{ +comp.sac.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda }}</td>
+          <td>{{ +comp.price.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</td>
+          <td>{{ +comp.sac.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</td>
         </tr>
         <tr>
           <td>Total pago</td>
-          <td>{{ +comp.price.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda }}</td>
-          <td>{{ +comp.sac.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda }}</td>
+          <td>{{ +comp.price.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</td>
+          <td>{{ +comp.sac.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</td>
         </tr>
       </tbody>
     </table>
@@ -365,7 +365,7 @@
     @if (eventoForm.controls.tipo.value === 'amortizacao') {
     <label>
       <span>Valor (R$)</span>
-      <input type="text" inputmode="decimal" appMoeda [max]="limites.valorMaximo" formControlName="valor" />
+      <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valor" />
     </label>
     }
     @if (eventoForm.controls.tipo.value === 'antecipacao') {
@@ -390,7 +390,7 @@
     </label>
     <label>
       <span>Valor pago (R$, opc.)</span>
-      <input type="text" inputmode="decimal" appMoeda [max]="limites.valorMaximo" formControlName="valorPago"
+      <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorPago"
         placeholder="parcial" />
     </label>
     }
@@ -400,11 +400,11 @@
     </label>
   </form>
 
-  @if (store.eventos().length) {
+  @if (eventosDescritos().length) {
   <ul class="lista-eventos">
-    @for (e of store.eventos(); track $index) {
+    @for (item of eventosDescritos(); track $index) {
     <li>
-      <span>{{ descreverEvento(e) }}</span>
+      <span>{{ item.descricao }}</span>
       <button type="button" class="btn-remover" (click)="store.removerEvento($index)">Cancelar</button>
     </li>
     }
@@ -439,7 +439,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +ev.resumo.economiaJuros | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +ev.resumo.economiaJuros | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'amortizacoesExtras'" (click)="selecionarExplicacao('amortizacoesExtras')">
       <span class="rotulo">
@@ -450,7 +450,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +ev.resumo.amortizacoesExtras | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +ev.resumo.amortizacoesExtras | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'moraEncargos'" (click)="selecionarExplicacao('moraEncargos')">
       <span class="rotulo">
@@ -461,7 +461,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +ev.resumo.totalEncargos | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +ev.resumo.totalEncargos | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'totalPagoPos'" (click)="selecionarExplicacao('totalPagoPos')">
       <span class="rotulo">
@@ -472,7 +472,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +ev.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda }}</strong>
+      <strong>{{ +ev.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
     <div class="card" [class.card--ativo]="explicacaoAtiva() === 'cetMensalPos'" (click)="selecionarExplicacao('cetMensalPos')">
       <span class="rotulo">
@@ -483,7 +483,7 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +ev.cetMensal | percent: formatoCetMensal }}</strong>
+      <strong>{{ +ev.cetMensal | percent: formatoCetMensal() }}</strong>
     </div>
   </div>
 
@@ -505,12 +505,12 @@
         @for (p of ev.parcelas; track p.numero) {
         <tr [class.tem-evento]="p.observacao">
           <td>{{ p.numero }}</td>
-          <td>{{ formatarData(p.dataVencimento) }}</td>
-          <td>{{ +p.saldoInicial | number:formatoMoeda }}</td>
-          <td>{{ +p.juros | number:formatoMoeda }}</td>
-          <td>{{ +p.amortizacao | number:formatoMoeda }}</td>
-          <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda }}</td>
-          <td>{{ +p.saldoFinal | number:formatoMoeda }}</td>
+          <td>{{ p.dataVencimento | dataBr }}</td>
+          <td>{{ +p.saldoInicial | number:formatoMoeda() }}</td>
+          <td>{{ +p.juros | number:formatoMoeda() }}</td>
+          <td>{{ +p.amortizacao | number:formatoMoeda() }}</td>
+          <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda() }}</td>
+          <td>{{ +p.saldoFinal | number:formatoMoeda() }}</td>
           <td class="obs">{{ p.observacao }}</td>
         </tr>
         }
@@ -518,9 +518,9 @@
       <tfoot>
         <tr>
           <td colspan="3">Totais</td>
-          <td>{{ +ev.totais.totalJuros | number:formatoMoeda }}</td>
-          <td>{{ +ev.totais.totalAmortizacao | number:formatoMoeda }}</td>
-          <td>{{ +ev.totais.totalParcelas | number:formatoMoeda }}</td>
+          <td>{{ +ev.totais.totalJuros | number:formatoMoeda() }}</td>
+          <td>{{ +ev.totais.totalAmortizacao | number:formatoMoeda() }}</td>
+          <td>{{ +ev.totais.totalParcelas | number:formatoMoeda() }}</td>
           <td colspan="2">—</td>
         </tr>
       </tfoot>
@@ -531,7 +531,7 @@
 
 
 <p class="demo-instrucao">
-  <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--primary); opacity: 1;">
+  <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"></circle>
     <path d="M12 16v-4"></path>
     <path d="M12 8h.01"></path>
@@ -541,106 +541,9 @@
   HP12C e no Excel, e a base legal de cada valor.
 </p>
 
-@let exp = explicacao;
+@let exp = explicacao();
 @if (exp) {
-  <div class="modal-backdrop" (click)="fecharExplicacao()">
-    <div
-      class="modal-dialogo"
-      role="dialog"
-      aria-modal="true"
-      [attr.aria-label]="exp.titulo"
-      (click)="$event.stopPropagation()"
-    >
-      <header class="modal-cabecalho">
-        <h3 class="modal-titulo">{{ exp.titulo }}</h3>
-        <button
-          type="button"
-          class="modal-fechar"
-          (click)="fecharExplicacao()"
-          aria-label="Fechar demonstração"
-          title="Fechar (Esc)"
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <path d="M18 6 6 18"></path>
-            <path d="m6 6 12 12"></path>
-          </svg>
-        </button>
-      </header>
-
-      <div class="modal-corpo">
-        <p class="demo-texto">{{ exp.descricao }}</p>
-
-        <div class="demo-sub">Fórmula Aplicada</div>
-        <div class="demo-formula">{{ exp.formula }}</div>
-
-        <div class="demo-sub">Valores e Legenda</div>
-        <div class="tabela-wrap">
-          <table class="demo-legenda-tabela">
-            <thead>
-              <tr>
-                <th>Variável</th>
-                <th>Descrição</th>
-                <th>Valor nesta Simulação</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of exp.legenda; track item.simbolo) {
-                <tr>
-                  <td class="simbolo">{{ item.simbolo }}</td>
-                  <td>{{ item.nome }}</td>
-                  <td class="valor">{{ item.valor }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <div class="demo-sub">Resolução Passo a Passo</div>
-        <ul class="demo-passos">
-          @for (passo of exp.passos; track $index) {
-            <li>{{ passo }}</li>
-          }
-        </ul>
-
-        @if (exp.hp12c.length > 0) {
-          <div class="demo-sub">Como Calcular na HP12C</div>
-          <ul class="demo-calculadora demo-calculadora--hp">
-            @for (linha of exp.hp12c; track $index) {
-              <li>{{ linha }}</li>
-            }
-          </ul>
-        }
-
-        @if (exp.excel.length > 0) {
-          <div class="demo-sub">Como Calcular no Excel</div>
-          <ul class="demo-calculadora demo-calculadora--excel">
-            @for (linha of exp.excel; track $index) {
-              <li>{{ linha }}</li>
-            }
-          </ul>
-        }
-
-        <div class="demo-sub">Regras de Negócio e Arredondamento</div>
-        <ul class="demo-regras">
-          @for (regra of exp.regras; track $index) {
-            <li>{{ regra }}</li>
-          }
-        </ul>
-
-        @if (exp.normas.length > 0) {
-          <div class="demo-sub">Base Legal e Normativa</div>
-          <ul class="demo-normas">
-            @for (norma of exp.normas; track norma.url + norma.rotulo) {
-              <li>
-                <a [href]="norma.url" target="_blank" rel="noopener noreferrer">{{ norma.rotulo }}</a>
-                <span class="demo-norma-descricao">{{ norma.descricao }}</span>
-              </li>
-            }
-          </ul>
-        }
-      </div>
-    </div>
-  </div>
+  <app-explicacao-modal [explicacao]="exp" (fechar)="fecharExplicacao()" />
 }
 
 <p class="disclaimer">Simulação meramente informativa — não constitui oferta de crédito.</p>

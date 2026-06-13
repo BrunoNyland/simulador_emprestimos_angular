@@ -103,9 +103,6 @@ export class SimulacaoStore {
     this.eventos.set([]);
   }
 
-  /** Campos que ficam travados (somente leitura) = o campo-alvo (Price ou SAC). */
-  readonly travado = (campo: CampoAlvo): boolean => this.campoAlvo() === campo;
-
   // --- Resultado reativo (sempre a SIMULACAO BASE, sem eventos) ---
   readonly resultado = computed<EstadoResultado>(() => {
     try {

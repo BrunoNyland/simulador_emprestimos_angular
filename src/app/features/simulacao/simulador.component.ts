@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, effect, inject, HostListener, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { CurrencyPipe, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Params, Router } from '@angular/router';
 import { take } from 'rxjs';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
@@ -11,16 +11,41 @@ import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
 import { Decimal } from '../../core/engine/decimal.config';
 import { MoedaInputDirective } from '../../shared/moeda-input.directive';
 import { SecaoComponent } from '../../shared/secao.component';
+import { DataBrPipe } from '../../shared/data-br.pipe';
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
 import { obterExplicacaoMatematica, Explicacao } from './explicador';
+import { ExplicacaoModalComponent } from './explicacao-modal.component';
 
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
 
+function descreverEvento(e: EventoCalc): string {
+  switch (e.tipo) {
+    case 'amortizacao':
+      return `Amortização R$ ${e.valor} após parc. ${e.apos} (${e.opcao})`;
+    case 'antecipacao':
+      return `Antecipar ${e.quantidade} parc. após parc. ${e.apos}`;
+    case 'pagamento':
+      return `Pagamento parc. ${e.apos} com ${e.diasAtraso} dia(s) de atraso`;
+    default:
+      return `Quitação após parc. ${e.apos}`;
+  }
+}
+
 @Component({
   selector: 'app-simulador',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, CurrencyPipe, DecimalPipe, PercentPipe, MoedaInputDirective, SecaoComponent],
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    CurrencyPipe,
+    DecimalPipe,
+    PercentPipe,
+    MoedaInputDirective,
+    SecaoComponent,
+    DataBrPipe,
+    ExplicacaoModalComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './simulador.component.html',
   styleUrl: './simulador.component.scss',
@@ -34,17 +59,16 @@ export class SimuladorComponent {
 
   readonly explicacaoAtiva = signal<string | null>(null);
 
-  get limites() {
-    return this.configService.config().limites;
-  }
-
-  get moraJurosMensalMax() {
-    return this.fracaoParaPct(this.configService.config().mora.jurosMensal);
-  }
-
-  get moraMultaMax() {
-    return this.fracaoParaPct(this.configService.config().mora.multa);
-  }
+  readonly limites = computed(() => this.configService.config().limites);
+  readonly moraJurosMensalMax = computed(() =>
+    this.fracaoParaPct(this.configService.config().mora.jurosMensal),
+  );
+  readonly moraMultaMax = computed(() =>
+    this.fracaoParaPct(this.configService.config().mora.multa),
+  );
+  readonly formatoMoeda = computed(() => this.configService.config().formatos.valor);
+  readonly formatoCetMensal = computed(() => this.configService.config().formatos.cetMensal);
+  readonly formatoCetAnual = computed(() => this.configService.config().formatos.cetAnual);
 
 
 
@@ -69,18 +93,7 @@ export class SimuladorComponent {
 
   constructor() {
     // Hidratação inicial pela URL
-    this.route.queryParams.pipe(take(1)).subscribe(params => {
-      if (Object.keys(params).length > 0) {
-        // Converte as strings da query param para os tipos corretos onde necessario
-        const patch: any = { ...params };
-        if (params['incluirIof'] !== undefined) patch.incluirIof = params['incluirIof'] === 'true';
-        if (params['moraJurosMensal'] !== undefined) patch.moraJurosMensal = params['moraJurosMensal'];
-        if (params['moraMulta'] !== undefined) patch.moraMulta = params['moraMulta'];
-        
-        this.form.patchValue(patch, { emitEvent: true });
-        
-      }
-    });
+    this.route.queryParams.pipe(take(1)).subscribe((params) => this.hidratarPelaUrl(params));
 
     // Formulario -> store (le getRawValue p/ incluir campos travados).
     this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
@@ -131,18 +144,34 @@ export class SimuladorComponent {
     this.sincronizarTipoTaxa();
   }
 
+  /** Hidrata o formulário a partir dos query params, validando tipo a tipo. */
+  private hidratarPelaUrl(params: Params): void {
+    const p = params as Record<string, string | undefined>;
+    const patch: Partial<ReturnType<typeof this.form.getRawValue>> = {};
 
+    if (p['sistema'] === 'price' || p['sistema'] === 'sac') patch.sistema = p['sistema'];
+    if (CAMPOS.includes(p['campoAlvo'] as CampoAlvo)) patch.campoAlvo = p['campoAlvo'] as CampoAlvo;
+    if (p['valorBruto'] !== undefined) patch.valorBruto = p['valorBruto'];
+    if (p['taxa'] !== undefined && Number.isFinite(Number(p['taxa']))) patch.taxa = Number(p['taxa']);
+    if (p['tipoTaxa'] === 'efetiva' || p['tipoTaxa'] === 'nominal') patch.tipoTaxa = p['tipoTaxa'];
+    if (p['unidadeTaxa'] === 'mensal' || p['unidadeTaxa'] === 'anual') patch.unidadeTaxa = p['unidadeTaxa'];
+    if (p['prazo'] !== undefined && Number.isInteger(Number(p['prazo']))) patch.prazo = Number(p['prazo']);
+    if (p['parcela'] !== undefined) patch.parcela = p['parcela'];
+    if (p['dataBase'] !== undefined) patch.dataBase = p['dataBase'];
+    if (p['publico'] === 'PF' || p['publico'] === 'PJ') patch.publico = p['publico'];
+    if (p['produto'] !== undefined) patch.produto = p['produto'];
+    if (p['incluirIof'] !== undefined) patch.incluirIof = p['incluirIof'] === 'true';
+    if (p['tarifaAbertura'] !== undefined) patch.tarifaAbertura = p['tarifaAbertura'];
+    if (p['moraJurosMensal'] !== undefined && Number.isFinite(Number(p['moraJurosMensal']))) {
+      patch.moraJurosMensal = Number(p['moraJurosMensal']);
+    }
+    if (p['moraMulta'] !== undefined && Number.isFinite(Number(p['moraMulta']))) {
+      patch.moraMulta = Number(p['moraMulta']);
+    }
 
-  get formatoMoeda(): string {
-    return this.configService.config().formatos.valor;
-  }
-
-  get formatoCetMensal(): string {
-    return this.configService.config().formatos.cetMensal;
-  }
-
-  get formatoCetAnual(): string {
-    return this.configService.config().formatos.cetAnual;
+    if (Object.keys(patch).length > 0) {
+      this.form.patchValue(patch, { emitEvent: true });
+    }
   }
 
   selecionarExplicacao(topico: string): void {
@@ -153,58 +182,38 @@ export class SimuladorComponent {
     this.explicacaoAtiva.set(null);
   }
 
-  @HostListener('document:keydown.escape')
-  fecharExplicacaoPorTeclado(): void {
-    this.fecharExplicacao();
-  }
+  private static readonly TOPICOS_POS_EVENTOS = [
+    'prazoFinal',
+    'economiaJuros',
+    'amortizacoesExtras',
+    'moraEncargos',
+    'totalPagoPos',
+    'cetMensalPos',
+  ];
 
-  get explicacao(): Explicacao | null {
+  /** Explicação do tópico ativo, memoizada (recalcula só quando os signals mudam). */
+  readonly explicacao = computed<Explicacao | null>(() => {
     const topico = this.explicacaoAtiva();
     if (!topico) return null;
 
     const res = this.store.resultado();
-    const evRes = this.store.eventosResultado();
+    const arredondamento = this.configService.config().defaults.arredondamento;
 
-    const topicosPosEventos = [
-      'prazoFinal',
-      'economiaJuros',
-      'amortizacoesExtras',
-      'moraEncargos',
-      'totalPagoPos',
-      'cetMensalPos',
-    ];
-
-    if (topicosPosEventos.includes(topico)) {
+    if (SimuladorComponent.TOPICOS_POS_EVENTOS.includes(topico)) {
+      const evRes = this.store.eventosResultado();
       if (!evRes) return null;
       const dadosExplicacao = {
         ...evRes,
         totaisOriginal: res.tipo === 'ok' ? res.dados.totais : null,
         parametros: res.tipo === 'ok' ? res.dados.parametros : null,
       };
-      return obterExplicacaoMatematica(
-        topico,
-        dadosExplicacao,
-        this.store.sistema(),
-        this.configService.config().defaults.arredondamento,
-      );
+      return obterExplicacaoMatematica(topico, dadosExplicacao, this.store.sistema(), arredondamento);
     }
 
     if (res.tipo !== 'ok') return null;
 
-    return obterExplicacaoMatematica(
-      topico,
-      res.dados,
-      this.store.sistema(),
-      this.configService.config().defaults.arredondamento,
-    );
-  }
-
-  formatarData(iso: string): string {
-    if (!iso) return '';
-    const partes = iso.split('-');
-    if (partes.length !== 3) return iso;
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
-  }
+    return obterExplicacaoMatematica(topico, res.dados, this.store.sistema(), arredondamento);
+  });
 
   /** Fracao -> porcentagem (2 casas) para exibicao. Ex.: 0.02 -> 2. */
   private fracaoParaPct(fracao: string): number {
@@ -218,7 +227,7 @@ export class SimuladorComponent {
     if (!Number.isFinite(v) || v < 0) {
       v = 0;
     }
-    const max = this.limites.taxaMaximaPct;
+    const max = this.limites().taxaMaximaPct;
     if (v > max) {
       v = max;
     }
@@ -321,18 +330,10 @@ export class SimuladorComponent {
     this.store.adicionarEvento(evento);
   }
 
-  descreverEvento(e: EventoCalc): string {
-    switch (e.tipo) {
-      case 'amortizacao':
-        return `Amortização R$ ${e.valor} após parc. ${e.apos} (${e.opcao})`;
-      case 'antecipacao':
-        return `Antecipar ${e.quantidade} parc. após parc. ${e.apos}`;
-      case 'pagamento':
-        return `Pagamento parc. ${e.apos} com ${e.diasAtraso} dia(s) de atraso`;
-      default:
-        return `Quitação após parc. ${e.apos}`;
-    }
-  }
+  /** Eventos com descrição pré-computada (evita chamada de função no template). */
+  readonly eventosDescritos = computed(() =>
+    this.store.eventos().map((e) => ({ evento: e, descricao: descreverEvento(e) })),
+  );
 
   /** Trava (disable) o campo-alvo (Price e SAC; no SAC a parcela e a 1a). */
   private aplicarTravas(): void {

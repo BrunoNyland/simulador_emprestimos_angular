@@ -98,6 +98,11 @@ html.lenis body {
   overflow: hidden;
 }
 
+/* Com um <dialog> modal aberto, trava a rolagem da pagina ao fundo. */
+html:has(dialog[open]) {
+  overflow: hidden;
+}
+
 /* ===== Header (nao fixo) ===== */
 .topo {
   display: flex;

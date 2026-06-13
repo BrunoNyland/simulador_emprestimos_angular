@@ -1,0 +1,100 @@
+@let exp = explicacao();
+<dialog
+  #dialogo
+  class="modal-dialogo"
+  data-lenis-prevent
+  [attr.aria-label]="exp.titulo"
+  (close)="fechar.emit()"
+  (click)="aoClicar($event)"
+>
+  <div class="modal-conteudo">
+    <header class="modal-cabecalho">
+      <h3 class="modal-titulo">{{ exp.titulo }}</h3>
+      <button
+        type="button"
+        class="modal-fechar"
+        (click)="fechar.emit()"
+        aria-label="Fechar demonstração"
+        title="Fechar (Esc)"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-corpo">
+      <p class="demo-texto">{{ exp.descricao }}</p>
+
+      <div class="demo-sub">Fórmula Aplicada</div>
+      <div class="demo-formula">{{ exp.formula }}</div>
+
+      <div class="demo-sub">Valores e Legenda</div>
+      <div class="tabela-wrap">
+        <table class="demo-legenda-tabela">
+          <thead>
+            <tr>
+              <th>Variável</th>
+              <th>Descrição</th>
+              <th>Valor nesta Simulação</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of exp.legenda; track item.simbolo) {
+              <tr>
+                <td class="simbolo">{{ item.simbolo }}</td>
+                <td>{{ item.nome }}</td>
+                <td class="valor">{{ item.valor }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="demo-sub">Resolução Passo a Passo</div>
+      <ul class="demo-passos">
+        @for (passo of exp.passos; track $index) {
+          <li>{{ passo }}</li>
+        }
+      </ul>
+
+      @if (exp.hp12c.length > 0) {
+        <div class="demo-sub">Como Calcular na HP12C</div>
+        <ul class="demo-calculadora demo-calculadora--hp">
+          @for (linha of exp.hp12c; track $index) {
+            <li>{{ linha }}</li>
+          }
+        </ul>
+      }
+
+      @if (exp.excel.length > 0) {
+        <div class="demo-sub">Como Calcular no Excel</div>
+        <ul class="demo-calculadora demo-calculadora--excel">
+          @for (linha of exp.excel; track $index) {
+            <li>{{ linha }}</li>
+          }
+        </ul>
+      }
+
+      <div class="demo-sub">Regras de Negócio e Arredondamento</div>
+      <ul class="demo-regras">
+        @for (regra of exp.regras; track $index) {
+          <li>{{ regra }}</li>
+        }
+      </ul>
+
+      @if (exp.normas.length > 0) {
+        <div class="demo-sub">Base Legal e Normativa</div>
+        <ul class="demo-normas">
+          @for (norma of exp.normas; track norma.url + norma.rotulo) {
+            <li>
+              <a [href]="norma.url" target="_blank" rel="noopener noreferrer">{{ norma.rotulo }}</a>
+              <span class="demo-norma-descricao">{{ norma.descricao }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+</dialog>
