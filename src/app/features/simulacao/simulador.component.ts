@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, HostBinding, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, HostListener, signal } from '@angular/core';
 import { CurrencyPipe, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -147,9 +147,15 @@ export class SimuladorComponent {
 
   selecionarExplicacao(topico: string): void {
     this.explicacaoAtiva.set(topico);
-    setTimeout(() => {
-      document.getElementById('demonstracao')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 50);
+  }
+
+  fecharExplicacao(): void {
+    this.explicacaoAtiva.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  fecharExplicacaoPorTeclado(): void {
+    this.fecharExplicacao();
   }
 
   get explicacao(): Explicacao | null {

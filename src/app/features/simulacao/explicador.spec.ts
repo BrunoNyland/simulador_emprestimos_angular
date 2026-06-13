@@ -44,7 +44,7 @@ describe('explicador', () => {
   it('deve retornar a explicacao para Valor Bruto no Price', () => {
     const exp = obterExplicacaoMatematica('valorBruto', dadosBase, 'price', 'half-up');
     expect(exp).not.toBeNull();
-    expect(exp!.formula).toContain('PV = PMT /');
+    expect(exp!.formula).toContain('PV = PMT');
     expect(exp!.regras.some(r => r.includes('Half-Up'))).toBe(true);
   });
 
@@ -52,7 +52,7 @@ describe('explicador', () => {
     const exp = obterExplicacaoMatematica('taxa', dadosBase, 'price', 'half-even');
     expect(exp).not.toBeNull();
     expect(exp!.titulo).toContain('Taxa de Juros');
-    expect(exp!.formula).toContain('f(i) = PV');
+    expect(exp!.formula).toContain('PV = Σ');
   });
 
   it('deve retornar a explicacao para Valor Liquido', () => {
@@ -70,5 +70,76 @@ describe('explicador', () => {
   it('deve retornar null se o topico nao existir', () => {
     const exp = obterExplicacaoMatematica('topico_inexistente', dadosBase, 'price', 'half-even');
     expect(exp).toBeNull();
+  });
+
+  it('inclui instrucoes de HP12C e Excel em todos os topicos base', () => {
+    const topicos = [
+      'parcela',
+      'valorBruto',
+      'taxa',
+      'prazo',
+      'valorLiquido',
+      'iof',
+      'iofDiario',
+      'iofAdicional',
+      'totalPago',
+      'totalJuros',
+      'cetMensal',
+    ];
+    for (const t of topicos) {
+      const exp = obterExplicacaoMatematica(t, dadosBase, 'price', 'half-even');
+      expect(exp, `topico ${t}`).not.toBeNull();
+      expect(exp!.hp12c.length, `hp12c de ${t}`).toBeGreaterThan(0);
+      expect(exp!.excel.length, `excel de ${t}`).toBeGreaterThan(0);
+      expect(exp!.normas.length, `normas de ${t}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('HP12C da parcela Price usa os registradores financeiros (PV, i, n, PMT)', () => {
+    const exp = obterExplicacaoMatematica('parcela', dadosBase, 'price', 'half-even');
+    const teclas = exp!.hp12c.join(' ');
+    expect(teclas).toContain('CHS PV');
+    expect(teclas).toContain('PMT');
+  });
+
+  it('Excel da parcela Price usa a funcao PGTO', () => {
+    const exp = obterExplicacaoMatematica('parcela', dadosBase, 'price', 'half-even');
+    expect(exp!.excel.some((l) => l.includes('=PGTO('))).toBe(true);
+  });
+
+  it('CET cita a Resolucao CMN 4.881/2020 com link para o BACEN', () => {
+    const exp = obterExplicacaoMatematica('cetMensal', dadosBase, 'price', 'half-even');
+    const norma = exp!.normas.find((nr) => nr.rotulo.includes('4.881'));
+    expect(norma).toBeDefined();
+    expect(norma!.url).toContain('bcb.gov.br');
+  });
+
+  it('IOF cita o Decreto 6.306/2007 com link para o Planalto', () => {
+    for (const t of ['iof', 'iofDiario', 'iofAdicional']) {
+      const exp = obterExplicacaoMatematica(t, dadosBase, 'price', 'half-even');
+      const norma = exp!.normas.find((nr) => nr.rotulo.includes('6.306'));
+      expect(norma, `norma de ${t}`).toBeDefined();
+      expect(norma!.url).toContain('planalto.gov.br');
+    }
+  });
+
+  it('mora cita o limite de 2% do CDC (art. 52, § 1º)', () => {
+    const dadosEventos = {
+      ...dadosBase,
+      resumo: { totalEncargos: '18.91', prazoFinal: 12, economiaJuros: '0', amortizacoesExtras: '0' },
+    };
+    const exp = obterExplicacaoMatematica('moraEncargos', dadosEventos, 'price', 'half-even');
+    expect(exp).not.toBeNull();
+    expect(exp!.normas.some((nr) => nr.rotulo.includes('8.078') && nr.rotulo.includes('52'))).toBe(true);
+  });
+
+  it('CET pos-eventos orienta o uso de XTIR no Excel (dias/365)', () => {
+    const dadosEventos = {
+      ...dadosBase,
+      resumo: { totalEncargos: '0', prazoFinal: 10, economiaJuros: '100', amortizacoesExtras: '500' },
+    };
+    const exp = obterExplicacaoMatematica('cetMensalPos', dadosEventos, 'price', 'half-even');
+    expect(exp).not.toBeNull();
+    expect(exp!.excel.some((l) => l.includes('XTIR'))).toBe(true);
   });
 });

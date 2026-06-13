@@ -530,66 +530,117 @@
 }
 
 
-<app-secao titulo="Demonstração Matemática Passo a Passo" id="demonstracao" [realce]="true">
-  @let exp = explicacao;
-  @if (exp) {
-    <h3 class="sub-titulo" style="margin-top: 0; text-transform: none;">{{ exp.titulo }}</h3>
-    <p class="demo-texto">{{ exp.descricao }}</p>
-    
-    <div class="demo-sub">Fórmula Aplicada</div>
-    <div class="demo-formula">{{ exp.formula }}</div>
-    
-    <div class="demo-sub">Valores e Legenda</div>
-    <div class="tabela-wrap">
-      <table class="demo-legenda-tabela">
-        <thead>
-          <tr>
-            <th>Variável</th>
-            <th>Descrição</th>
-            <th>Valor nesta Simulação</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (item of exp.legenda; track item.simbolo) {
-            <tr>
-              <td class="simbolo">{{ item.simbolo }}</td>
-              <td>{{ item.nome }}</td>
-              <td class="valor">{{ item.valor }}</td>
-            </tr>
+<p class="demo-instrucao">
+  <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--primary); opacity: 1;">
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="M12 16v-4"></path>
+    <path d="M12 8h.01"></path>
+  </svg>
+  Clique em qualquer <strong>card de resultado</strong> com o ícone de informação para abrir a
+  <strong>demonstração matemática passo a passo</strong>: fórmulas exatas, como reproduzir o cálculo na
+  HP12C e no Excel, e a base legal de cada valor.
+</p>
+
+@let exp = explicacao;
+@if (exp) {
+  <div class="modal-backdrop" (click)="fecharExplicacao()">
+    <div
+      class="modal-dialogo"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="exp.titulo"
+      (click)="$event.stopPropagation()"
+    >
+      <header class="modal-cabecalho">
+        <h3 class="modal-titulo">{{ exp.titulo }}</h3>
+        <button
+          type="button"
+          class="modal-fechar"
+          (click)="fecharExplicacao()"
+          aria-label="Fechar demonstração"
+          title="Fechar (Esc)"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+      </header>
+
+      <div class="modal-corpo">
+        <p class="demo-texto">{{ exp.descricao }}</p>
+
+        <div class="demo-sub">Fórmula Aplicada</div>
+        <div class="demo-formula">{{ exp.formula }}</div>
+
+        <div class="demo-sub">Valores e Legenda</div>
+        <div class="tabela-wrap">
+          <table class="demo-legenda-tabela">
+            <thead>
+              <tr>
+                <th>Variável</th>
+                <th>Descrição</th>
+                <th>Valor nesta Simulação</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of exp.legenda; track item.simbolo) {
+                <tr>
+                  <td class="simbolo">{{ item.simbolo }}</td>
+                  <td>{{ item.nome }}</td>
+                  <td class="valor">{{ item.valor }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="demo-sub">Resolução Passo a Passo</div>
+        <ul class="demo-passos">
+          @for (passo of exp.passos; track $index) {
+            <li>{{ passo }}</li>
           }
-        </tbody>
-      </table>
+        </ul>
+
+        @if (exp.hp12c.length > 0) {
+          <div class="demo-sub">Como Calcular na HP12C</div>
+          <ul class="demo-calculadora demo-calculadora--hp">
+            @for (linha of exp.hp12c; track $index) {
+              <li>{{ linha }}</li>
+            }
+          </ul>
+        }
+
+        @if (exp.excel.length > 0) {
+          <div class="demo-sub">Como Calcular no Excel</div>
+          <ul class="demo-calculadora demo-calculadora--excel">
+            @for (linha of exp.excel; track $index) {
+              <li>{{ linha }}</li>
+            }
+          </ul>
+        }
+
+        <div class="demo-sub">Regras de Negócio e Arredondamento</div>
+        <ul class="demo-regras">
+          @for (regra of exp.regras; track $index) {
+            <li>{{ regra }}</li>
+          }
+        </ul>
+
+        @if (exp.normas.length > 0) {
+          <div class="demo-sub">Base Legal e Normativa</div>
+          <ul class="demo-normas">
+            @for (norma of exp.normas; track norma.url + norma.rotulo) {
+              <li>
+                <a [href]="norma.url" target="_blank" rel="noopener noreferrer">{{ norma.rotulo }}</a>
+                <span class="demo-norma-descricao">{{ norma.descricao }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
     </div>
-
-    <div class="demo-sub">Resolução Passo a Passo</div>
-    <ul class="demo-passos" style="margin-bottom: 0.6rem;">
-      @for (passo of exp.passos; track $index) {
-        <li>{{ passo }}</li>
-      }
-    </ul>
-
-    <div class="demo-sub">Regras de Negócio e Arredondamento</div>
-    <ul class="demo-regras">
-      @for (regra of exp.regras; track $index) {
-        <li>{{ regra }}</li>
-      }
-    </ul>
-  } @else {
-    <p class="demo-instrucao">
-      <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--primary); opacity: 1;">
-        <circle cx="12" cy="12" r="10"></circle>
-        <path d="M12 16v-4"></path>
-        <path d="M12 8h.01"></path>
-      </svg>
-      Clique em qualquer <strong>card de resultado</strong> com o ícone de informação
-      <svg class="icone-info" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin: 0 2px; color: var(--primary); opacity: 1;">
-        <circle cx="12" cy="12" r="10"></circle>
-        <path d="M12 16v-4"></path>
-        <path d="M12 8h.01"></path>
-      </svg>
-      para visualizar a demonstração matemática passo a passo e as fórmulas detalhadas do cálculo.
-    </p>
-  }
-</app-secao>
+  </div>
+}
 
 <p class="disclaimer">Simulação meramente informativa — não constitui oferta de crédito.</p>
