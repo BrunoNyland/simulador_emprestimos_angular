@@ -83,6 +83,20 @@ describe('SimulacaoStore', () => {
     expect(Number(comp!.sac.iof)).toBeLessThanOrEqual(Number(comp!.price.iof));
   });
 
+  it('comparativo: serie de saldos comeca no principal e termina em zero (n+1 pontos)', () => {
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+
+    const comp = store.comparativo();
+    expect(comp).not.toBeNull();
+    for (const serie of [comp!.price.saldos, comp!.sac.saldos]) {
+      expect(serie.length).toBe(13); // 1 (liberacao) + 12 parcelas
+      expect(serie[0]).toBe(1000);
+      expect(serie[12]).toBeCloseTo(0, 2);
+    }
+  });
+
   it('eventos: tabela base permanece intacta e a projecao vai p/ eventosResultado', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');

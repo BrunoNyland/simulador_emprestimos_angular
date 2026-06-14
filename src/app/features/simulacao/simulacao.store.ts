@@ -169,12 +169,14 @@ export class SimulacaoStore {
           primeiraParcela: price[0].valorParcela,
           ultimaParcela: price[n - 1].valorParcela,
           ...this.resumoCustos(principal, price, dataBase),
+          saldos: [principal.toNumber(), ...price.map((p) => Number(p.saldoFinal))],
         },
         sac: {
           totais: somarTotais(sac),
           primeiraParcela: sac[0].valorParcela,
           ultimaParcela: sac[n - 1].valorParcela,
           ...this.resumoCustos(principal, sac, dataBase),
+          saldos: [principal.toNumber(), ...sac.map((p) => Number(p.saldoFinal))],
         },
       };
     } catch {

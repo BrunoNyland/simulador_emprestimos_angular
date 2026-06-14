@@ -106,6 +106,24 @@ describe('explicador', () => {
     expect(exp!.formula).toContain('PV = Σ');
   });
 
+  it('parcela: inclui graficoComposicao (juros×amortização) quando há cronograma', () => {
+    const parcelas = gerarCronogramaPrice({
+      principal: new Decimal('10000'),
+      taxaPeriodo: new Decimal('0.02'),
+      prazo: 12,
+    });
+    const exp = obterExplicacaoMatematica('parcela', { ...dadosBase, parcelas }, 'price', 'half-even');
+    expect(exp!.graficoComposicao!.length).toBe(12);
+    expect(exp!.graficoComposicao![0]).toEqual({
+      numero: 1,
+      juros: Number(parcelas[0].juros),
+      amortizacao: Number(parcelas[0].amortizacao),
+    });
+    // sem cronograma no fixture, o campo é omitido
+    const semCron = obterExplicacaoMatematica('parcela', dadosBase, 'price', 'half-even');
+    expect(semCron!.graficoComposicao).toBeUndefined();
+  });
+
   it('tipoTaxa: explica efetiva × nominal com traço e conversões', () => {
     const exp = obterExplicacaoMatematica('tipoTaxa', dadosBase, 'price', 'half-even');
     expect(exp).not.toBeNull();

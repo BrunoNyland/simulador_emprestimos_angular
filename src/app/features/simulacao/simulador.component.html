@@ -278,7 +278,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (p of res.dados.parcelas; track p.numero) {
+        @for (p of cronograma().linhas; track p.numero) {
         <tr
           class="linha-clicavel"
           tabindex="0"
@@ -311,12 +311,19 @@
       </tfoot>
     </table>
   </div>
+  @if (cronograma().truncado) {
+    <button type="button" class="btn-ver-todas" (click)="mostrarTodasParcelas.set(true)">
+      Mostrando {{ cronograma().linhas.length }} de {{ cronograma().total }} parcelas — ver todas
+    </button>
+  }
 </app-secao>
 
-@let comp = store.comparativo();
-@if (comp) {
 <app-secao titulo="Comparativo Price × SAC" sub="SAC costuma ter 1ª parcela maior e menos juros no total."
   id="comparativo">
+  <!-- comparativo só é calculado quando a seção está aberta (lazy): evita 2 CETs
+       extras a cada recálculo enquanto a seção está recolhida. -->
+  @let comp = store.comparativo();
+  @if (comp) {
   <div class="tabela-wrap">
     <table>
       <thead>
@@ -360,8 +367,14 @@
       </tbody>
     </table>
   </div>
+  @if (comparativoSeries(); as series) {
+    <p class="grafico-titulo">Saldo devedor ao longo do tempo</p>
+    <app-grafico-saldo [series]="series" />
+  }
+  } @else {
+    <p class="aviso-comp">Informe uma simulação válida (valor, taxa e prazo) para ver o comparativo.</p>
+  }
 </app-secao>
-}
 }
 
 <app-secao titulo="Eventos pós-simulação" sub="Geram um novo cronograma abaixo, sem alterar a simulação base."

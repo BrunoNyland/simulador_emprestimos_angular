@@ -15,6 +15,7 @@ import {
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Explicacao } from './explicador';
 import { analisarLinhaHp12c, HpLinha } from './hp12c-format';
+import { GraficoComposicaoComponent } from './grafico-composicao.component';
 
 /**
  * Modal da demonstração matemática passo a passo.
@@ -27,6 +28,7 @@ import { analisarLinhaHp12c, HpLinha } from './hp12c-format';
   selector: 'app-explicacao-modal',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [GraficoComposicaoComponent],
   templateUrl: './explicacao-modal.component.html',
   styleUrl: './explicacao-modal.component.scss',
 })

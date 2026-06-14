@@ -74,11 +74,20 @@
           Passos gerados pelo próprio motor de cálculo ({{ tr.id }}) — os mesmos valores usados no cronograma.
         </p>
       } @else {
+        <!-- (intencional) sem traço estruturado: cai no espelho textual -->
         <ul class="demo-passos">
           @for (passo of exp.passos; track $index) {
             <li>{{ passo }}</li>
           }
         </ul>
+      }
+
+      @if (exp.graficoComposicao?.length) {
+        <h4 class="demo-sub">Composição das parcelas (juros × amortização)</h4>
+        <app-grafico-composicao [barras]="exp.graficoComposicao!" />
+        <p class="demo-grafico-nota">
+          Cada barra é uma parcela: a base (vermelho) são os juros do mês; o topo (verde), a amortização.
+        </p>
       }
 
       <details class="demo-secao">

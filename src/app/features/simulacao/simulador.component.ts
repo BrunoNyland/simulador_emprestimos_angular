@@ -3,7 +3,7 @@ import { CurrencyPipe, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Params, Router } from '@angular/router';
-import { take } from 'rxjs';
+import { take, debounceTime } from 'rxjs';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
 import { EventoCalc } from '../../core/engine/eventos';
@@ -18,6 +18,7 @@ import { DataBrPipe } from '../../shared/data-br.pipe';
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
 import { obterExplicacaoMatematica, explicacaoDaParcela, Explicacao } from './explicador';
 import { ExplicacaoModalComponent } from './explicacao-modal.component';
+import { GraficoSaldoComponent, SerieLinha } from './grafico-saldo.component';
 
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
@@ -48,6 +49,7 @@ function descreverEvento(e: EventoCalc): string {
     SecaoComponent,
     DataBrPipe,
     ExplicacaoModalComponent,
+    GraficoSaldoComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './simulador.component.html',
@@ -61,6 +63,19 @@ export class SimuladorComponent {
   private readonly configService = inject(RegulatoryConfigService);
 
   readonly explicacaoAtiva = signal<string | null>(null);
+
+  /** Tabela do cronograma: janela de linhas renderizadas (perf em prazos longos). */
+  private readonly LIMITE_LINHAS = 60;
+  readonly mostrarTodasParcelas = signal(false);
+  readonly cronograma = computed(() => {
+    const r = this.store.resultado();
+    if (r.tipo !== 'ok') {
+      return { linhas: [] as Parcela[], total: 0, truncado: false };
+    }
+    const ps = r.dados.parcelas;
+    const truncado = !this.mostrarTodasParcelas() && ps.length > this.LIMITE_LINHAS;
+    return { linhas: truncado ? ps.slice(0, this.LIMITE_LINHAS) : ps, total: ps.length, truncado };
+  });
 
   readonly limites = computed(() => this.configService.config().limites);
   readonly moraJurosMensalMax = computed(() =>
@@ -99,15 +114,27 @@ export class SimuladorComponent {
     this.route.queryParams.pipe(take(1)).subscribe((params) => this.hidratarPelaUrl(params));
 
     // Formulario -> store (le getRawValue p/ incluir campos travados).
-    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+    // debounce: coalesce digitacao rapida (ex.: prazo 360) num unico recalculo,
+    // evitando rodar a simulacao + CET a cada tecla.
+    this.form.valueChanges.pipe(debounceTime(150), takeUntilDestroyed()).subscribe(() => {
       const v = this.form.getRawValue();
+      // ao mudar a simulação, volta a tabela ao modo janelado (perf).
+      this.mostrarTodasParcelas.set(false);
       this.store.sistema.set(v.sistema);
       this.store.campoAlvo.set(v.campoAlvo as CampoAlvo);
       this.store.valorBruto.set(String(v.valorBruto));
       this.store.taxa.set(this.pctParaFracao(v.taxa));
       this.store.tipoTaxa.set(v.tipoTaxa);
       this.store.unidadeTaxa.set(v.unidadeTaxa);
-      this.store.prazo.set(Number(v.prazo));
+      // prazo é <input type="number"> puro: o [max] nativo NÃO trava o valor
+      // digitado, então aplicamos o limite [1, prazoMaximo] aqui e refletimos
+      // no campo e na URL (os demais campos numéricos usam appMoeda, que clampa).
+      const prazo = this.clampPrazo(v.prazo);
+      if (prazo !== Number(v.prazo)) {
+        this.form.controls.prazo.setValue(prazo, { emitEvent: false });
+      }
+      v.prazo = prazo;
+      this.store.prazo.set(prazo);
       this.store.parcela.set(String(v.parcela));
       this.store.dataBase.set(v.dataBase);
       this.store.publico.set(v.publico as 'PF' | 'PJ');
@@ -262,10 +289,33 @@ export class SimuladorComponent {
     return obterExplicacaoMatematica(topico, res.dados, this.store.sistema(), arredondamento);
   });
 
+  /** Séries de saldo devedor (Price × SAC) para o gráfico do comparativo. */
+  readonly comparativoSeries = computed<SerieLinha[] | null>(() => {
+    const c = this.store.comparativo();
+    if (!c) return null;
+    return [
+      { nome: 'Price', valores: c.price.saldos, cor: 'var(--primary)' },
+      { nome: 'SAC', valores: c.sac.saldos, cor: 'var(--accent)' },
+    ];
+  });
+
   /** Fracao -> porcentagem (2 casas) para exibicao. Ex.: 0.02 -> 2. */
   private fracaoParaPct(fracao: string): number {
     const v = new Decimal(fracao || '0').times(100);
     return v.toDecimalPlaces(2).toNumber();
+  }
+
+  /** Prazo digitado -> inteiro dentro de [1, prazoMaximo] da configuração. */
+  private clampPrazo(valor: unknown): number {
+    const max = this.limites().prazoMaximo;
+    let n = Math.floor(Number(valor));
+    if (!Number.isFinite(n) || n < 1) {
+      n = 1;
+    }
+    if (n > max) {
+      n = max;
+    }
+    return n;
   }
 
   /** Porcentagem digitada -> fracao para o store, com limites [0, max%]. */

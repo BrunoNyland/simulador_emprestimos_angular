@@ -65,6 +65,12 @@ export interface Explicacao {
   glossario?: ItemGlossario[];
   /** Links para explicações relacionadas (preenchido pelo wrapper). */
   relacionados?: LinkRelacionado[];
+  /**
+   * Dados para o gráfico de composição das parcelas (juros × amortização por
+   * mês). Presente só onde faz sentido (tópico "parcela"). Formato estrutural
+   * compatível com BarraComposicao do componente de gráfico.
+   */
+  graficoComposicao?: { numero: number; juros: number; amortizacao: number }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +433,17 @@ function construirExplicacao(
   const iPct = iMensal.times(100); // taxa mensal em % (como se digita na HP12C/Excel)
   const taxaExibicao = fmtPct(iPct, 4);
 
+  // Série para o gráfico de composição (juros × amortização por mês), quando o
+  // resultado traz o cronograma — usada pelo tópico "parcela".
+  const graficoComposicao: { numero: number; juros: number; amortizacao: number }[] | undefined =
+    Array.isArray(dados.parcelas) && dados.parcelas.length
+      ? dados.parcelas.map((p: any) => ({
+          numero: Number(p.numero),
+          juros: Number(p.juros),
+          amortizacao: Number(p.amortizacao),
+        }))
+      : undefined;
+
   switch (topico) {
     case 'parcela': {
       if (sistema === 'price') {
@@ -436,6 +453,7 @@ function construirExplicacao(
 
         return {
           titulo: 'Parcela (PMT) — Sistema Price (Tabela Price)',
+          graficoComposicao,
           formula: 'PMT = PV × [ i / (1 − (1 + i)^−n) ]',
           formulaMathML:
             '<math display="block"><mrow>' +
@@ -481,6 +499,7 @@ function construirExplicacao(
 
         return {
           titulo: 'Primeira Parcela (PMT₁) — Sistema SAC',
+          graficoComposicao,
           formula: 'PMT_k = A + J_k    onde  A = PV / n   e   J_k = Saldo_(k−1) × i',
           formulaMathML:
             '<math display="block"><mrow>' +

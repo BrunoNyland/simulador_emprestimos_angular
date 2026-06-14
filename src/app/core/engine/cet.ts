@@ -28,32 +28,47 @@ const LIMITE_INFERIOR = '-0.999999'; // 1+i deve permanecer > 0
  * Newton-Raphson com fallback por bissecao.
  * Ver CALCULATION_REFERENCE.md secao 5.
  */
+/**
+ * Construtor Decimal com precisão REDUZIDA (20 dígitos) só para a iteração da
+ * TIR. As potências fracionárias `(1+i)^(dias/365)` são o gargalo do CET em
+ * prazos longos, e seu custo cresce com a precisão. 20 dígitos é folgado para a
+ * tolerância 1e-10 e para os 4-6 decimais exibidos — sem afetar o resultado.
+ */
+const DecimalCet = Decimal.clone({ precision: 20, rounding: Decimal.ROUND_HALF_EVEN });
+
 export function calcularCet(
-  valorLiberado: Decimal,
-  fluxos: FluxoCaixa[],
+  valorLiberadoIn: Decimal,
+  fluxosIn: FluxoCaixa[],
   opcoes: OpcoesCet = {},
 ): ResultadoCet {
   // Se periodosAno = 1 (fluxos em dias/365), a TIR encontrada já é a taxa anual.
   // Se periodosAno = 12 (fluxos em meses), a TIR encontrada é mensal.
   const periodosAno = opcoes.periodosAno ?? 12;
-  const tol = new Decimal(opcoes.tolerancia ?? '1e-10');
+  const tol = new DecimalCet(opcoes.tolerancia ?? '1e-10');
   const maxIter = opcoes.maxIteracoes ?? 200;
 
+  // Converte as entradas para a precisão reduzida (cálculo intermediário).
+  const valorLiberado = new DecimalCet(valorLiberadoIn.toString());
+  const fluxos = fluxosIn.map((f) => ({
+    periodo: new DecimalCet(f.periodo.toString()),
+    valor: new DecimalCet(f.valor.toString()),
+  }));
+
   const vp = (i: Decimal): Decimal =>
-    fluxos.reduce((acc, f) => acc.plus(f.valor.div(i.plus(1).pow(f.periodo))), new Decimal(0));
+    fluxos.reduce((acc, f) => acc.plus(f.valor.div(i.plus(1).pow(f.periodo))), new DecimalCet(0));
 
   const f = (i: Decimal): Decimal => vp(i).minus(valorLiberado);
 
   const df = (i: Decimal): Decimal =>
     fluxos.reduce(
       (acc, fx) => acc.minus(fx.valor.times(fx.periodo).div(i.plus(1).pow(fx.periodo.plus(1)))),
-      new Decimal(0),
+      new DecimalCet(0),
     );
 
   // --- Newton-Raphson ---
-  let i = new Decimal('0.01');
+  let i: Decimal = new DecimalCet('0.01');
   let convergiu = false;
-  const limiteInf = new Decimal(LIMITE_INFERIOR);
+  const limiteInf = new DecimalCet(LIMITE_INFERIOR);
 
   for (let k = 0; k < maxIter; k++) {
     const fi = f(i);
@@ -79,7 +94,7 @@ export function calcularCet(
 
   // --- Fallback: bissecao ---
   if (!convergiu) {
-    i = bisseccao(f, new Decimal('-0.9999'), new Decimal('100'), tol, 1000);
+    i = bisseccao(f, new DecimalCet('-0.9999'), new DecimalCet('100'), tol, 1000);
   }
 
   let mensal: Decimal;
@@ -88,14 +103,15 @@ export function calcularCet(
   if (periodosAno === 1) {
     // Calculo padrao BACEN p/ CET (periodos em anos = dias/365)
     anual = i;
-    mensal = anual.plus(1).pow(new Decimal(1).div(12)).minus(1);
+    mensal = anual.plus(1).pow(new DecimalCet(1).div(12)).minus(1);
   } else {
     // Calculo mensalista tradicional
     mensal = i;
     anual = mensal.plus(1).pow(periodosAno).minus(1);
   }
 
-  return { mensal, anual };
+  // Volta para o Decimal global (precisão padrão) na fronteira de saída.
+  return { mensal: new Decimal(mensal.toString()), anual: new Decimal(anual.toString()) };
 }
 
 function bisseccao(
