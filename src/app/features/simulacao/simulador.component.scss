@@ -387,6 +387,41 @@ tfoot td {
   vertical-align: middle;
 }
 
+/* Rótulo de campo com botão (i) de explicação (ex.: Tipo de taxa). */
+.rotulo-campo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.btn-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+
+  .icone-info {
+    opacity: 0.7;
+  }
+
+  &:hover .icone-info,
+  &:focus-visible .icone-info {
+    color: var(--primary);
+    opacity: 1;
+    transform: scale(1.15);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 50%;
+  }
+}
+
 
 
 

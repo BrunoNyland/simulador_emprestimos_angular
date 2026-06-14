@@ -159,7 +159,8 @@ export class SimulacaoStore {
       if (!(n >= 1) || principal.lessThanOrEqualTo(0)) {
         return null;
       }
-      const entrada = { principal, taxaPeriodo: i, prazo: n, dataBase: this.dataBase() };
+      const dataBase = this.dataBase();
+      const entrada = { principal, taxaPeriodo: i, prazo: n, dataBase };
       const price = gerarCronogramaPrice(entrada);
       const sac = gerarCronogramaSac(entrada);
       return {
@@ -167,17 +168,39 @@ export class SimulacaoStore {
           totais: somarTotais(price),
           primeiraParcela: price[0].valorParcela,
           ultimaParcela: price[n - 1].valorParcela,
+          ...this.resumoCustos(principal, price, dataBase),
         },
         sac: {
           totais: somarTotais(sac),
           primeiraParcela: sac[0].valorParcela,
           ultimaParcela: sac[n - 1].valorParcela,
+          ...this.resumoCustos(principal, sac, dataBase),
         },
       };
     } catch {
       return null;
     }
   });
+
+  /**
+   * IOF total e CET mensal de um cronograma (para o comparativo Price × SAC).
+   * Reaproveita os mesmos custos de abertura e a TIR/365 da simulação base.
+   * Sem data de liberação não há como contar dias/365 → devolve nulos.
+   */
+  private resumoCustos(
+    principal: Decimal,
+    parcelas: Parcela[],
+    dataBase: string,
+  ): { iof: string | null; cetMensal: string | null } {
+    if (!dataBase) return { iof: null, cetMensal: null };
+    const { iofTotal, valorLiberado } = this.custosAbertura(principal, parcelas, dataBase);
+    const fluxos: FluxoCaixa[] = parcelas.map((p) => ({
+      periodo: new Decimal(diasCorridos(dataBase, p.dataVencimento)).div(365),
+      valor: new Decimal(p.valorParcela),
+    }));
+    const cet = calcularCet(valorLiberado, fluxos, { periodosAno: 1 });
+    return { iof: iofTotal.toFixed(2), cetMensal: cet.mensal.toDecimalPlaces(6).toString() };
+  }
 
   /** Contexto compartilhado (solver + cronograma base + custos de abertura). */
   private contexto() {

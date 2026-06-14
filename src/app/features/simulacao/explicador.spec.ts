@@ -106,6 +106,20 @@ describe('explicador', () => {
     expect(exp!.formula).toContain('PV = Σ');
   });
 
+  it('tipoTaxa: explica efetiva × nominal com traço e conversões', () => {
+    const exp = obterExplicacaoMatematica('tipoTaxa', dadosBase, 'price', 'half-even');
+    expect(exp).not.toBeNull();
+    expect(exp!.titulo).toContain('Efetiva');
+    expect(exp!.formula).toContain('i_efetiva');
+    expect(exp!.trace).toBeDefined();
+    expect(exp!.trace!.passos.map((p) => p.id)).toEqual(['base', 'nominal', 'efetiva', 'dif']);
+    // a conversão composta aparece no Excel e na HP12C
+    expect(exp!.excel.some((l) => l.includes('^12'))).toBe(true);
+    expect(exp!.hp12c.some((l) => l.includes('yˣ'))).toBe(true);
+    expect(exp!.glossario!.length).toBeGreaterThan(0);
+    expect(exp!.relacionados!.length).toBeGreaterThan(0);
+  });
+
   it('deve retornar a explicacao para Valor Liquido', () => {
     const exp = obterExplicacaoMatematica('valorLiquido', dadosBase, 'price', 'half-even');
     expect(exp).not.toBeNull();

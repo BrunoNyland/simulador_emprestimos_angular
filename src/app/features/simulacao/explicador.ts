@@ -233,12 +233,23 @@ const G = {
     definicao:
       'O atraso no pagamento. Gera dois encargos sobre a parcela vencida: a multa (percentual fixo, limitado a 2% pelo CDC) e os juros de mora (proporcionais aos dias de atraso).',
   },
+  taxaNominal: {
+    termo: 'Taxa nominal',
+    definicao:
+      'Taxa anunciada para um período, mas com capitalização em período menor — sem considerar os juros sobre juros. Ex.: 12% a.a. nominal com capitalização mensal significa apenas 1% a.m. (12 ÷ 12). É um "rótulo": a taxa que realmente incide é a efetiva.',
+  },
+  taxaEfetiva: {
+    termo: 'Taxa efetiva',
+    definicao:
+      'Taxa que de fato incide no período, já considerando a capitalização composta (juros sobre juros). 1% a.m. efetiva equivale a (1,01)¹² − 1 = 12,6825% a.a. efetiva — maior que os 12% nominais. É a taxa que importa para o custo real.',
+  },
 } as const;
 
 const GLOSSARIO_POR_TOPICO: Record<string, ItemGlossario[]> = {
   parcela: [G.jurosCompostos, G.amortizacao, G.saldoDevedor, G.vp, G.halfEven],
   valorBruto: [G.vp, G.jurosCompostos, G.amortizacao],
   taxa: [G.tir, G.jurosCompostos, G.vp],
+  tipoTaxa: [G.taxaNominal, G.taxaEfetiva, G.jurosCompostos],
   prazo: [G.jurosCompostos, G.saldoDevedor, G.amortizacao],
   valorLiquido: [G.cet, G.iof],
   iof: [G.iof, G.amortizacao],
@@ -267,6 +278,10 @@ const RELACIONADOS_POR_TOPICO: Record<string, LinkRelacionado[]> = {
   ],
   taxa: [
     { topico: 'parcela', rotulo: 'Parcela (PMT)' },
+    { topico: 'cetMensal', rotulo: 'CET mensal' },
+  ],
+  tipoTaxa: [
+    { topico: 'taxa', rotulo: 'Taxa de juros (i)' },
     { topico: 'cetMensal', rotulo: 'CET mensal' },
   ],
   prazo: [{ topico: 'parcela', rotulo: 'Parcela (PMT)' }],
@@ -645,6 +660,67 @@ function construirExplicacao(
           NOTA_EXCEL_REGIONAL,
         ],
         normas: [NORMA_LEI_4595, NORMA_CDC_TRANSPARENCIA],
+      };
+    }
+
+    case 'tipoTaxa': {
+      // Exemplo numérico ancorado na taxa efetiva mensal atual do formulário.
+      const im = iMensal; // efetiva mensal (fração)
+      const imPct = im.times(100);
+      const iNomAnualPct = im.times(12).times(100); // nominal anual (capitalização linear)
+      const iEfAnual = im.plus(1).pow(12).minus(1); // efetiva anual (juros compostos)
+      const iEfAnualPct = iEfAnual.times(100);
+      const difPct = iEfAnualPct.minus(iNomAnualPct);
+
+      const trace = montarTrace(
+        'tipo-taxa',
+        'Taxa Efetiva × Nominal',
+        'i_ef = (1 + i_nom / m)^m − 1',
+        [
+          passoNota('base', `Ponto de partida: taxa efetiva mensal i_m = ${disp(imPct, 4)}% (${disp(im, 6)} em fração).`),
+          passoNum('nominal', 'Taxa NOMINAL anual — multiplica por 12 (capitalização linear, sem juros sobre juros)', 'i_nom = i_m × 12', `${disp(imPct, 4)}% × 12`, iNomAnualPct, 4),
+          passoNum('efetiva', 'Taxa EFETIVA anual — capitaliza os 12 meses a juros compostos', 'i_ef = (1 + i_m)^12 − 1', `(1 + ${disp(im, 6)})^12 − 1`, iEfAnualPct, 4),
+          passoNum('dif', 'Diferença — o "ganho" embutido da capitalização composta', 'i_ef − i_nom', `${disp(iEfAnualPct, 4)}% − ${disp(iNomAnualPct, 4)}%`, difPct, 4),
+        ],
+      );
+
+      return {
+        titulo: 'Taxa Efetiva × Taxa Nominal',
+        trace,
+        formula: 'i_efetiva = (1 + i_nominal / m)^m − 1',
+        formulaMathML:
+          '<math display="block"><mrow>' +
+          '<msub><mi class="fx-v0">i</mi><mtext>ef</mtext></msub><mo>=</mo>' +
+          '<msup><mrow><mo>(</mo><mn>1</mn><mo>+</mo>' +
+          '<mfrac><msub><mi class="fx-v1">i</mi><mtext>nom</mtext></msub><mi class="fx-v2">m</mi></mfrac>' +
+          '<mo>)</mo></mrow><mi class="fx-v2">m</mi></msup><mo>−</mo><mn>1</mn>' +
+          '</mrow></math>',
+        descricao:
+          'A taxa NOMINAL é apenas um rótulo anual: ela é dividida igualmente pelos períodos de capitalização, sem considerar os juros sobre juros. Já a taxa EFETIVA é a que realmente incide, pois acumula a capitalização composta. Por isso, para a MESMA taxa mensal, a efetiva anual é sempre MAIOR que a nominal anual. No Brasil, contratos e o BACEN exigem a divulgação da taxa efetiva (e do CET) justamente porque a nominal subestima o custo real. Importante: em base mensal, efetiva e nominal coincidem — a diferença só aparece ao anualizar.',
+        legenda: [
+          { simbolo: 'i_ef', nome: 'Taxa efetiva anual (juros compostos)', valor: fmtPct(iEfAnualPct, 4) },
+          { simbolo: 'i_nom', nome: 'Taxa nominal anual (capitalização linear)', valor: fmtPct(iNomAnualPct, 4) },
+          { simbolo: 'm', nome: 'Capitalizações por ano', valor: '12' },
+          { simbolo: 'i_m', nome: 'Taxa efetiva mensal (base do exemplo)', valor: fmtPct(imPct, 4) },
+        ],
+        passos: passosDeTrace(trace),
+        regras: [
+          'Em base mensal, efetiva = nominal: a conversão composta só altera o valor quando se muda de período (mensal → anual).',
+          'Nominal → mensal é divisão simples (÷ m); mensal → anual efetiva é potência ((1 + i)^m − 1). Nunca multiplique a taxa mensal por 12 esperando a efetiva anual.',
+          'O CET sempre usa taxas efetivas — comparar propostas pela taxa nominal pode enganar.',
+        ],
+        hp12c: [
+          'A HP12C converte mensal → anual efetiva com a função de potência (yˣ):',
+          `${disp(im, 6)} ENTER 1 + 12 yˣ 1 −   → ${disp(iEfAnual, 6)} (efetiva anual em fração; ×100 = ${disp(iEfAnualPct, 4)}%)`,
+          `Nominal → mensal (divisão simples): ${disp(iNomAnualPct, 4)} ENTER 12 ÷   → ${disp(imPct, 4)} (taxa mensal em %)`,
+        ],
+        excel: [
+          `Mensal → efetiva anual: =(1+${fmtNum(im, 6)})^12-1   → ${fmtNum(iEfAnual, 6)} (formate como %)`,
+          `Nominal anual → efetiva anual: =(1+${fmtNum(iNomAnualPct, 4)}%/12)^12-1`,
+          'Efetiva anual → mensal: =(1+i_anual)^(1/12)-1',
+          NOTA_EXCEL_REGIONAL,
+        ],
+        normas: [NORMA_CDC_TRANSPARENCIA, NORMA_LEI_4595],
       };
     }
 

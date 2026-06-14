@@ -68,6 +68,21 @@ describe('SimulacaoStore', () => {
     expect(comp!.sac.ultimaParcela).toBe('84.20');
   });
 
+  it('comparativo: inclui IOF total e CET mensal para Price e SAC', () => {
+    store.valorBruto.set('1000');
+    store.taxa.set('0.01');
+    store.prazo.set(12);
+
+    const comp = store.comparativo();
+    expect(comp).not.toBeNull();
+    for (const sis of [comp!.price, comp!.sac]) {
+      expect(Number(sis.iof)).toBeGreaterThan(0);
+      expect(Number(sis.cetMensal)).toBeGreaterThan(0);
+    }
+    // SAC amortiza mais rapido -> IOF diario menor -> IOF total <= Price
+    expect(Number(comp!.sac.iof)).toBeLessThanOrEqual(Number(comp!.price.iof));
+  });
+
   it('eventos: tabela base permanece intacta e a projecao vai p/ eventosResultado', () => {
     store.sistema.set('price');
     store.campoAlvo.set('parcela');

@@ -29,7 +29,7 @@ export interface HpLinha {
  */
 const HP_TECLAS = new Set([
   'ENTER', 'CHS', 'PV', 'PMT', 'FV', 'n', 'i', 'f', 'g', 'STO', 'RCL', 'CLX',
-  'CF0', 'CFo', 'CFj', 'Nj', 'IRR', 'NPV', 'END', 'BEG', 'x><y', '1/x',
+  'CF0', 'CFo', 'CFj', 'Nj', 'IRR', 'NPV', 'END', 'BEG', 'x><y', '1/x', 'yˣ',
   '%', '%T', 'EEX', 'R/S', 'GTO', '÷', '×', '−', '-', '+', '=',
 ]);
 

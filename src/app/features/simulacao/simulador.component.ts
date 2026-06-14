@@ -233,6 +233,19 @@ export class SimuladorComponent {
     const res = this.store.resultado();
     const arredondamento = this.configService.config().defaults.arredondamento;
 
+    // Tópico CONCEITUAL (taxa efetiva × nominal): independe de uma simulação
+    // válida — usa os valores atuais do formulário só para o exemplo numérico.
+    if (topico === 'tipoTaxa') {
+      const dados = {
+        parametros: {
+          taxa: this.store.taxa(),
+          tipoTaxa: this.store.tipoTaxa(),
+          unidadeTaxa: this.store.unidadeTaxa(),
+        },
+      };
+      return obterExplicacaoMatematica(topico, dados, this.store.sistema(), arredondamento);
+    }
+
     if (SimuladorComponent.TOPICOS_POS_EVENTOS.includes(topico)) {
       const evRes = this.store.eventosResultado();
       if (!evRes) return null;
