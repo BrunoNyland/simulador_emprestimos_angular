@@ -43,9 +43,15 @@
 
 .modal-titulo {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--primary);
+
+  /* recebe foco programático ao trocar de tópico (anúncio p/ leitor de tela);
+     não mostramos contorno nesse foco não-interativo. */
+  &:focus {
+    outline: none;
+  }
 }
 
 .modal-fechar {
@@ -117,27 +123,95 @@
   word-break: break-word;
 }
 
-.demo-texto {
-  font-size: 0.8rem;
-  line-height: 1.4;
-  margin-bottom: 0.6rem;
-  color: var(--text);
+/* Conceito: caixa única, mesma formatação visual dos itens da Base Legal. */
+.demo-conceito {
+  margin: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text-soft);
 }
 
 .demo-sub {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.5px;
-  margin: 0.6rem 0 0.25rem;
+  margin: 0.9rem 0 0.3rem;
+}
+
+/* h4 herda margens do user-agent; normalizamos para o ritmo do modal. */
+h4.demo-sub {
+  margin: 0.9rem 0 0.3rem;
+}
+
+/* ===== Seções recolhíveis (HP12C, Excel, base legal, glossário) ===== */
+.demo-secao {
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+
+  &[open] {
+    padding-bottom: 0.4rem;
+  }
+}
+
+.demo-sub--toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  list-style: none;
+  -webkit-user-select: none;
+  user-select: none;
+  padding: 0.55rem 0;
+  margin: 0;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  /* seta de divulgação à direita */
+  &::after {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-left: auto;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.18s ease;
+  }
+
+  &:hover {
+    color: var(--primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+}
+
+.demo-secao[open] > .demo-sub--toggle::after {
+  transform: rotate(225deg);
+}
+
+.demo-sub-icone {
+  flex-shrink: 0;
+  color: var(--primary);
 }
 
 .demo-legenda-tabela {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   margin-bottom: 0.6rem;
 
   th,
@@ -214,18 +288,23 @@
 
 .trace-desc {
   display: block;
-  font-size: 0.76rem;
-  line-height: 1.35;
-  margin-bottom: 0.15rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin-bottom: 0.2rem;
 }
 
+/* Quebra com indentação pendente: o resultado (colorido) NUNCA fica escondido
+   num scroll horizontal — ele só desce de linha em telas estreitas. */
 .trace-calc {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.1rem;
+  row-gap: 0.1rem;
   font-family: var(--mono);
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   line-height: 1.5;
-  overflow-x: auto;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 .trace-formula {
@@ -263,14 +342,23 @@
 }
 
 .demo-regras {
-  list-style: disc;
-  padding-left: 1rem;
+  list-style: none;
+  padding: 0;
   margin: 0;
-  font-size: 0.72rem;
-  color: var(--text-muted);
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.25rem;
+
+  li {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--warn-text, #b3870c);
+    border-radius: var(--radius);
+    padding: 0.35rem 0.55rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
 }
 
 .demo-calculadora {
@@ -288,7 +376,7 @@
     font-family: var(--mono);
     font-size: 0.74rem;
     line-height: 1.4;
-    background: var(--surface-3);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 0.3rem 0.5rem;
@@ -316,7 +404,7 @@
   gap: 0.3rem;
 
   li {
-    background: var(--surface-3);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-left: 4px solid var(--accent);
     border-radius: var(--radius);
@@ -351,7 +439,7 @@
   font-weight: 700;
   line-height: 1;
   color: var(--text);
-  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  background: linear-gradient(180deg, var(--surface-3), var(--surface));
   border: 1px solid var(--border-strong);
   border-bottom-width: 2px;
   border-radius: 5px;
@@ -373,13 +461,16 @@
   border-color: #245a96;
 }
 
-/* Operando digitado (número). */
-.hp-num {
-  font-family: var(--mono);
-  font-size: 0.74rem;
-  font-weight: 600;
+/* Operando digitado (número): mono em destaque, SEM o relevo de botão. */
+.hp-tecla.hp-num {
   color: var(--accent);
-  padding: 0.05rem 0.2rem;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  min-width: 0;
+  padding: 0.05rem 0.15rem;
+  font-size: 0.78rem;
 }
 
 /* Palavras dentro de uma linha em prosa. */
@@ -489,8 +580,8 @@
     border-left: 4px solid var(--primary);
     border-radius: var(--radius);
     padding: 0.35rem 0.55rem;
-    font-size: 0.74rem;
-    line-height: 1.4;
+    font-size: 0.78rem;
+    line-height: 1.45;
   }
 
   a {

@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -13,21 +14,7 @@ import {
 } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Explicacao } from './explicador';
-
-/** Segmento de uma instrução da HP12C: tecla (botão), número ou texto. */
-interface HpSeg {
-  tipo: 'tecla' | 'num' | 'texto';
-  texto: string;
-  cls: string;
-}
-
-/** Uma linha de instrução da HP12C, já tokenizada para renderização. */
-interface HpLinha {
-  segs: HpSeg[];
-  comentario: string;
-  /** true quando a linha é uma frase (e não uma sequência pura de teclas). */
-  prosa: boolean;
-}
+import { analisarLinhaHp12c, HpLinha } from './hp12c-format';
 
 /**
  * Modal da demonstração matemática passo a passo.
@@ -45,6 +32,7 @@ interface HpLinha {
 })
 export class ExplicacaoModalComponent {
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly explicacao = input.required<Explicacao>();
   readonly fechar = output<void>();
@@ -53,6 +41,7 @@ export class ExplicacaoModalComponent {
 
   /** Índice da linha de Excel copiada há instantes (feedback visual). */
   readonly copiadoIdx = signal<number | null>(null);
+  private copiarTimer?: ReturnType<typeof setTimeout>;
 
   /**
    * Fórmula MathML confiável (gerada pelo próprio explicador, sem entrada do
@@ -64,16 +53,23 @@ export class ExplicacaoModalComponent {
   );
 
   private readonly dialogo = viewChild.required<ElementRef<HTMLDialogElement>>('dialogo');
-  private readonly corpo = viewChild<ElementRef<HTMLElement>>('corpo');
+  private readonly corpo = viewChild.required<ElementRef<HTMLElement>>('corpo');
+  private readonly tituloEl = viewChild.required<ElementRef<HTMLHeadingElement>>('titulo');
 
   constructor() {
     afterNextRender(() => this.dialogo().nativeElement.showModal());
 
-    // Ao trocar de tópico (link cruzado), volta a rolagem ao topo.
+    // Ao trocar de tópico (link cruzado) ou na abertura, volta a rolagem ao
+    // topo e move o foco para o título (anúncio em leitores de tela). Depende
+    // de uma identidade ESTÁVEL do conteúdo (trace.id, com fallback no título).
     effect(() => {
-      this.explicacao().titulo; // dependência: recomputa quando muda
-      this.corpo()?.nativeElement.scrollTo({ top: 0 });
+      const exp = this.explicacao();
+      exp.trace?.id ?? exp.titulo; // dependência: muda a cada novo tópico
+      this.corpo().nativeElement.scrollTo({ top: 0 });
+      this.tituloEl().nativeElement.focus({ preventScroll: true });
     });
+
+    this.destroyRef.onDestroy(() => clearTimeout(this.copiarTimer));
   }
 
   /**
@@ -95,68 +91,10 @@ export class ExplicacaoModalComponent {
     });
   }
 
-  /**
-   * Teclas de função da HP12C (case-sensitive). Tokens que casam aqui viram
-   * "botões"; o restante é número (operando) ou texto explicativo.
-   */
-  private static readonly HP_TECLAS = new Set([
-    'ENTER', 'CHS', 'PV', 'PMT', 'FV', 'n', 'i', 'f', 'g', 'STO', 'RCL', 'CLX',
-    'CF0', 'CFo', 'CFj', 'Nj', 'IRR', 'NPV', 'END', 'BEG', 'x><y', '1/x',
-    '%', '%T', 'EEX', 'R/S', 'GTO', '÷', '×', '−', '-', '+', '=',
-  ]);
-
-  private static ehTeclaHp(t: string): boolean {
-    return ExplicacaoModalComponent.HP_TECLAS.has(t);
-  }
-
-  private static ehNumeroHp(t: string): boolean {
-    return /\d/.test(t) && /^[-]?[\d.,]+%?$/.test(t);
-  }
-
-  /**
-   * Quebra uma linha de instrução da HP12C em segmentos renderizáveis: teclas
-   * (botões), números (operandos) e texto. Linhas que são frases (contêm
-   * palavras que não são teclas nem números) viram "prosa", com as teclas ainda
-   * destacadas como botões inline.
-   */
+  /** Instruções da HP12C tokenizadas para renderização (teclas, números, texto). */
   readonly hp12cLinhas = computed<HpLinha[]>(() =>
-    this.explicacao().hp12c.map((linha) => ExplicacaoModalComponent.analisarHp(linha)),
+    this.explicacao().hp12c.map((linha) => analisarLinhaHp12c(linha)),
   );
-
-  private static analisarHp(linha: string): HpLinha {
-    // 1) separa o comentário: tudo a partir de "→" ou de um parêntese final.
-    let principal = linha;
-    let comentario = '';
-    const seta = linha.indexOf('→');
-    if (seta >= 0) {
-      comentario = linha.slice(seta).trim();
-      principal = linha.slice(0, seta);
-    }
-    const parFinal = principal.match(/\s*(\([^)]*\))\s*$/);
-    if (parFinal) {
-      comentario = (parFinal[1] + (comentario ? ' ' + comentario : '')).trim();
-      principal = principal.slice(0, parFinal.index).trim();
-    }
-
-    const tokens = principal.trim().split(/\s+/).filter(Boolean);
-    const keystroke =
-      tokens.length > 0 &&
-      tokens.every((t) => ExplicacaoModalComponent.ehTeclaHp(t) || ExplicacaoModalComponent.ehNumeroHp(t));
-
-    const segs: HpSeg[] = tokens.map((t) => {
-      if (ExplicacaoModalComponent.ehTeclaHp(t)) {
-        const cls =
-          'hp-tecla' + (t === 'f' ? ' hp-f' : t === 'g' ? ' hp-g' : '');
-        return { tipo: 'tecla', texto: t, cls };
-      }
-      if (keystroke && ExplicacaoModalComponent.ehNumeroHp(t)) {
-        return { tipo: 'num', texto: t, cls: 'hp-num' };
-      }
-      return { tipo: 'texto', texto: t, cls: 'hp-texto' };
-    });
-
-    return { segs, comentario, prosa: !keystroke };
-  }
 
   /** True se a linha de Excel é uma fórmula copiável (começa com "="). */
   ehFormula(linha: string): boolean {
@@ -172,7 +110,8 @@ export class ExplicacaoModalComponent {
     try {
       await navigator.clipboard.writeText(this.formulaDe(linha));
       this.copiadoIdx.set(idx);
-      setTimeout(() => this.copiadoIdx.set(null), 1500);
+      clearTimeout(this.copiarTimer);
+      this.copiarTimer = setTimeout(() => this.copiadoIdx.set(null), 1500);
     } catch {
       // Clipboard indisponível (sem HTTPS/permite): ignora silenciosamente.
     }

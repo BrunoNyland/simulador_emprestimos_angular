@@ -10,7 +10,9 @@
   --border: #c4cad4;
   --border-strong: #a7afbd;
   --text: #20242e;
-  --text-muted: #5a6573;
+  --text-muted: #51606f;
+  /* Texto de leitura corrida (parágrafos longos): suave, mas com bom contraste. */
+  --text-soft: #39414f;
   --primary: #6d44d9;
   --primary-strong: #5a35bf;
   --primary-contrast: #ffffff;
@@ -53,7 +55,10 @@
   --border: #44475a;
   --border-strong: #565a72;
   --text: #f8f8f2;
-  --text-muted: #8a94b6;
+  /* Cinza claro, mais legível que o original (#8a94b6) no escuro. */
+  --text-muted: #bcc4dd;
+  /* Cinza claro para leitura corrida: suave, não o branco puro do --text. */
+  --text-soft: #e2e5ef;
   --primary: #bd93f9;
   --primary-strong: #a87df0;
   --primary-contrast: #21222c;
