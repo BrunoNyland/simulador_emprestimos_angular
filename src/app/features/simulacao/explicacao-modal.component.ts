@@ -14,6 +14,21 @@ import {
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Explicacao } from './explicador';
 
+/** Segmento de uma instrução da HP12C: tecla (botão), número ou texto. */
+interface HpSeg {
+  tipo: 'tecla' | 'num' | 'texto';
+  texto: string;
+  cls: string;
+}
+
+/** Uma linha de instrução da HP12C, já tokenizada para renderização. */
+interface HpLinha {
+  segs: HpSeg[];
+  comentario: string;
+  /** true quando a linha é uma frase (e não uma sequência pura de teclas). */
+  prosa: boolean;
+}
+
 /**
  * Modal da demonstração matemática passo a passo.
  *
@@ -69,6 +84,78 @@ export class ExplicacaoModalComponent {
     if (ev.target === this.dialogo().nativeElement) {
       this.fechar.emit();
     }
+  }
+
+  /** Formata o resultado de um passo do traço (string Decimal) para exibição. */
+  formatarPasso(resultado: string | undefined, casas: number | undefined): string {
+    const c = casas ?? 2;
+    return Number(resultado ?? '0').toLocaleString('pt-BR', {
+      minimumFractionDigits: c,
+      maximumFractionDigits: c,
+    });
+  }
+
+  /**
+   * Teclas de função da HP12C (case-sensitive). Tokens que casam aqui viram
+   * "botões"; o restante é número (operando) ou texto explicativo.
+   */
+  private static readonly HP_TECLAS = new Set([
+    'ENTER', 'CHS', 'PV', 'PMT', 'FV', 'n', 'i', 'f', 'g', 'STO', 'RCL', 'CLX',
+    'CF0', 'CFo', 'CFj', 'Nj', 'IRR', 'NPV', 'END', 'BEG', 'x><y', '1/x',
+    '%', '%T', 'EEX', 'R/S', 'GTO', '÷', '×', '−', '-', '+', '=',
+  ]);
+
+  private static ehTeclaHp(t: string): boolean {
+    return ExplicacaoModalComponent.HP_TECLAS.has(t);
+  }
+
+  private static ehNumeroHp(t: string): boolean {
+    return /\d/.test(t) && /^[-]?[\d.,]+%?$/.test(t);
+  }
+
+  /**
+   * Quebra uma linha de instrução da HP12C em segmentos renderizáveis: teclas
+   * (botões), números (operandos) e texto. Linhas que são frases (contêm
+   * palavras que não são teclas nem números) viram "prosa", com as teclas ainda
+   * destacadas como botões inline.
+   */
+  readonly hp12cLinhas = computed<HpLinha[]>(() =>
+    this.explicacao().hp12c.map((linha) => ExplicacaoModalComponent.analisarHp(linha)),
+  );
+
+  private static analisarHp(linha: string): HpLinha {
+    // 1) separa o comentário: tudo a partir de "→" ou de um parêntese final.
+    let principal = linha;
+    let comentario = '';
+    const seta = linha.indexOf('→');
+    if (seta >= 0) {
+      comentario = linha.slice(seta).trim();
+      principal = linha.slice(0, seta);
+    }
+    const parFinal = principal.match(/\s*(\([^)]*\))\s*$/);
+    if (parFinal) {
+      comentario = (parFinal[1] + (comentario ? ' ' + comentario : '')).trim();
+      principal = principal.slice(0, parFinal.index).trim();
+    }
+
+    const tokens = principal.trim().split(/\s+/).filter(Boolean);
+    const keystroke =
+      tokens.length > 0 &&
+      tokens.every((t) => ExplicacaoModalComponent.ehTeclaHp(t) || ExplicacaoModalComponent.ehNumeroHp(t));
+
+    const segs: HpSeg[] = tokens.map((t) => {
+      if (ExplicacaoModalComponent.ehTeclaHp(t)) {
+        const cls =
+          'hp-tecla' + (t === 'f' ? ' hp-f' : t === 'g' ? ' hp-g' : '');
+        return { tipo: 'tecla', texto: t, cls };
+      }
+      if (keystroke && ExplicacaoModalComponent.ehNumeroHp(t)) {
+        return { tipo: 'num', texto: t, cls: 'hp-num' };
+      }
+      return { tipo: 'texto', texto: t, cls: 'hp-texto' };
+    });
+
+    return { segs, comentario, prosa: !keystroke };
   }
 
   /** True se a linha de Excel é uma fórmula copiável (começa com "="). */

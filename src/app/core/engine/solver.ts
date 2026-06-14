@@ -1,7 +1,8 @@
 import { Decimal, arredondarMoeda } from './decimal.config';
 import { ParametrosSimulacao, SistemaAmortizacao } from './models';
-import { valorParcelaPrice } from './price';
+import { valorParcelaPrice, ResultadoComTrace } from './price';
 import { mensalParaUnidade, taxaEfetivaMensal } from './rates';
+import { disp, passoCalculo, TraceCalculo } from './trace';
 
 /** Campo que o solver deve resolver (os demais ficam travados). */
 export type CampoAlvo = 'valorBruto' | 'taxa' | 'prazo' | 'parcela';
@@ -20,25 +21,114 @@ export interface SaidaSolver {
   parcela: string;
 }
 
+/** Resultado de um cálculo de prazo (inteiro) acompanhado do traço. */
+export interface ResultadoPrazoComTrace {
+  n: number;
+  trace: TraceCalculo;
+}
+
+/**
+ * Valor presente Price CANÔNICO (com traço). PMT*(1-(1+i)^-n)/i (PMT*n se i=0).
+ * `valorPresentePrice` é o wrapper fino que descarta o traço.
+ */
+export function calcularValorPresentePrice(
+  pmt: Decimal,
+  i: Decimal,
+  n: number,
+): ResultadoComTrace {
+  if (i.isZero()) {
+    const valor = pmt.times(n);
+    return {
+      valor,
+      trace: {
+        id: 'pv-price',
+        titulo: 'Valor presente Price (PV) — taxa zero',
+        formula: 'PV = PMT × n',
+        resultado: valor.toString(),
+        passos: [
+          passoCalculo('pv', 'Sem juros, soma das parcelas iguais', 'PMT × n', `${disp(pmt, 2)} × ${n}`, valor, 2),
+        ],
+      },
+    };
+  }
+  const base = i.plus(1);
+  const pot = base.pow(-n);
+  const num = new Decimal(1).minus(pot);
+  const fator = num.div(i);
+  const valor = pmt.times(fator);
+  return {
+    valor,
+    trace: {
+      id: 'pv-price',
+      titulo: 'Valor presente Price (PV)',
+      formula: 'PV = PMT × [ (1 − (1 + i)^−n) / i ]',
+      resultado: valor.toString(),
+      passos: [
+        passoCalculo('base', 'Somar 1 à taxa', '1 + i', `1 + ${disp(i)}`, base),
+        passoCalculo('pot', 'Fator de desconto total', '(1 + i)^−n', `${disp(base)}^−${n}`, pot),
+        passoCalculo('num', 'Subtrair de 1', '1 − (1 + i)^−n', `1 − ${disp(pot)}`, num),
+        passoCalculo('fator', 'Fator de valor presente da anuidade', '[1 − (1 + i)^−n] / i', `${disp(num)} / ${disp(i)}`, fator),
+        passoCalculo('pv', 'Multiplicar pela parcela', 'PMT × fator', `${disp(pmt, 2)} × ${disp(fator)}`, valor, 2),
+      ],
+    },
+  };
+}
+
 /** Valor presente Price a partir da parcela: PMT*(1-(1+i)^-n)/i (PMT*n se i=0). */
 export function valorPresentePrice(pmt: Decimal, i: Decimal, n: number): Decimal {
+  return calcularValorPresentePrice(pmt, i, n).valor;
+}
+
+/**
+ * Prazo Price CANÔNICO (com traço). n = -ln(1 - PV*i/PMT)/ln(1+i).
+ * `prazoPrice` é o wrapper fino que devolve só o inteiro.
+ */
+export function calcularPrazoPrice(pv: Decimal, pmt: Decimal, i: Decimal): ResultadoPrazoComTrace {
   if (i.isZero()) {
-    return pmt.times(n);
+    const exato = pv.div(pmt);
+    const n = Math.round(exato.toNumber());
+    return {
+      n,
+      trace: {
+        id: 'prazo-price',
+        titulo: 'Prazo Price (n) — taxa zero',
+        formula: 'n = PV / PMT',
+        resultado: exato.toString(),
+        passos: [passoCalculo('n', 'Sem juros, divide o principal pela parcela', 'PV / PMT', `${disp(pv, 2)} / ${disp(pmt, 2)}`, exato, 2)],
+      },
+    };
   }
-  return pmt.times(new Decimal(1).minus(i.plus(1).pow(-n))).div(i);
+  const jurosMes = pv.times(i);
+  const arg = new Decimal(1).minus(jurosMes.div(pmt));
+  if (arg.lessThanOrEqualTo(0)) {
+    throw new Error('Parcela insuficiente para amortizar (PMT <= juros): prazo infinito.');
+  }
+  const lnArg = arg.ln();
+  const lnBase = i.plus(1).ln();
+  const exato = lnArg.negated().div(lnBase);
+  const n = Math.round(exato.toNumber());
+  return {
+    n,
+    trace: {
+      id: 'prazo-price',
+      titulo: 'Prazo Price (n)',
+      formula: 'n = − ln(1 − PV·i / PMT) / ln(1 + i)',
+      resultado: exato.toString(),
+      passos: [
+        passoCalculo('juros', 'Juros do 1º mês', 'PV × i', `${disp(pv, 2)} × ${disp(i)}`, jurosMes, 2),
+        passoCalculo('frac', 'Fração da parcela consumida por juros', 'PV·i / PMT', `${disp(jurosMes, 2)} / ${disp(pmt, 2)}`, jurosMes.div(pmt)),
+        passoCalculo('arg', 'Subtrair de 1', '1 − PV·i/PMT', `1 − ${disp(jurosMes.div(pmt))}`, arg),
+        passoCalculo('lnArg', 'Logaritmo natural do argumento', 'ln(1 − PV·i/PMT)', `ln(${disp(arg)})`, lnArg),
+        passoCalculo('lnBase', 'Logaritmo natural de (1 + i)', 'ln(1 + i)', `ln(${disp(i.plus(1))})`, lnBase),
+        passoCalculo('n', 'Dividir e inverter o sinal (arredonda p/ inteiro)', '− lnArg / lnBase', `−${disp(lnArg)} / ${disp(lnBase)}`, exato, 2),
+      ],
+    },
+  };
 }
 
 /** Prazo Price a partir de PV, PMT e i: -ln(1 - PV*i/PMT)/ln(1+i). */
 export function prazoPrice(pv: Decimal, pmt: Decimal, i: Decimal): number {
-  if (i.isZero()) {
-    return Math.round(pv.div(pmt).toNumber());
-  }
-  const arg = new Decimal(1).minus(pv.times(i).div(pmt));
-  if (arg.lessThanOrEqualTo(0)) {
-    throw new Error('Parcela insuficiente para amortizar (PMT <= juros): prazo infinito.');
-  }
-  const n = arg.ln().negated().div(i.plus(1).ln());
-  return Math.round(n.toNumber());
+  return calcularPrazoPrice(pv, pmt, i).n;
 }
 
 // --- SAC: relacoes pela 1a parcela (parcela1 = PV/n + PV*i) ---
@@ -48,18 +138,64 @@ export function primeiraParcelaSac(pv: Decimal, i: Decimal, n: number): Decimal 
   return pv.div(n).plus(pv.times(i));
 }
 
+/** PV SAC CANÔNICO (com traço): parcela1 / (1/n + i). */
+export function calcularValorPresenteSac(
+  parcela1: Decimal,
+  i: Decimal,
+  n: number,
+): ResultadoComTrace {
+  const cotaN = new Decimal(1).div(n);
+  const fator = cotaN.plus(i);
+  const valor = parcela1.div(fator);
+  return {
+    valor,
+    trace: {
+      id: 'pv-sac',
+      titulo: 'Valor presente SAC (PV)',
+      formula: 'PV = PMT₁ / (1/n + i)',
+      resultado: valor.toString(),
+      passos: [
+        passoCalculo('cota', 'Fração de amortização por período', '1 / n', `1 / ${n}`, cotaN),
+        passoCalculo('fator', 'Somar a taxa mensal', '1/n + i', `${disp(cotaN)} + ${disp(i)}`, fator),
+        passoCalculo('pv', 'Dividir a 1ª parcela pelo fator', 'PMT₁ / fator', `${disp(parcela1, 2)} / ${disp(fator)}`, valor, 2),
+      ],
+    },
+  };
+}
+
 /** PV SAC a partir da 1a parcela: parcela1 / (1/n + i). */
 export function valorPresenteSac(parcela1: Decimal, i: Decimal, n: number): Decimal {
-  return parcela1.div(new Decimal(1).div(n).plus(i));
+  return calcularValorPresenteSac(parcela1, i, n).valor;
+}
+
+/** Prazo SAC CANÔNICO (com traço): n = PV / (parcela1 - PV*i). */
+export function calcularPrazoSac(pv: Decimal, parcela1: Decimal, i: Decimal): ResultadoPrazoComTrace {
+  const jurosMes = pv.times(i);
+  const amort = parcela1.minus(jurosMes);
+  if (amort.lessThanOrEqualTo(0)) {
+    throw new Error('1a parcela insuficiente (<= juros): prazo invalido no SAC.');
+  }
+  const exato = pv.div(amort);
+  const n = Math.round(exato.toNumber());
+  return {
+    n,
+    trace: {
+      id: 'prazo-sac',
+      titulo: 'Prazo SAC (n)',
+      formula: 'n = PV / A    com  A = PMT₁ − PV·i',
+      resultado: exato.toString(),
+      passos: [
+        passoCalculo('juros', 'Juros do 1º mês', 'PV × i', `${disp(pv, 2)} × ${disp(i)}`, jurosMes, 2),
+        passoCalculo('amort', 'Amortização constante (deduz os juros da 1ª parcela)', 'A = PMT₁ − PV·i', `${disp(parcela1, 2)} − ${disp(jurosMes, 2)}`, amort, 2),
+        passoCalculo('n', 'Dividir o principal pela amortização (arredonda p/ inteiro)', 'PV / A', `${disp(pv, 2)} / ${disp(amort, 2)}`, exato, 2),
+      ],
+    },
+  };
 }
 
 /** Prazo SAC a partir de PV, 1a parcela e i: PV / (parcela1 - PV*i). */
 export function prazoSac(pv: Decimal, parcela1: Decimal, i: Decimal): number {
-  const denom = parcela1.minus(pv.times(i));
-  if (denom.lessThanOrEqualTo(0)) {
-    throw new Error('1a parcela insuficiente (<= juros): prazo invalido no SAC.');
-  }
-  return Math.round(pv.div(denom).toNumber());
+  return calcularPrazoSac(pv, parcela1, i).n;
 }
 
 /** Taxa efetiva mensal SAC a partir de PV, 1a parcela e n: (parcela1 - PV/n)/PV. */

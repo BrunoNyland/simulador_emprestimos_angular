@@ -8,12 +8,15 @@ import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
 import { EventoCalc } from '../../core/engine/eventos';
 import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
-import { Decimal } from '../../core/engine/decimal.config';
+import { Decimal, arredondarMoeda } from '../../core/engine/decimal.config';
+import { Parcela } from '../../core/engine/models';
+import { taxaEfetivaMensal } from '../../core/engine/rates';
+import { valorParcelaPrice } from '../../core/engine/price';
 import { MoedaInputDirective } from '../../shared/moeda-input.directive';
 import { SecaoComponent } from '../../shared/secao.component';
 import { DataBrPipe } from '../../shared/data-br.pipe';
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
-import { obterExplicacaoMatematica, Explicacao } from './explicador';
+import { obterExplicacaoMatematica, explicacaoDaParcela, Explicacao } from './explicador';
 import { ExplicacaoModalComponent } from './explicacao-modal.component';
 
 
@@ -174,12 +177,39 @@ export class SimuladorComponent {
     }
   }
 
+  /** Explicação de uma linha do cronograma (construída sob demanda no clique). */
+  readonly explicacaoParcela = signal<Explicacao | null>(null);
+
   selecionarExplicacao(topico: string): void {
+    this.explicacaoParcela.set(null);
     this.explicacaoAtiva.set(topico);
+  }
+
+  /** Abre a explicação da linha clicada do cronograma base. */
+  explicarParcela(p: Parcela): void {
+    const res = this.store.resultado();
+    if (res.tipo !== 'ok') return;
+    const params = res.dados.parametros;
+    const sistema = this.store.sistema();
+    const principal = new Decimal(params.valorBruto);
+    const i = taxaEfetivaMensal(new Decimal(params.taxa), params.tipoTaxa, params.unidadeTaxa);
+    const n = params.prazo;
+    const exp = explicacaoDaParcela({
+      sistema,
+      numero: p.numero,
+      prazo: n,
+      saldoInicial: new Decimal(p.saldoInicial),
+      taxaPeriodo: i,
+      pmt: sistema === 'price' ? arredondarMoeda(valorParcelaPrice(principal, i, n)) : undefined,
+      amortConstante: sistema === 'sac' ? arredondarMoeda(principal.div(n)) : undefined,
+    });
+    this.explicacaoAtiva.set(null);
+    this.explicacaoParcela.set(exp);
   }
 
   fecharExplicacao(): void {
     this.explicacaoAtiva.set(null);
+    this.explicacaoParcela.set(null);
   }
 
   private static readonly TOPICOS_POS_EVENTOS = [
@@ -193,6 +223,10 @@ export class SimuladorComponent {
 
   /** Explicação do tópico ativo, memoizada (recalcula só quando os signals mudam). */
   readonly explicacao = computed<Explicacao | null>(() => {
+    // Explicação de linha do cronograma tem prioridade sobre os tópicos.
+    const daParcela = this.explicacaoParcela();
+    if (daParcela) return daParcela;
+
     const topico = this.explicacaoAtiva();
     if (!topico) return null;
 

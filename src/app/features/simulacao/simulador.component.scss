@@ -195,6 +195,18 @@ tbody td {
   font-weight: 700;
 }
 
+tbody tr.linha-clicavel {
+  cursor: pointer;
+}
+tbody tr.linha-clicavel:hover {
+  background: color-mix(in srgb, var(--primary) 10%, var(--row-hover));
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+tbody tr.linha-clicavel:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
 tbody tr.tem-evento {
   background: var(--warn-soft);
 }

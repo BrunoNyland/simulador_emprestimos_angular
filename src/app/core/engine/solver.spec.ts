@@ -1,7 +1,54 @@
 import { Decimal } from './decimal.config';
 import { valorParcelaPrice } from './price';
-import { resolverCampoAlvo } from './solver';
+import {
+  resolverCampoAlvo,
+  calcularValorPresentePrice,
+  valorPresentePrice,
+  calcularValorPresenteSac,
+  valorPresenteSac,
+  calcularPrazoPrice,
+  prazoPrice,
+  calcularPrazoSac,
+  prazoSac,
+} from './solver';
 import { ParametrosSimulacao } from './models';
+
+const d = (v: string | number) => new Decimal(v);
+
+describe('solver — traços (motor = fonte única)', () => {
+  it('PV Price: traço bate com valorPresentePrice e tem ids esperados', () => {
+    const r = calcularValorPresentePrice(d('88.848'), d('0.01'), 12);
+    expect(r.valor.toString()).toBe(valorPresentePrice(d('88.848'), d('0.01'), 12).toString());
+    expect(r.trace.id).toBe('pv-price');
+    expect(r.trace.passos.map((p) => p.id)).toEqual(['base', 'pot', 'num', 'fator', 'pv']);
+    expect(r.trace.passos.at(-1)!.resultado).toBe(r.valor.toString());
+  });
+
+  it('PV SAC: traço bate com valorPresenteSac', () => {
+    const r = calcularValorPresenteSac(d('93.333333'), d('0.01'), 12);
+    expect(r.valor.toString()).toBe(valorPresenteSac(d('93.333333'), d('0.01'), 12).toString());
+    expect(r.trace.passos.map((p) => p.id)).toEqual(['cota', 'fator', 'pv']);
+  });
+
+  it('Prazo Price: n inteiro bate com prazoPrice e o traço guarda o n exato', () => {
+    const pmt = valorParcelaPrice(d(1000), d('0.01'), 12);
+    const r = calcularPrazoPrice(d(1000), pmt, d('0.01'));
+    expect(r.n).toBe(prazoPrice(d(1000), pmt, d('0.01')));
+    expect(r.n).toBe(12);
+    expect(new Decimal(r.trace.resultado).toDecimalPlaces(4).toString()).toBe('12');
+    expect(r.trace.passos.map((p) => p.id)).toEqual(['juros', 'frac', 'arg', 'lnArg', 'lnBase', 'n']);
+  });
+
+  it('Prazo SAC: n inteiro bate com prazoSac', () => {
+    const r = calcularPrazoSac(d(1000), d('93.333333'), d('0.01'));
+    expect(r.n).toBe(prazoSac(d(1000), d('93.333333'), d('0.01')));
+    expect(r.trace.passos.map((p) => p.id)).toEqual(['juros', 'amort', 'n']);
+  });
+
+  it('Prazo Price rejeita parcela <= juros (prazo infinito)', () => {
+    expect(() => calcularPrazoPrice(d(1000), d('10'), d('0.01'))).toThrow();
+  });
+});
 
 const base: ParametrosSimulacao = {
   valorBruto: '1000',

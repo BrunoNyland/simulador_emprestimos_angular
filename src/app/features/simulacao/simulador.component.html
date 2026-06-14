@@ -247,7 +247,7 @@
   </div>
 </app-secao>
 
-<app-secao titulo="Cronograma da simulação" [sub]="res.dados.parcelas.length + ' parcelas'" id="cronograma">
+<app-secao titulo="Cronograma da simulação" [sub]="res.dados.parcelas.length + ' parcelas · clique numa parcela para ver o cálculo'" id="cronograma">
   <div class="tabela-wrap">
     <table>
       <thead>
@@ -264,7 +264,15 @@
       </thead>
       <tbody>
         @for (p of res.dados.parcelas; track p.numero) {
-        <tr>
+        <tr
+          class="linha-clicavel"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="'Ver cálculo da parcela ' + p.numero"
+          (click)="explicarParcela(p)"
+          (keydown.enter)="explicarParcela(p)"
+          (keydown.space)="explicarParcela(p); $event.preventDefault()"
+        >
           <td>{{ p.numero }}</td>
           <td>{{ p.dataVencimento | dataBr }}</td>
           <td>{{ +p.saldoInicial | number:formatoMoeda() }}</td>

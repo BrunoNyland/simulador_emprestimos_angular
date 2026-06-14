@@ -4,6 +4,8 @@ export * from './models';
 export * from './version';
 export * from './dates';
 export * from './rates';
+export * from './trace';
+export * from './cronograma-trace';
 export * from './price';
 export * from './sac';
 export * from './totais';

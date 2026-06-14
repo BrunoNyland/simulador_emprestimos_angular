@@ -1,7 +1,62 @@
 import { Decimal, arredondarMoeda, CASAS_MONETARIAS } from './decimal.config';
 import { Parcela } from './models';
 import { adicionarMeses } from './dates';
-import { EntradaCronograma } from './price';
+import { EntradaCronograma, ResultadoComTrace } from './price';
+import { disp, passoCalculo } from './trace';
+
+/**
+ * Calculo CANONICO da 1a parcela SAC (a maior), com traco estruturado.
+ * 1a parcela = amortizacao constante (PV/n) + juros do 1o mes (PV*i).
+ * Ver CALCULATION_REFERENCE.md secao 3.
+ */
+export function calcularPrimeiraParcelaSac(
+  principal: Decimal,
+  i: Decimal,
+  n: number,
+): ResultadoComTrace {
+  if (n <= 0) {
+    throw new Error('Prazo deve ser >= 1');
+  }
+  const amort = principal.div(n);
+  const juros = principal.times(i);
+  const valor = amort.plus(juros);
+
+  return {
+    valor,
+    trace: {
+      id: 'parcela-sac',
+      titulo: 'Primeira parcela SAC (PMT₁)',
+      formula: 'PMT₁ = PV/n + PV×i',
+      resultado: valor.toString(),
+      passos: [
+        passoCalculo(
+          'amort',
+          'Amortização constante: o principal dividido pelo número de parcelas',
+          'A = PV / n',
+          `${disp(principal, 2)} / ${n}`,
+          amort,
+          2,
+        ),
+        passoCalculo(
+          'juros1',
+          'Juros do 1º mês, sobre o saldo devedor inicial',
+          'J₁ = PV × i',
+          `${disp(principal, 2)} × ${disp(i)}`,
+          juros,
+          2,
+        ),
+        passoCalculo(
+          'pmt1',
+          'Somar amortização e juros',
+          'PMT₁ = A + J₁',
+          `${disp(amort, 2)} + ${disp(juros, 2)}`,
+          valor,
+          2,
+        ),
+      ],
+    },
+  };
+}
 
 /**
  * Gera o cronograma pelo sistema SAC (amortizacao constante).

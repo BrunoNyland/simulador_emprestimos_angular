@@ -180,6 +180,88 @@
   }
 }
 
+/* ===== Traço de cálculo estruturado (vindo do motor) ===== */
+.demo-trace {
+  list-style: none;
+  counter-reset: passo;
+  padding: 0;
+  margin: 0 0 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  li {
+    counter-increment: passo;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 0.35rem 0.5rem 0.35rem 1.8rem;
+    position: relative;
+  }
+
+  li::before {
+    content: counter(passo);
+    position: absolute;
+    left: 0.45rem;
+    top: 0.35rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+}
+
+.trace-desc {
+  display: block;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin-bottom: 0.15rem;
+}
+
+.trace-calc {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.trace-formula {
+  color: var(--text-muted);
+}
+
+.trace-igual {
+  color: var(--text-muted);
+  margin: 0 0.3rem;
+}
+
+.trace-sub {
+  color: var(--text);
+}
+
+.trace-res {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Passo narrativo (sem aritmética): só a descrição, borda mais sóbria. */
+.demo-trace li.trace-nota {
+  border-left-color: var(--border-strong);
+
+  .trace-desc {
+    margin-bottom: 0;
+  }
+}
+
+.demo-trace-fonte {
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--text-muted);
+  margin: 0 0 0.6rem;
+}
+
 .demo-regras {
   list-style: disc;
   padding-left: 1rem;
@@ -220,12 +302,98 @@
   }
 }
 
-.demo-calculadora--hp li {
-  border-left: 4px solid var(--accent);
-}
-
 .demo-calculadora--excel li {
   border-left: 4px solid var(--ok, #2e7d32);
+}
+
+/* ===== HP12C: instruções com teclas (botões) ===== */
+.demo-hp12c {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  li {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.55rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+  }
+
+  /* Linhas que são frases: teclas ainda destacadas como botões inline. */
+  li.hp-prosa {
+    border-left-color: var(--border-strong);
+  }
+}
+
+.hp-teclas {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+/* Tecla de função: "botão" da calculadora. */
+.hp-tecla {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 0.22rem 0.4rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+/* Teclas modificadoras f (dourada) e g (azul), como na HP12C real. */
+.hp-tecla.hp-f {
+  color: #1a1205;
+  background: linear-gradient(180deg, #f5b942, #e09b1f);
+  border-color: #b8791a;
+}
+
+.hp-tecla.hp-g {
+  color: #f5f8ff;
+  background: linear-gradient(180deg, #5a9be0, #2f6fb8);
+  border-color: #245a96;
+}
+
+/* Operando digitado (número). */
+.hp-num {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0.05rem 0.2rem;
+}
+
+/* Palavras dentro de uma linha em prosa. */
+.hp-texto {
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* Comentário explicativo (após → ou parênteses). */
+.hp-coment {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex: 1 1 100%;
 }
 
 .dc-copiar {

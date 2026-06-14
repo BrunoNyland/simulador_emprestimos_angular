@@ -1,6 +1,23 @@
 import { Decimal } from '../../core/engine/decimal.config';
 import { SistemaAmortizacao } from '../../core/engine/models';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
+import { calcularParcelaPrice } from '../../core/engine/price';
+import { calcularPrimeiraParcelaSac } from '../../core/engine/sac';
+import {
+  calcularValorPresentePrice,
+  calcularValorPresenteSac,
+  calcularPrazoPrice,
+  calcularPrazoSac,
+} from '../../core/engine/solver';
+import {
+  disp,
+  montarTrace,
+  passoCalculo,
+  passoNota,
+  PassoCalculo,
+  TraceCalculo,
+} from '../../core/engine/trace';
+import { ContextoLinha, tracarLinhaCronograma } from '../../core/engine/cronograma-trace';
 
 /** Referência a uma norma brasileira (lei, decreto ou normativo BACEN/CMN). */
 export interface ReferenciaNormativa {
@@ -39,6 +56,11 @@ export interface Explicacao {
   excel: string[];
   /** Base legal e normativa aplicável ao cálculo. */
   normas: ReferenciaNormativa[];
+  /**
+   * Traço de cálculo emitido pelo MOTOR (fonte única). Quando presente, a UI o
+   * renderiza no lugar de `passos` (que vira um espelho textual dele).
+   */
+  trace?: TraceCalculo;
   /** Glossário dos termos-chave do tópico (preenchido pelo wrapper). */
   glossario?: ItemGlossario[];
   /** Links para explicações relacionadas (preenchido pelo wrapper). */
@@ -134,6 +156,26 @@ function fmtPct(v: string | number | Decimal, dec = 2): string {
 function fmtNum(v: Decimal | number, dec = 2): string {
   const n = typeof v === 'number' ? v : Number(v.toString());
   return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false });
+}
+
+/** Espelha o traço do motor como lista de passos textuais (backward-compat). */
+function passosDeTrace(trace: TraceCalculo): string[] {
+  return trace.passos.map((p, k) => {
+    if (p.formula == null || p.resultado == null) return `${k + 1}. ${p.descricao}`;
+    return `${k + 1}. ${p.descricao}: ${p.substituicao} = ${disp(new Decimal(p.resultado), p.casas)}`;
+  });
+}
+
+/** Passo de cálculo cujo resultado já é um Decimal pronto (atalho local). */
+function passoNum(
+  id: string,
+  descricao: string,
+  formula: string,
+  substituicao: string,
+  resultado: Decimal,
+  casas = 2,
+): PassoCalculo {
+  return passoCalculo(id, descricao, formula, substituicao, resultado, casas);
 }
 
 // ---------------------------------------------------------------------------
@@ -279,11 +321,69 @@ export function obterExplicacaoMatematica(
   sistema: SistemaAmortizacao,
   arredondamento: 'half-even' | 'half-up'
 ): Explicacao | null {
-  const exp = construirExplicacao(topico, dados, sistema, arredondamento);
+  // O motor pode lançar para entradas inviáveis (ex.: parcela < juros → prazo
+  // infinito). Nesse caso não há cálculo a explicar: devolvemos null.
+  let exp: Explicacao | null;
+  try {
+    exp = construirExplicacao(topico, dados, sistema, arredondamento);
+  } catch {
+    return null;
+  }
   if (!exp) return null;
   exp.glossario = GLOSSARIO_POR_TOPICO[topico] ?? [];
   exp.relacionados = RELACIONADOS_POR_TOPICO[topico] ?? [];
   return exp;
+}
+
+/**
+ * Explicação de UMA linha do cronograma base (acessível ao clicar na parcela).
+ * O traço vem do MOTOR (tracarLinhaCronograma) — fonte única; aqui só montamos
+ * a apresentação (legenda, glossário, normas) ao redor dele.
+ */
+export function explicacaoDaParcela(ctx: ContextoLinha): Explicacao {
+  const trace = tracarLinhaCronograma(ctx);
+  const passo = (id: string) => new Decimal(trace.passos.find((p) => p.id === id)!.resultado ?? '0');
+
+  return {
+    titulo: trace.titulo,
+    formula: 'Parcela = Juros + Amortização   ·   Juros = Saldo × i',
+    formulaMathML:
+      '<math display="block"><mrow>' +
+      '<mi class="fx-v0">Parcela</mi><mo>=</mo><mi class="fx-v1">J</mi><mo>+</mo><mi class="fx-v2">A</mi>' +
+      '<mspace width="1.2em"></mspace><mtext>com</mtext><mspace width="1.2em"></mspace>' +
+      '<mi class="fx-v1">J</mi><mo>=</mo><mi class="fx-v3">Saldo</mi><mo>·</mo><mi class="fx-v4">i</mi>' +
+      '</mrow></math>',
+    descricao:
+      'Cada parcela do cronograma é composta de duas partes: os JUROS do período (a taxa aplicada sobre o saldo devedor no início do mês) e a AMORTIZAÇÃO (a fatia que efetivamente abate o saldo). O saldo final é o saldo inicial menos a amortização — e vira o saldo inicial da próxima parcela.',
+    legenda: [
+      { simbolo: 'Parcela', nome: 'Valor pago neste mês', valor: fmtBRL(passo('parcela')) },
+      { simbolo: 'J', nome: 'Juros do período (sobre o saldo inicial)', valor: fmtBRL(passo('juros')) },
+      { simbolo: 'A', nome: 'Amortização (abate o principal)', valor: fmtBRL(passo('amort')) },
+      { simbolo: 'Saldo', nome: 'Saldo devedor no início do período', valor: fmtBRL(ctx.saldoInicial) },
+      { simbolo: 'i', nome: 'Taxa efetiva do período (mensal)', valor: fmtPct(ctx.taxaPeriodo.times(100), 4) },
+      { simbolo: 'Saldo final', nome: 'Saldo devedor ao fim do período', valor: fmtBRL(passo('saldoFinal')) },
+    ],
+    passos: passosDeTrace(trace),
+    trace,
+    regras: [
+      'Os juros incidem sempre sobre o saldo devedor do INÍCIO do período, nunca sobre o valor original do empréstimo.',
+      'A última parcela amortiza todo o saldo restante, absorvendo o resíduo de centavos para zerar a dívida.',
+    ],
+    hp12c: [
+      `${disp(ctx.saldoInicial, 2)} ENTER ${disp(ctx.taxaPeriodo.times(100), 4)} %   → juros do mês = ${disp(passo('juros'), 2)}`,
+      `Amortização = parcela − juros; saldo final = saldo inicial − amortização.`,
+    ],
+    excel: [
+      `Juros: =saldo_inicial*${disp(ctx.taxaPeriodo.times(100), 4)}%   → ${disp(passo('juros'), 2)}`,
+      `Amortização: =parcela-juros   ·   Saldo final: =saldo_inicial-amortização`,
+    ],
+    normas: [NORMA_CDC_TRANSPARENCIA],
+    glossario: [G.jurosCompostos, G.amortizacao, G.saldoDevedor],
+    relacionados: [
+      { topico: 'parcela', rotulo: 'Fórmula da parcela' },
+      { topico: 'totalJuros', rotulo: 'Total de juros' },
+    ],
+  };
 }
 
 function construirExplicacao(
@@ -315,12 +415,8 @@ function construirExplicacao(
   switch (topico) {
     case 'parcela': {
       if (sistema === 'price') {
-        const iVal = iMensal;
-        const fatorJuros = iVal.plus(1); // 1 + i
-        const fatorPotencia = fatorJuros.pow(-n); // (1+i)^-n
-        const denom = new Decimal(1).minus(fatorPotencia); // 1 - (1+i)^-n
-        const fatorAmort = denom.isZero() ? new Decimal(0) : iVal.div(denom);
-        const pmtCalculado = pv.times(fatorAmort);
+        // Cálculo e passos vêm do MOTOR (fonte única) — sem re-derivação aqui.
+        const { valor: pmtCalculado, trace } = calcularParcelaPrice(pv, iMensal, n);
         const pmtFmt = fmtNum(new Decimal(dados.parcelaCalculada || pmtCalculado));
 
         return {
@@ -341,14 +437,8 @@ function construirExplicacao(
             { simbolo: 'i', nome: 'Taxa de juros efetiva do período (mensal, em fração)', valor: taxaExibicao },
             { simbolo: 'n', nome: 'Prazo total em meses', valor: String(n) },
           ],
-          passos: [
-            `1. Somar 1 à taxa de juros: 1 + i = 1 + ${iVal.toString()} = ${fatorJuros.toFixed(6)}`,
-            `2. Elevar à potência negativa do prazo: (1 + i)^−n = (${fatorJuros.toFixed(6)})^−${n} = ${fatorPotencia.toFixed(6)} — este é o fator de desconto da última parcela.`,
-            `3. Subtrair de 1: 1 − (1 + i)^−n = 1 − ${fatorPotencia.toFixed(6)} = ${denom.toFixed(6)}`,
-            `4. Dividir a taxa pelo resultado (fator de recuperação de capital): i / denominador = ${iVal.toString()} / ${denom.toFixed(6)} = ${fatorAmort.toFixed(6)}`,
-            `5. Multiplicar pelo principal: PMT = ${fmtBRL(pv)} × ${fatorAmort.toFixed(6)} = ${fmtBRL(pmtCalculado)}`,
-            `6. Arredondar para 2 casas decimais (regra abaixo): ${fmtBRL(dados.parcelaCalculada)}`,
-          ],
+          passos: passosDeTrace(trace),
+          trace,
           regras: [
             regraArredondamento,
             'O resíduo de centavos causado pelo arredondamento do PMT é absorvido inteiramente na ÚLTIMA parcela do cronograma, garantindo que a soma exata das amortizações seja igual ao valor financiado (a última parcela pode diferir alguns centavos das demais).',
@@ -369,10 +459,10 @@ function construirExplicacao(
           normas: [NORMA_CDC_TRANSPARENCIA, NORMA_LEI_4595],
         };
       } else {
-        // SAC
+        // SAC — cálculo e passos vêm do MOTOR (fonte única).
+        const { trace } = calcularPrimeiraParcelaSac(pv, iMensal, n);
         const amort = pv.div(n);
         const juros1 = pv.times(iMensal);
-        const pmt1 = amort.plus(juros1);
 
         return {
           titulo: 'Primeira Parcela (PMT₁) — Sistema SAC',
@@ -397,12 +487,10 @@ function construirExplicacao(
             { simbolo: 'n', nome: 'Prazo total em meses', valor: String(n) },
           ],
           passos: [
-            `1. Calcular a amortização constante: A = PV / n = ${fmtBRL(pv)} / ${n} = ${fmtBRL(amort)}`,
-            `2. Calcular os juros do 1º mês sobre o saldo inicial: J₁ = PV × i = ${fmtBRL(pv)} × ${iMensal.toString()} = ${fmtBRL(juros1)}`,
-            `3. Somar amortização e juros: PMT₁ = A + J₁ = ${fmtBRL(amort)} + ${fmtBRL(juros1)} = ${fmtBRL(pmt1)}`,
-            `4. Para as parcelas seguintes (k > 1), os juros caem porque o saldo diminui: Saldo_(k−1) = PV − A × (k − 1). A parcela k é A + Saldo_(k−1) × i.`,
-            `5. A redução de uma parcela para a próxima é constante: ΔPMT = A × i = ${fmtBRL(amort.times(iMensal))} a menos por mês.`,
+            ...passosDeTrace(trace),
+            `${trace.passos.length + 1}. Para as parcelas seguintes (k > 1), os juros caem porque o saldo diminui: Saldo_(k−1) = PV − A × (k − 1). A parcela k é A + Saldo_(k−1) × i — redução constante de A × i = ${fmtBRL(amort.times(iMensal))} por mês.`,
           ],
+          trace,
           regras: [
             regraArredondamento,
             'O arredondamento da cota de amortização (PV/n) pode deixar resíduo de centavos. O motor corrige a amortização da ÚLTIMA parcela para liquidar exatamente o saldo devedor.',
@@ -411,7 +499,7 @@ function construirExplicacao(
             'A HP12C não possui função nativa para SAC — o cálculo é aritmético:',
             `${fmtNum(pv)} ENTER ${n} ÷   → amortização constante A = ${fmtNum(amort)}`,
             `${fmtNum(pv)} ENTER ${fmtNum(iPct, 4)} %   → juros do 1º mês J₁ = ${fmtNum(juros1)}`,
-            `+   → primeira parcela PMT₁ = ${fmtNum(pmt1)}`,
+            `+   → primeira parcela PMT₁ = ${fmtNum(new Decimal(trace.resultado))}`,
             'Para a parcela k: recalcule o saldo (PV − A×(k−1)), aplique % com a taxa e some A.',
           ],
           excel: [
@@ -427,13 +515,8 @@ function construirExplicacao(
 
     case 'valorBruto': {
       if (sistema === 'price') {
-        const iVal = iMensal;
-        const fatorJuros = iVal.plus(1);
-        const fatorPotencia = fatorJuros.pow(-n);
-        const denom = new Decimal(1).minus(fatorPotencia);
-        const fatorAmort = denom.isZero() ? new Decimal(0) : iVal.div(denom);
         const pmt = new Decimal(dados.parcelaCalculada);
-        const pvCalculado = fatorAmort.isZero() ? new Decimal(0) : pmt.div(fatorAmort);
+        const { valor: pvCalculado, trace } = calcularValorPresentePrice(pmt, iMensal, n);
 
         return {
           titulo: 'Valor Bruto (PV) — Sistema Price',
@@ -447,19 +530,13 @@ function construirExplicacao(
           descricao:
             'Resolve o problema inverso do financiamento: "se eu consigo pagar uma parcela PMT por mês, quanto posso financiar?". Matematicamente, o valor financiável é o VALOR PRESENTE da série de parcelas — cada parcela futura é descontada pela taxa de juros (uma parcela daqui a 12 meses "vale menos" hoje do que uma daqui a 1 mês), e a soma desses valores descontados é o principal.',
           legenda: [
-            { simbolo: 'PV', nome: 'Valor Bruto financiável', valor: fmtBRL(pv) },
+            { simbolo: 'PV', nome: 'Valor Bruto financiável', valor: fmtBRL(pvCalculado) },
             { simbolo: 'PMT', nome: 'Parcela periódica fixada', valor: fmtBRL(pmt) },
             { simbolo: 'i', nome: 'Taxa de juros mensal', valor: taxaExibicao },
             { simbolo: 'n', nome: 'Prazo em meses', valor: String(n) },
           ],
-          passos: [
-            `1. Somar 1 à taxa: 1 + i = ${fatorJuros.toFixed(6)}`,
-            `2. Calcular o fator de desconto total: (1 + i)^−n = ${fatorPotencia.toFixed(6)}`,
-            `3. Subtrair de 1: 1 − (1 + i)^−n = ${denom.toFixed(6)}`,
-            `4. Dividir pela taxa (fator de valor presente da anuidade): ${denom.toFixed(6)} / ${iVal.toString()} = ${fatorAmort.isZero() ? '—' : new Decimal(1).div(fatorAmort).toFixed(6)}`,
-            `5. Multiplicar pela parcela: PV = ${fmtBRL(pmt)} × fator = ${fmtBRL(pvCalculado)}`,
-            `6. Arredondar para 2 casas decimais.`,
-          ],
+          passos: passosDeTrace(trace),
+          trace,
           regras: [regraArredondamento],
           hp12c: [
             NOTA_HP12C_PREPARO,
@@ -478,8 +555,7 @@ function construirExplicacao(
       } else {
         // SAC
         const pmt1 = new Decimal(dados.parcelaCalculada);
-        const fator = new Decimal(1).div(n).plus(iMensal);
-        const pvCalculado = pmt1.div(fator);
+        const { valor: pvCalculado, trace } = calcularValorPresenteSac(pmt1, iMensal, n);
 
         return {
           titulo: 'Valor Bruto (PV) — Sistema SAC',
@@ -493,21 +569,18 @@ function construirExplicacao(
           descricao:
             'No SAC, a primeira parcela é a soma da amortização constante (PV/n) com os juros do primeiro mês (PV×i). Colocando PV em evidência: PMT₁ = PV × (1/n + i). Basta inverter a relação para descobrir quanto pode ser financiado a partir da primeira parcela que cabe no orçamento — lembrando que, no SAC, as parcelas seguintes serão sempre MENORES que a primeira.',
           legenda: [
-            { simbolo: 'PV', nome: 'Valor Bruto financiável', valor: fmtBRL(pv) },
+            { simbolo: 'PV', nome: 'Valor Bruto financiável', valor: fmtBRL(pvCalculado) },
             { simbolo: 'PMT₁', nome: 'Primeira parcela fixada (a maior)', valor: fmtBRL(pmt1) },
             { simbolo: 'i', nome: 'Taxa de juros mensal', valor: taxaExibicao },
             { simbolo: 'n', nome: 'Prazo em meses', valor: String(n) },
           ],
-          passos: [
-            `1. Calcular a fração de amortização por período: 1/n = 1/${n} = ${new Decimal(1).div(n).toFixed(6)}`,
-            `2. Somar a taxa mensal: 1/n + i = ${new Decimal(1).div(n).toFixed(6)} + ${iMensal.toString()} = ${fator.toFixed(6)}`,
-            `3. Dividir a primeira parcela pelo fator: PV = ${fmtBRL(pmt1)} / ${fator.toFixed(6)} = ${fmtBRL(pvCalculado)}`,
-          ],
+          passos: passosDeTrace(trace),
+          trace,
           regras: [regraArredondamento],
           hp12c: [
             'Cálculo aritmético (sem registradores financeiros):',
-            `${n} 1/x   → 1/n = ${new Decimal(1).div(n).toFixed(6)}`,
-            `${fmtNum(iPct, 4)} ENTER 100 ÷ +   → soma a taxa em fração: ${fator.toFixed(6)}`,
+            `${n} 1/x   → 1/n = ${disp(new Decimal(1).div(n))}`,
+            `${fmtNum(iPct, 4)} ENTER 100 ÷ +   → soma a taxa em fração`,
             `${fmtNum(pmt1)} x><y ÷   → PV = ${fmtNum(pvCalculado)}`,
           ],
           excel: [
@@ -521,8 +594,23 @@ function construirExplicacao(
 
     case 'taxa': {
       const pmt = new Decimal(dados.parcelaCalculada || '0');
+
+      const trace = montarTrace(
+        'taxa-tir',
+        'Taxa de Juros (i) — Métodos Numéricos',
+        'Encontrar i tal que PV = Σ [ PMT_k / (1 + i)^k ]',
+        [
+          passoNota('f', 'Definir f(i) = (valor presente das parcelas à taxa i) − PV. A raiz de f é a taxa procurada.'),
+          passoNota('newton', "Newton-Raphson: i_(j+1) = i_j − f(i_j) / f'(i_j). Cada iteração usa a inclinação da curva para saltar mais perto da raiz (convergência quadrática)."),
+          passoNota('fallback', 'Se a derivada zerar ou a iteração sair do domínio (i ≤ −100%), troca para a bisseção: corta o intervalo ao meio mantendo a metade onde f muda de sinal.'),
+          passoNota('tol', 'Convergência declarada quando |f(i)| < 10⁻¹⁰ (tolerância do motor).'),
+          passoNum('i', 'Taxa mensal encontrada', 'i', 'raiz de f(i) = 0', iMensal, 6),
+        ],
+      );
+
       return {
         titulo: 'Taxa de Juros (i) — Resolução por Métodos Numéricos',
+        trace,
         formula: 'Encontrar i tal que:  PV = Σ [ PMT_k / (1 + i)^k ]',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -539,13 +627,7 @@ function construirExplicacao(
           { simbolo: 'PMT_k', nome: 'Parcela do período k', valor: fmtBRL(dados.parcelaCalculada) },
           { simbolo: 'n', nome: 'Prazo', valor: String(n) },
         ],
-        passos: [
-          '1. Definir f(i) = [valor presente das parcelas à taxa i] − PV. A raiz de f é a taxa procurada.',
-          '2. Newton-Raphson: i_(j+1) = i_j − f(i_j) / f\'(i_j). Cada iteração usa a inclinação da curva para saltar mais perto da raiz (convergência quadrática: o nº de casas corretas dobra por passo).',
-          '3. Se a derivada zerar ou a iteração sair do domínio válido (i ≤ −100%), o motor chaveia para a bisseção: corta o intervalo ao meio repetidamente, mantendo a metade onde f troca de sinal.',
-          '4. A convergência é declarada quando |f(i)| < 10⁻¹⁰ (tolerância do motor).',
-          `5. Taxa encontrada: i = ${iMensal.toFixed(8)} → ${taxaExibicao} ao mês.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'Tolerância de convergência parametrizada em "cet.toleranciaTir" no regulatory-config.jsonc.',
           'Se a parcela informada for menor que PV/n, não existe taxa ≥ 0 que satisfaça a equação — o sistema rejeita a combinação com mensagem de erro.',
@@ -569,10 +651,8 @@ function construirExplicacao(
     case 'prazo': {
       if (sistema === 'price') {
         const pmt = new Decimal(dados.parcelaCalculada);
-        const termoNum = new Decimal(1).minus(pv.times(iMensal).div(pmt));
-        const lnNum = Math.log(termoNum.toNumber());
-        const lnDen = Math.log(iMensal.plus(1).toNumber());
-        const nCalculado = -lnNum / lnDen;
+        const { n: nCalc, trace } = calcularPrazoPrice(pv, pmt, iMensal);
+        const nExato = new Decimal(trace.resultado);
 
         return {
           titulo: 'Prazo (n) — Sistema Price',
@@ -588,20 +668,13 @@ function construirExplicacao(
           descricao:
             'Resolve a equação do Price para o número de períodos: "pagando PMT por mês a esta taxa, em quantos meses quito o financiamento?". O logaritmo aparece porque o prazo está no expoente da fórmula de juros compostos — para "descer" uma incógnita do expoente, aplica-se ln dos dois lados. Atenção à condição de existência: a parcela precisa ser MAIOR que os juros do primeiro mês (PV×i), senão a dívida nunca diminui.',
           legenda: [
-            { simbolo: 'n', nome: 'Prazo calculado (meses)', valor: String(n) },
+            { simbolo: 'n', nome: 'Prazo calculado (meses)', valor: `${nCalc} (exato ${nExato.toFixed(4)})` },
             { simbolo: 'PV', nome: 'Valor Bruto', valor: fmtBRL(pv) },
             { simbolo: 'i', nome: 'Taxa de juros mensal', valor: taxaExibicao },
             { simbolo: 'PMT', nome: 'Parcela fixada', valor: fmtBRL(pmt) },
           ],
-          passos: [
-            `1. Calcular os juros do 1º mês: PV × i = ${fmtBRL(pv)} × ${iMensal.toString()} = ${fmtBRL(pv.times(iMensal))}`,
-            `2. Dividir pela parcela: ${fmtNum(pv.times(iMensal))} / ${fmtNum(pmt)} = ${pv.times(iMensal).div(pmt).toFixed(6)} (fração da parcela consumida por juros no início)`,
-            `3. Subtrair de 1: ${termoNum.toFixed(6)}`,
-            `4. Logaritmo natural do resultado: ln(${termoNum.toFixed(6)}) = ${lnNum.toFixed(6)}`,
-            `5. Logaritmo natural de (1 + i): ln(${iMensal.plus(1).toFixed(6)}) = ${lnDen.toFixed(6)}`,
-            `6. Dividir e inverter o sinal: n = −(${lnNum.toFixed(6)} / ${lnDen.toFixed(6)}) = ${nCalculado.toFixed(2)}`,
-            `7. Arredondar para o inteiro mais próximo: ${n} meses.`,
-          ],
+          passos: passosDeTrace(trace),
+          trace,
           regras: [
             'O prazo é arredondado para um número inteiro de parcelas; a última parcela ajusta o resíduo.',
             'Se PMT ≤ PV × i, a parcela não cobre nem os juros: o saldo cresceria para sempre (prazo infinito). O sistema rejeita essa combinação.',
@@ -614,7 +687,7 @@ function construirExplicacao(
             `n   → exibe o prazo. ATENÇÃO: a HP12C sempre arredonda n PARA CIMA (ex.: 11,3 vira 12) — pode diferir em 1 do valor exato.`,
           ],
           excel: [
-            `=NPER(${fmtNum(iPct, 4)}%; -${fmtNum(pmt)}; ${fmtNum(pv)})   → ${nCalculado.toFixed(2)} (valor fracionário exato)`,
+            `=NPER(${fmtNum(iPct, 4)}%; -${fmtNum(pmt)}; ${fmtNum(pv)})   → ${nExato.toFixed(2)} (valor fracionário exato)`,
             'Sintaxe: =NPER(taxa; -pgto; vp). Arredonde com =ARRED(...;0) para obter o prazo em meses inteiros.',
             NOTA_EXCEL_REGIONAL,
           ],
@@ -623,6 +696,7 @@ function construirExplicacao(
       } else {
         // SAC
         const pmt1 = new Decimal(dados.parcelaCalculada);
+        const { n: nCalc, trace } = calcularPrazoSac(pv, pmt1, iMensal);
         const amort = pmt1.minus(pv.times(iMensal));
 
         return {
@@ -638,15 +712,12 @@ function construirExplicacao(
           descricao:
             'No SAC a conta é direta, sem logaritmos: a primeira parcela é amortização + juros do 1º mês. Deduzindo os juros (PV×i) da primeira parcela, sobra a cota de amortização constante A. Como toda parcela abate exatamente A do principal, o prazo é simplesmente quantas cotas A cabem no valor financiado.',
           legenda: [
-            { simbolo: 'n', nome: 'Prazo calculado (meses)', valor: String(n) },
+            { simbolo: 'n', nome: 'Prazo calculado (meses)', valor: `${nCalc} (exato ${new Decimal(trace.resultado).toFixed(4)})` },
             { simbolo: 'PV', nome: 'Valor Bruto', valor: fmtBRL(pv) },
             { simbolo: 'A', nome: 'Amortização constante deduzida', valor: fmtBRL(amort) },
           ],
-          passos: [
-            `1. Deduzir os juros do 1º mês da primeira parcela: A = PMT₁ − PV × i = ${fmtBRL(pmt1)} − ${fmtBRL(pv.times(iMensal))} = ${fmtBRL(amort)}`,
-            `2. Dividir o principal pela amortização: n = PV / A = ${fmtBRL(pv)} / ${fmtBRL(amort)} = ${pv.div(amort).toFixed(2)}`,
-            `3. Arredondar para o inteiro de meses: ${n} meses.`,
-          ],
+          passos: passosDeTrace(trace),
+          trace,
           regras: [
             'O prazo é arredondado para um número inteiro contábil de parcelas.',
             'Se PMT₁ ≤ PV × i, a primeira parcela não cobre os juros — não existe prazo válido e o sistema rejeita.',
@@ -655,10 +726,10 @@ function construirExplicacao(
             'Cálculo aritmético:',
             `${fmtNum(pv)} ENTER ${fmtNum(iPct, 4)} %   → juros do 1º mês = ${fmtNum(pv.times(iMensal))}`,
             `${fmtNum(pmt1)} x><y −   → amortização A = ${fmtNum(amort)}`,
-            `${fmtNum(pv)} x><y ÷   → n = ${pv.div(amort).toFixed(2)}`,
+            `${fmtNum(pv)} x><y ÷   → n = ${new Decimal(trace.resultado).toFixed(2)}`,
           ],
           excel: [
-            `=${fmtNum(pv)}/(${fmtNum(pmt1)}-${fmtNum(pv)}*${fmtNum(iPct, 4)}%)   → ${pv.div(amort).toFixed(2)}`,
+            `=${fmtNum(pv)}/(${fmtNum(pmt1)}-${fmtNum(pv)}*${fmtNum(iPct, 4)}%)   → ${new Decimal(trace.resultado).toFixed(2)}`,
             NOTA_EXCEL_REGIONAL,
           ],
           normas: [NORMA_CDC_TRANSPARENCIA],
@@ -669,10 +740,18 @@ function construirExplicacao(
     case 'valorLiquido': {
       const tarifa = new Decimal(resolvidos?.tarifaAbertura || '0');
       const iof = new Decimal(dados.iof || '0');
-      const liq = pv.minus(tarifa).minus(iof);
+      const semTarifa = pv.minus(tarifa);
+      const liq = semTarifa.minus(iof);
+
+      const trace = montarTrace('valor-liquido', 'Valor Líquido Liberado', 'Líquido = Bruto − Tarifa − IOF', [
+        passoNota('base', `Partir do valor bruto contratado (PV): ${fmtBRL(pv)}.`),
+        passoNum('tarifa', 'Subtrair a tarifa de abertura de crédito (TAC)', 'PV − Tarifa', `${disp(pv, 2)} − ${disp(tarifa, 2)}`, semTarifa),
+        passoNum('iof', 'Subtrair o IOF retido na liberação', '(PV − Tarifa) − IOF', `${disp(semTarifa, 2)} − ${disp(iof, 2)}`, liq),
+      ]);
 
       return {
         titulo: 'Valor Líquido Liberado',
+        trace,
         formula: 'Líquido = Bruto − Tarifa de Abertura − IOF total',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -687,11 +766,7 @@ function construirExplicacao(
           { simbolo: 'Tarifa', nome: 'Tarifa de abertura de crédito (TAC)', valor: fmtBRL(tarifa) },
           { simbolo: 'IOF', nome: 'IOF total retido (diário + adicional)', valor: fmtBRL(iof) },
         ],
-        passos: [
-          `1. Partir do valor bruto contratado: ${fmtBRL(pv)}`,
-          `2. Subtrair a tarifa de abertura: ${fmtBRL(pv)} − ${fmtBRL(tarifa)} = ${fmtBRL(pv.minus(tarifa))}`,
-          `3. Subtrair o IOF retido na liberação: ${fmtBRL(pv.minus(tarifa))} − ${fmtBRL(iof)} = ${fmtBRL(liq)}`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           regraArredondamento,
           'Se tarifas + tributos excederem o valor bruto (líquido ≤ 0), a operação é inviável e o sistema emite aviso impeditivo.',
@@ -713,8 +788,15 @@ function construirExplicacao(
       const iofA = new Decimal(dados.memoriaCalculo?.iofAdicional || '0');
       const iofT = iofD.plus(iofA);
 
+      const trace = montarTrace('iof-total', 'IOF Total', 'IOF_total = IOF_diário + IOF_adicional', [
+        passoNota('diario', `Componente diária acumulada (detalhada no card "IOF Diário"): ${fmtBRL(iofD)}.`),
+        passoNota('adicional', `Componente adicional fixa de 0,38% (card "IOF Adicional"): ${fmtBRL(iofA)}.`),
+        passoNum('total', 'Somar as duas componentes', 'IOF_diário + IOF_adicional', `${disp(iofD, 2)} + ${disp(iofA, 2)}`, iofT),
+      ]);
+
       return {
         titulo: 'IOF Total (Imposto sobre Operações Financeiras)',
+        trace,
         formula: 'IOF_total = IOF_diário + IOF_adicional',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -729,11 +811,7 @@ function construirExplicacao(
           { simbolo: 'IOF_diário', nome: 'Componente proporcional ao prazo', valor: fmtBRL(iofD) },
           { simbolo: 'IOF_adicional', nome: 'Componente fixa (0,38% do principal)', valor: fmtBRL(iofA) },
         ],
-        passos: [
-          `1. Somar o IOF diário de todas as parcelas (detalhado no card "IOF Diário"): ${fmtBRL(iofD)}`,
-          `2. Calcular o IOF adicional fixo (detalhado no card "IOF Adicional"): ${fmtBRL(iofA)}`,
-          `3. Somar as duas componentes: ${fmtBRL(iofD)} + ${fmtBRL(iofA)} = ${fmtBRL(iofT)}`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           regraArredondamento,
           'Crédito habitacional (SFH) é isento de IOF — produtos isentos são configurados em regulatory-config.jsonc.',
@@ -757,8 +835,21 @@ function construirExplicacao(
       const aliquota = publicoPJ ? '0,0041%' : '0,0082%';
       const aliquotaFracao = publicoPJ ? '0,000041' : '0,000082';
 
+      const trace = montarTrace(
+        'iof-diario',
+        'IOF Diário Acumulado',
+        'IOF_diário = Σ [ A_k × α × min(dias_k, 365) ]',
+        [
+          passoNota('dias', 'Para cada parcela k, contar os dias corridos entre a liberação e o vencimento.'),
+          passoNota('teto', 'Limitar a contagem ao teto legal: min(dias_k, 365) — Decreto 6.306/2007.'),
+          passoNota('produto', `Multiplicar, por parcela: amortização_k × ${aliquotaFracao} (${aliquota} ao dia) × dias limitados.`),
+          passoNum('soma', 'Somar a contribuição de todas as parcelas', 'Σ (A_k × α × dias_k)', 'soma das n parcelas', iofD),
+        ],
+      );
+
       return {
         titulo: 'IOF Diário Acumulado',
+        trace,
         formula: 'IOF_diário = Σ [ Amortização_k × alíquota_diária × min(dias_k, 365) ]',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -775,12 +866,7 @@ function construirExplicacao(
           { simbolo: 'alíquota_diária', nome: `Alíquota diária (PF: 0,0082% / PJ: 0,0041%)`, valor: `${aliquota} ao dia` },
           { simbolo: 'dias_k', nome: 'Dias corridos da liberação ao vencimento k', valor: 'varia por parcela' },
         ],
-        passos: [
-          '1. Para cada parcela k, contar os dias corridos entre a data de liberação e o vencimento.',
-          '2. Limitar a contagem ao teto legal: min(dias_k, 365).',
-          `3. Multiplicar: amortização_k × ${aliquotaFracao} × dias limitados.`,
-          `4. Somar todas as parcelas: IOF diário total = ${fmtBRL(iofD)}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'Teto de 365 dias e alíquotas definidos no Decreto 6.306/2007 e parametrizados em regulatory-config.jsonc.',
           regraArredondamento,
@@ -802,9 +888,16 @@ function construirExplicacao(
 
     case 'iofAdicional': {
       const iofA = new Decimal(dados.memoriaCalculo?.iofAdicional || '0');
+      const iofABruto = pv.times('0.0038');
+
+      const trace = montarTrace('iof-adicional', 'IOF Adicional Fixo (0,38%)', 'IOF_adicional = PV × 0,0038', [
+        passoNum('produto', 'Multiplicar o principal pela alíquota fixa de 0,38%', 'PV × 0,0038', `${disp(pv, 2)} × 0,0038`, iofABruto),
+        passoNum('arred', 'Arredondar para centavos (2 casas)', 'arred(PV × 0,0038)', disp(iofABruto, 6), iofA),
+      ]);
 
       return {
         titulo: 'IOF Adicional Fixo (0,38%)',
+        trace,
         formula: 'IOF_adicional = PV × 0,0038',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -818,10 +911,7 @@ function construirExplicacao(
           { simbolo: 'PV', nome: 'Valor Bruto do crédito', valor: fmtBRL(pv) },
           { simbolo: 'alíquota', nome: 'Alíquota adicional fixa', valor: '0,38%' },
         ],
-        passos: [
-          `1. Multiplicar o principal pela alíquota fixa: ${fmtBRL(pv)} × 0,0038 = ${fmtBRL(pv.times('0.0038'))}`,
-          `2. Arredondar para 2 casas: ${fmtBRL(iofA)}`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [regraArredondamento],
         hp12c: [
           `${fmtNum(pv)} ENTER ,38 %   → ${fmtNum(iofA)}`,
@@ -838,8 +928,14 @@ function construirExplicacao(
       const totPago = new Decimal(dados.totais?.totalParcelas || '0');
       const totJuros = new Decimal(dados.totais?.totalJuros || '0');
 
+      const trace = montarTrace('total-pago', 'Total Pago pelo Cliente', 'Total = Σ PMT_k = PV + Juros', [
+        passoNota('soma', 'Somar o valor final de todas as parcelas do cronograma.'),
+        passoNum('total', 'Equivale ao principal mais o total de juros', 'PV + Juros', `${disp(pv, 2)} + ${disp(totJuros, 2)}`, totPago),
+      ]);
+
       return {
         titulo: 'Total Pago pelo Cliente',
+        trace,
         formula: 'Total Pago = Σ PMT_k = PV + Total de Juros',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -855,10 +951,7 @@ function construirExplicacao(
           { simbolo: 'PV', nome: 'Principal (soma das amortizações)', valor: fmtBRL(pv) },
           { simbolo: 'Σ Juros', nome: 'Total de juros do cronograma', valor: fmtBRL(totJuros) },
         ],
-        passos: [
-          '1. Somar o valor final de todas as parcelas do cronograma.',
-          `2. Verificação de consistência: PV + juros = ${fmtBRL(pv)} + ${fmtBRL(totJuros)} = ${fmtBRL(pv.plus(totJuros))} ≈ ${fmtBRL(totPago)}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'A última parcela absorve os desvios de arredondamento acumulados, garantindo o fechamento exato.',
         ],
@@ -875,9 +968,17 @@ function construirExplicacao(
 
     case 'totalJuros': {
       const totJuros = new Decimal(dados.totais?.totalJuros || '0');
+      const pctPrincipal = pv.isZero() ? new Decimal(0) : totJuros.div(pv).times(100);
+
+      const trace = montarTrace('total-juros', 'Total de Juros Acumulado', 'Total Juros = Σ (Saldo_(k−1) × i)', [
+        passoNota('porPeriodo', 'Em cada período k: juros_k = saldo devedor do início do mês × taxa mensal.'),
+        passoNota('soma', 'Somar os juros de todas as parcelas do cronograma.'),
+        passoNum('total', `Total apurado — equivale a ${fmtPct(pctPrincipal, 2)} do principal (nominal)`, 'Σ juros_k', 'soma dos juros das n parcelas', totJuros),
+      ]);
 
       return {
         titulo: 'Total de Juros Acumulado',
+        trace,
         formula: 'Total Juros = Σ ( Saldo_(k−1) × i )',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -892,11 +993,7 @@ function construirExplicacao(
           { simbolo: 'Saldo_(k−1)', nome: 'Saldo devedor no início do período k', valor: 'varia por parcela' },
           { simbolo: 'i', nome: 'Taxa mensal', valor: taxaExibicao },
         ],
-        passos: [
-          '1. Em cada período k, calcular juros_k = saldo devedor inicial × taxa mensal.',
-          '2. Somar os juros de todas as parcelas do cronograma.',
-          `3. Total apurado: ${fmtBRL(totJuros)} — equivale a ${fmtPct(totJuros.div(pv).times(100), 2)} do principal em termos nominais.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [regraArredondamento],
         hp12c: [
           `Pelo total pago: total pago ENTER ${fmtNum(pv)} −   → juros = ${fmtNum(totJuros)}`,
@@ -915,8 +1012,22 @@ function construirExplicacao(
       const cAnual = new Decimal(dados.cetAnual || '0');
       const liq = new Decimal(dados.valorLiquido || '0');
 
+      const trace = montarTrace(
+        topico === 'cetMensal' ? 'cet-mensal' : 'cet-anual',
+        topico === 'cetMensal' ? 'CET Mensal' : 'CET Anual',
+        'Líquido = Σ [ PMT_k / (1 + CET_a)^(dias_k/365) ]',
+        [
+          passoNota('fluxo', `Montar o fluxo de caixa: recebimento de ${fmtBRL(liq)} na data zero (líquido, não o bruto) e os pagamentos nas datas de vencimento.`),
+          passoNota('dias', 'Converter cada prazo para a convenção BACEN: t_k = dias corridos / 365 (anos fracionários).'),
+          passoNota('tir', 'Resolver numericamente (Newton-Raphson com fallback de bisseção) a taxa anual que iguala o valor presente dos pagamentos ao valor liberado.'),
+          passoNum('anual', 'CET anual encontrado (TIR do fluxo)', 'CET_anual', 'raiz da equação do fluxo', cAnual, 6),
+          passoNum('mensal', 'Converter para o mês por equivalência composta', '(1 + CET_anual)^(1/12) − 1', `(1 + ${disp(cAnual, 6)})^(1/12) − 1`, cMensal, 6),
+        ],
+      );
+
       return {
         titulo: topico === 'cetMensal' ? 'CET Mensal (Custo Efetivo Total)' : 'CET Anual (Custo Efetivo Total)',
+        trace,
         formula: 'Líquido = Σ [ PMT_k / (1 + CET_anual)^(dias_k/365) ]    e    CET_mensal = (1 + CET_anual)^(1/12) − 1',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -939,13 +1050,7 @@ function construirExplicacao(
           { simbolo: 'CET_mensal', nome: 'CET expresso ao mês', valor: fmtPct(cMensal.times(100), 4) },
           { simbolo: 'CET_anual', nome: 'CET expresso ao ano', valor: fmtPct(cAnual.times(100), 2) },
         ],
-        passos: [
-          `1. Montar o fluxo de caixa: recebimento de ${fmtBRL(liq)} na data zero (líquido, não o bruto!) e os pagamentos de cada parcela nas datas de vencimento.`,
-          '2. Converter cada prazo para a convenção BACEN: t_k = dias corridos / 365 (anos fracionários).',
-          '3. Resolver numericamente (Newton-Raphson com fallback de bisseção) a taxa anual que iguala o valor presente dos pagamentos ao valor liberado.',
-          `4. CET anual encontrado: ${fmtPct(cAnual.times(100), 2)}.`,
-          `5. Converter para o mês por equivalência composta: CET_mensal = (1 + ${cAnual.toDecimalPlaces(6).toString()})^(1/12) − 1 = ${fmtPct(cMensal.times(100), 4)}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'Convenção regulatória: dias corridos / 365 (Resolução CMN 4.881/2020, anexo de metodologia).',
           'A base de cálculo inclui IOF e tarifa de abertura: eles reduzem o valor liberado e por isso elevam o CET.',
@@ -974,8 +1079,17 @@ function construirExplicacao(
 
     // --- PÓS-EVENTOS ---
     case 'prazoFinal': {
+      const prazoFinalN = new Decimal(dados.resumo?.prazoFinal || '0');
+
+      const trace = montarTrace('prazo-final', 'Prazo Final Pós-Eventos', 'Prazo final = min { k : Saldo_k = 0 }', [
+        passoNota('eventos', 'Aplicar cada evento (amortização extra, antecipação ou quitação) em ordem cronológica, abatendo o saldo na data correspondente.'),
+        passoNota('reproj', 'Reprojetar o cronograma parcela a parcela: juros sobre o novo saldo, amortização conforme o sistema (Price ou SAC).'),
+        passoNum('n', 'Parcela em que o saldo devedor zera', 'min { k : Saldo_k = 0 }', `${dados.resumo?.prazoFinal} meses`, prazoFinalN, 0),
+      ]);
+
       return {
         titulo: 'Prazo Final Pós-Eventos',
+        trace,
         formula: 'Prazo final = nº da parcela em que o saldo devedor chega a zero',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -987,11 +1101,7 @@ function construirExplicacao(
         legenda: [
           { simbolo: 'Prazo final', nome: 'Nova quantidade de parcelas', valor: `${dados.resumo?.prazoFinal} meses` },
         ],
-        passos: [
-          '1. Aplicar cada evento (amortização extra, antecipação ou quitação) na ordem cronológica, abatendo o saldo devedor na data correspondente.',
-          '2. Reprojetar o cronograma parcela a parcela: juros sobre o novo saldo, amortização conforme o sistema (Price ou SAC).',
-          `3. Detectar a parcela em que o saldo devedor zera: parcela nº ${dados.resumo?.prazoFinal}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'O cronograma é função determinística de (contrato base + lista de eventos): remover um evento reprojeta tudo sem ele.',
           'A amortização que zera o saldo encerra o contrato imediatamente.',
@@ -1012,8 +1122,15 @@ function construirExplicacao(
       const novoJ = new Decimal(dados.totais?.totalJuros || '0');
       const economia = new Decimal(dados.resumo?.economiaJuros || '0');
 
+      const trace = montarTrace('economia-juros', 'Economia de Juros Obtida', 'Economia = Juros_original − Juros_eventos', [
+        passoNota('orig', `Total de juros do cronograma base, sem eventos: ${fmtBRL(originalJ)}.`),
+        passoNota('novo', `Total de juros do cronograma reprojetado, com os eventos: ${fmtBRL(novoJ)}.`),
+        passoNum('dif', 'Diferença — juros que o cliente deixou de pagar', 'Juros_original − Juros_eventos', `${disp(originalJ, 2)} − ${disp(novoJ, 2)}`, economia),
+      ]);
+
       return {
         titulo: 'Economia de Juros Obtida',
+        trace,
         formula: 'Economia = Juros_do_cronograma_original − Juros_do_cronograma_com_eventos',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -1028,11 +1145,7 @@ function construirExplicacao(
           { simbolo: 'Juros originais', nome: 'Total de juros sem eventos', valor: fmtBRL(originalJ) },
           { simbolo: 'Juros novos', nome: 'Total de juros com eventos', valor: fmtBRL(novoJ) },
         ],
-        passos: [
-          `1. Total de juros do cronograma base (sem eventos): ${fmtBRL(originalJ)}`,
-          `2. Total de juros do cronograma reprojetado com os eventos: ${fmtBRL(novoJ)}`,
-          `3. Diferença: ${fmtBRL(originalJ)} − ${fmtBRL(novoJ)} = ${fmtBRL(economia)}`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           regraArredondamento,
           'A redução proporcional dos juros na liquidação antecipada é garantida por lei (CDC art. 52, § 2º).',
@@ -1050,8 +1163,15 @@ function construirExplicacao(
     case 'amortizacoesExtras': {
       const extra = new Decimal(dados.resumo?.amortizacoesExtras || '0');
 
+      const trace = montarTrace('amort-extras', 'Amortizações Extras Totais', 'Extras = Σ aportes de principal', [
+        passoNota('somaApor', 'Somar o valor de cada amortização extra aplicada ao saldo devedor.'),
+        passoNota('vp', 'Nas antecipações de parcelas, somar o valor PRESENTE delas (descontado pela taxa do contrato), não o nominal — Resolução CMN 3.516/2007.'),
+        passoNum('total', 'Total amortizado fora das parcelas regulares', 'Σ aportes', 'soma dos aportes de principal', extra),
+      ]);
+
       return {
         titulo: 'Amortizações Extras Totais',
+        trace,
         formula: 'Amortizações Extras = Σ aportes voluntários de principal',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -1063,11 +1183,7 @@ function construirExplicacao(
         legenda: [
           { simbolo: 'Extras', nome: 'Total amortizado fora das parcelas', valor: fmtBRL(extra) },
         ],
-        passos: [
-          '1. Somar o valor de cada amortização extra aplicada ao saldo devedor.',
-          '2. Nas antecipações, somar o valor presente das parcelas antecipadas (não o nominal).',
-          `3. Total apurado: ${fmtBRL(extra)}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'Cada aporte reduz o saldo devedor imediatamente na data do evento.',
           'É vedada a cobrança de tarifa pela liquidação antecipada (Resolução CMN 3.516/2007).',
@@ -1086,8 +1202,15 @@ function construirExplicacao(
     case 'moraEncargos': {
       const encargos = new Decimal(dados.resumo?.totalEncargos || '0');
 
+      const trace = montarTrace('mora-encargos', 'Mora e Multas de Atraso', 'Encargos = Σ (Parcela × multa) + Σ (Parcela × i_mora × dias/30)', [
+        passoNota('multa', 'Para cada parcela em atraso: multa = parcela × percentual de multa (limitado a 2% pelo CDC).'),
+        passoNota('mora', 'Juros de mora pro-rata: parcela × taxa mensal de mora × (dias de atraso / 30).'),
+        passoNum('total', 'Somar multa + juros de mora de todos os atrasos', 'Σ (multa + mora)', 'soma dos encargos de cada atraso', encargos),
+      ]);
+
       return {
         titulo: 'Mora e Multas de Atraso Acumuladas',
+        trace,
         formula: 'Encargos = Σ [ Parcela × multa ] + Σ [ Parcela × i_mora × (dias_atraso / 30) ]',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -1103,12 +1226,7 @@ function construirExplicacao(
           { simbolo: 'multa', nome: 'Multa moratória (máx. 2% — CDC)', valor: 'configurada' },
           { simbolo: 'i_mora', nome: 'Juros de mora mensais', valor: 'configurada' },
         ],
-        passos: [
-          '1. Para cada parcela em atraso, calcular a multa: parcela × percentual de multa (ex.: 2%).',
-          '2. Calcular os juros de mora pro-rata: parcela × taxa mensal de mora × (dias de atraso / 30).',
-          '3. Somar multa + mora de todos os atrasos.',
-          `4. Total apurado: ${fmtBRL(encargos)}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'Multa limitada a 2% da prestação em relações de consumo (CDC art. 52, § 1º).',
           'Tetos de multa e mora parametrizados em regulatory-config.jsonc.',
@@ -1130,8 +1248,16 @@ function construirExplicacao(
     case 'totalPagoPos': {
       const totalP = new Decimal(dados.totais?.totalParcelas || '0');
 
+      const trace = montarTrace('total-pago-pos', 'Total Pago Pós-Eventos', 'Total = Σ parcelas + Σ extras + Σ mora', [
+        passoNota('parc', 'Somar todas as parcelas do cronograma reprojetado pelos eventos.'),
+        passoNota('extras', 'Somar as amortizações extras e antecipações (pelo valor efetivamente pago).'),
+        passoNota('mora', 'Somar multas e juros de mora de eventuais atrasos.'),
+        passoNum('total', 'Desembolso total acumulado pelo cliente', 'Σ parcelas + Σ extras + Σ mora', 'soma de todas as saídas de caixa', totalP),
+      ]);
+
       return {
         titulo: 'Total Pago Pós-Eventos',
+        trace,
         formula: 'Total Pago = Σ parcelas reprojetadas + amortizações extras + encargos de mora',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -1145,12 +1271,7 @@ function construirExplicacao(
         legenda: [
           { simbolo: 'Total Pago', nome: 'Desembolso total acumulado', valor: fmtBRL(totalP) },
         ],
-        passos: [
-          '1. Somar todas as parcelas do cronograma reprojetado.',
-          '2. Somar as amortizações extras e antecipações (pelo valor efetivamente pago).',
-          '3. Somar multas e juros de mora de eventuais atrasos.',
-          `4. Total desembolsado: ${fmtBRL(totalP)}.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [regraArredondamento],
         hp12c: [
           'Acumule cada desembolso na memória: valor STO + 0 (repetir); RCL 0 ao final.',
@@ -1165,8 +1286,16 @@ function construirExplicacao(
     case 'cetMensalPos': {
       const cetM = new Decimal(dados.cetMensal || '0');
 
+      const trace = montarTrace('cet-mensal-pos', 'CET Mensal Pós-Eventos', 'Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]', [
+        passoNota('fluxo', 'Reconstituir o fluxo: valor liberado na data zero; cada pagamento (parcela, aporte, mora) na sua data real.'),
+        passoNota('dias', 'Converter os prazos para dias corridos / 365 (convenção BACEN).'),
+        passoNota('tir', 'Resolver a TIR numericamente (Newton-Raphson + bisseção).'),
+        passoNum('mensal', 'CET mensal do fluxo realizado', 'TIR mensal', 'raiz do fluxo de caixa real', cetM, 6),
+      ]);
+
       return {
         titulo: 'CET Mensal Pós-Eventos (fluxo realizado)',
+        trace,
         formula: 'Resolver a TIR do fluxo de caixa REAL:  Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]',
         formulaMathML:
           '<math display="block"><mrow>' +
@@ -1181,12 +1310,7 @@ function construirExplicacao(
         legenda: [
           { simbolo: 'CET mensal', nome: 'Taxa efetiva do fluxo realizado', valor: fmtPct(cetM.times(100), 4) },
         ],
-        passos: [
-          '1. Reconstituir o fluxo: valor liberado na data zero; cada pagamento (parcela, aporte, mora) na sua data real.',
-          '2. Converter os prazos para dias corridos / 365 (convenção BACEN).',
-          '3. Resolver a TIR numericamente (Newton-Raphson + bisseção).',
-          `4. Resultado: ${fmtPct(cetM.times(100), 4)} ao mês.`,
-        ],
+        passos: passosDeTrace(trace),
         regras: [
           'Mesma convenção e tolerância do CET base (Resolução CMN 4.881/2020).',
         ],

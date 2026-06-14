@@ -1,6 +1,7 @@
 import { Decimal, arredondarMoeda, CASAS_MONETARIAS } from './decimal.config';
 import { Parcela } from './models';
 import { adicionarMeses } from './dates';
+import { disp, passoCalculo, TraceCalculo } from './trace';
 
 /** Entrada para geracao de cronograma de amortizacao. */
 export interface EntradaCronograma {
@@ -14,16 +15,91 @@ export interface EntradaCronograma {
   dataBase?: string;
 }
 
-/** Valor da parcela Price (PMT). PV*i/(1-(1+i)^-n), ou PV/n se i=0. */
-export function valorParcelaPrice(principal: Decimal, i: Decimal, n: number): Decimal {
+/** Valor de um calculo + o traco estruturado de como foi obtido. */
+export interface ResultadoComTrace {
+  valor: Decimal;
+  trace: TraceCalculo;
+}
+
+/**
+ * Calculo CANONICO da parcela Price (PMT), com traco estruturado.
+ * E a unica implementacao da formula: `valorParcelaPrice` apenas descarta o
+ * traco. Assim o valor e a explicacao nunca divergem (CALC_REF secao 2).
+ */
+export function calcularParcelaPrice(principal: Decimal, i: Decimal, n: number): ResultadoComTrace {
   if (n <= 0) {
     throw new Error('Prazo deve ser >= 1');
   }
+
   if (i.isZero()) {
-    return principal.div(n);
+    const valor = principal.div(n);
+    return {
+      valor,
+      trace: {
+        id: 'parcela-price',
+        titulo: 'Parcela Price (PMT) — taxa zero',
+        formula: 'PMT = PV / n',
+        resultado: valor.toString(),
+        passos: [
+          passoCalculo(
+            'div',
+            'Sem juros, a parcela é o principal dividido pelo número de parcelas',
+            'PV / n',
+            `${disp(principal, 2)} / ${n}`,
+            valor,
+            2,
+          ),
+        ],
+      },
+    };
   }
-  const fator = new Decimal(1).minus(i.plus(1).pow(-n));
-  return principal.times(i).div(fator);
+
+  const base = i.plus(1);
+  const pot = base.pow(-n);
+  const denom = new Decimal(1).minus(pot);
+  const fator = i.div(denom);
+  const valor = principal.times(fator);
+
+  return {
+    valor,
+    trace: {
+      id: 'parcela-price',
+      titulo: 'Parcela Price (PMT)',
+      formula: 'PMT = PV × [ i / (1 − (1 + i)^−n) ]',
+      resultado: valor.toString(),
+      passos: [
+        passoCalculo('base', 'Somar 1 à taxa de juros', '1 + i', `1 + ${disp(i)}`, base),
+        passoCalculo(
+          'pot',
+          'Elevar à potência negativa do prazo (fator de desconto da última parcela)',
+          '(1 + i)^−n',
+          `${disp(base)}^−${n}`,
+          pot,
+        ),
+        passoCalculo('denom', 'Subtrair de 1', '1 − (1 + i)^−n', `1 − ${disp(pot)}`, denom),
+        passoCalculo(
+          'fator',
+          'Dividir a taxa pelo resultado (fator de recuperação de capital)',
+          'i / [1 − (1 + i)^−n]',
+          `${disp(i)} / ${disp(denom)}`,
+          fator,
+        ),
+        passoCalculo(
+          'pmt',
+          'Multiplicar pelo principal',
+          'PV × fator',
+          `${disp(principal, 2)} × ${disp(fator)}`,
+          valor,
+          2,
+        ),
+      ],
+    },
+  };
+}
+
+/** Valor da parcela Price (PMT). PV*i/(1-(1+i)^-n), ou PV/n se i=0. */
+export function valorParcelaPrice(principal: Decimal, i: Decimal, n: number): Decimal {
+  return calcularParcelaPrice(principal, i, n).valor;
 }
 
 /**

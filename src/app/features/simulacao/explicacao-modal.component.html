@@ -54,17 +54,55 @@
       </div>
 
       <div class="demo-sub">Resolução Passo a Passo</div>
-      <ul class="demo-passos">
-        @for (passo of exp.passos; track $index) {
-          <li>{{ passo }}</li>
-        }
-      </ul>
+      @if (exp.trace; as tr) {
+        <!-- Passos vindos do MOTOR (fonte única): descrição + fórmula + valor real -->
+        <ol class="demo-trace">
+          @for (p of tr.passos; track p.id) {
+            <li [class.trace-nota]="!p.formula">
+              <span class="trace-desc">{{ p.descricao }}</span>
+              @if (p.formula) {
+                <span class="trace-calc">
+                  <span class="trace-formula">{{ p.formula }}</span>
+                  <span class="trace-igual">=</span>
+                  <span class="trace-sub">{{ p.substituicao }}</span>
+                  <span class="trace-igual">=</span>
+                  <span class="trace-res">{{ formatarPasso(p.resultado, p.casas) }}</span>
+                </span>
+              }
+            </li>
+          }
+        </ol>
+        <p class="demo-trace-fonte">
+          Passos gerados pelo próprio motor de cálculo ({{ tr.id }}) — os mesmos valores usados no cronograma.
+        </p>
+      } @else {
+        <ul class="demo-passos">
+          @for (passo of exp.passos; track $index) {
+            <li>{{ passo }}</li>
+          }
+        </ul>
+      }
 
       @if (exp.hp12c.length > 0) {
         <div class="demo-sub">Como Calcular na HP12C</div>
-        <ul class="demo-calculadora demo-calculadora--hp">
-          @for (linha of exp.hp12c; track $index) {
-            <li>{{ linha }}</li>
+        <ul class="demo-hp12c">
+          @for (linha of hp12cLinhas(); track $index) {
+            <li [class.hp-prosa]="linha.prosa">
+              @if (linha.segs.length > 0) {
+                <span class="hp-teclas">
+                  @for (s of linha.segs; track $index) {
+                    @if (s.tipo === 'texto') {
+                      <span class="hp-texto">{{ s.texto }}</span>
+                    } @else {
+                      <kbd [class]="s.cls">{{ s.texto }}</kbd>
+                    }
+                  }
+                </span>
+              }
+              @if (linha.comentario) {
+                <span class="hp-coment">{{ linha.comentario }}</span>
+              }
+            </li>
           }
         </ul>
       }

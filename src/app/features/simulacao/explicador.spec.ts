@@ -1,10 +1,15 @@
-import { obterExplicacaoMatematica } from './explicador';
+import { obterExplicacaoMatematica, explicacaoDaParcela } from './explicador';
+import { Decimal } from '../../core/engine/decimal.config';
+import { calcularParcelaPrice, gerarCronogramaPrice, valorParcelaPrice } from '../../core/engine/price';
+import { calcularPrimeiraParcelaSac } from '../../core/engine/sac';
+import { arredondarMoeda } from '../../core/engine/decimal.config';
 
 describe('explicador', () => {
   const dadosBase = {
     parametros: {
       valorBruto: '10000',
-      taxa: '2',
+      // taxa em FRAÇÃO (0.02 = 2% a.m.), como o motor usa
+      taxa: '0.02',
       tipoTaxa: 'efetiva',
       unidadeTaxa: 'mensal',
       prazo: 12
@@ -39,6 +44,52 @@ describe('explicador', () => {
     expect(exp).not.toBeNull();
     expect(exp!.titulo).toContain('Sistema SAC');
     expect(exp!.formula).toContain('PMT_k = A + J_k');
+  });
+
+  it('Parcela Price: a explicacao consome o traço do MOTOR (fonte única, sem re-derivar)', () => {
+    // taxa real em fração (0.02); dadosBase usa '2' apenas p/ campos não calculados
+    const dadosReais = { ...dadosBase, parametros: { ...dadosBase.parametros, taxa: '0.02' } };
+    const exp = obterExplicacaoMatematica('parcela', dadosReais, 'price', 'half-even');
+    const doMotor = calcularParcelaPrice(new Decimal('10000'), new Decimal('0.02'), 12);
+    expect(exp!.trace).toBeDefined();
+    // o traço da explicação é exatamente o emitido pelo motor
+    expect(exp!.trace!.id).toBe('parcela-price');
+    expect(exp!.trace!.resultado).toBe(doMotor.trace.resultado);
+    expect(exp!.trace!.passos.map((p) => p.id)).toEqual(doMotor.trace.passos.map((p) => p.id));
+    // passos textuais espelham o traço (mesma contagem)
+    expect(exp!.passos.length).toBe(doMotor.trace.passos.length);
+  });
+
+  it('Parcela SAC: a explicacao consome o traço do MOTOR', () => {
+    const dadosReais = { ...dadosBase, parametros: { ...dadosBase.parametros, taxa: '0.02' } };
+    const exp = obterExplicacaoMatematica('parcela', dadosReais, 'sac', 'half-even');
+    const doMotor = calcularPrimeiraParcelaSac(new Decimal('10000'), new Decimal('0.02'), 12);
+    expect(exp!.trace!.id).toBe('parcela-sac');
+    expect(exp!.trace!.resultado).toBe(doMotor.trace.resultado);
+    expect(exp!.trace!.passos.map((p) => p.id)).toEqual(['amort', 'juros1', 'pmt1']);
+  });
+
+  it('explicacaoDaParcela: legenda bate com a linha real do cronograma', () => {
+    const principal = new Decimal('1000');
+    const i = new Decimal('0.01');
+    const n = 12;
+    const parcelas = gerarCronogramaPrice({ principal, taxaPeriodo: i, prazo: n });
+    const linha = parcelas[2]; // parcela 3
+    const exp = explicacaoDaParcela({
+      sistema: 'price',
+      numero: linha.numero,
+      prazo: n,
+      saldoInicial: new Decimal(linha.saldoInicial),
+      taxaPeriodo: i,
+      pmt: arredondarMoeda(valorParcelaPrice(principal, i, n)),
+    });
+    expect(exp.titulo).toContain('Parcela 3 de 12');
+    expect(exp.trace!.id).toBe('parcela-linha-price');
+    // os valores da legenda refletem a linha real (formatados em BRL)
+    const valLegenda = (s: string) => exp.legenda.find((l) => l.simbolo === s)!.valor;
+    expect(valLegenda('J')).toContain(Number(linha.juros).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+    expect(valLegenda('A')).toContain(Number(linha.amortizacao).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+    expect(valLegenda('Saldo final')).toContain(Number(linha.saldoFinal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
   });
 
   it('deve retornar a explicacao para Valor Bruto no Price', () => {
@@ -179,6 +230,30 @@ describe('explicador', () => {
     const exp = obterExplicacaoMatematica('cetMensalPos', dadosEventos, 'price', 'half-even');
     expect(exp).not.toBeNull();
     expect(exp!.excel.some((l) => l.includes('XTIR'))).toBe(true);
+  });
+
+  it('todos os topicos expoem um traço estruturado (mesmo formato da Parcela)', () => {
+    const dadosEventos = {
+      ...dadosBase,
+      resumo: { prazoFinal: 10, economiaJuros: '120.00', amortizacoesExtras: '500.00', totalEncargos: '18.91' },
+      totaisOriginal: dadosBase.totais,
+    };
+    const topicos = [
+      'parcela', 'valorBruto', 'taxa', 'prazo', 'valorLiquido',
+      'iof', 'iofDiario', 'iofAdicional', 'totalPago', 'totalJuros', 'cetMensal', 'cetAnual',
+      'prazoFinal', 'economiaJuros', 'amortizacoesExtras', 'moraEncargos', 'totalPagoPos', 'cetMensalPos',
+    ];
+    for (const t of topicos) {
+      const exp = obterExplicacaoMatematica(t, dadosEventos, 'price', 'half-even');
+      expect(exp!.trace, `trace de ${t}`).toBeDefined();
+      expect(exp!.trace!.passos.length, `passos de ${t}`).toBeGreaterThan(0);
+      // o resultado do traço bate com o último passo NUMÉRICO
+      const ultimoNum = [...exp!.trace!.passos].reverse().find((p) => p.resultado != null);
+      expect(ultimoNum, `passo numérico final de ${t}`).toBeDefined();
+      expect(exp!.trace!.resultado).toBe(ultimoNum!.resultado);
+      // passos textuais espelham o traço (mesma contagem)
+      expect(exp!.passos.length).toBe(exp!.trace!.passos.length);
+    }
   });
 
   // --- Glossário e links cruzados (suggestion 5) ---
