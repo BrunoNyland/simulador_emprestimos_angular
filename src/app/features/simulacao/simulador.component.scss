@@ -148,6 +148,24 @@ select:disabled {
   }
 }
 
+.cet-calculando {
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+  animation: cet-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes cet-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
 .card--destaque {
   border-left: 3px solid var(--primary);
   strong {
@@ -313,6 +331,58 @@ tfoot td {
   white-space: nowrap;
 }
 
+/* Ação "Limpar todos" abaixo da lista de eventos. */
+.acoes-lista {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.4rem;
+}
+
+/* Barra de ações abaixo do formulário (ex.: copiar link). */
+.acoes-form {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+}
+
+.btn-secundario {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.6rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.76rem;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  &.copiado {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
 .vazio {
   margin-top: 1rem;
   color: var(--text-muted);
@@ -369,6 +439,13 @@ tfoot td {
     strong {
       color: var(--primary);
     }
+  }
+
+  /* Foco por teclado (cards acionáveis via appClicavel): mesmo realce das
+     linhas do cronograma, para um estado de foco visível e consistente. */
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
   }
 }
 

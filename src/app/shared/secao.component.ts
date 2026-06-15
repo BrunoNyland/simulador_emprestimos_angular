@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
 
 /**
  * Cartao de secao colapsavel. O cabecalho alterna a exibicao do conteudo
@@ -39,21 +39,23 @@ export class SecaoComponent {
   readonly id = input<string>('');
   readonly realce = input<boolean>(false);
   readonly aberta = signal<boolean>(true);
+  /** Emite o estado aberto/fechado (após hidratação e a cada alternância). */
+  readonly abertaChange = output<boolean>();
 
   constructor() {
     queueMicrotask(() => {
       const id = this.id();
-      if (!id) {
-        return;
-      }
-      try {
-        const salvo = localStorage.getItem(`secao:${id}`);
-        if (salvo === '0') {
-          this.aberta.set(false);
+      if (id) {
+        try {
+          const salvo = localStorage.getItem(`secao:${id}`);
+          if (salvo === '0') {
+            this.aberta.set(false);
+          }
+        } catch {
+          // ignora
         }
-      } catch {
-        // ignora
       }
+      this.abertaChange.emit(this.aberta());
     });
   }
 
@@ -67,5 +69,6 @@ export class SecaoComponent {
         // ignora
       }
     }
+    this.abertaChange.emit(this.aberta());
   }
 }

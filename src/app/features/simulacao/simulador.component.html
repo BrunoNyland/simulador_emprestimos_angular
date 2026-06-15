@@ -130,6 +130,29 @@
       </label>
     </div>
   </form>
+
+  <div class="acoes-form">
+    <button
+      type="button"
+      class="btn-secundario"
+      (click)="copiarLink()"
+      [class.copiado]="linkCopiado()"
+      title="Copia o endereço atual com todos os parâmetros desta simulação"
+    >
+      @if (linkCopiado()) {
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Link copiado
+      } @else {
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+        </svg>
+        Copiar link da simulação
+      }
+    </button>
+  </div>
 </app-secao>
 
 @let res = store.resultado();
@@ -146,7 +169,7 @@
 } @else {
 <app-secao titulo="Resultado da simulação" id="resultado">
   <div class="resumo">
-    <div class="card card--destaque" [class.card--ativo]="explicacaoAtiva() === 'parcela'" (click)="selecionarExplicacao('parcela')">
+    <div class="card card--destaque" appClicavel [class.card--ativo]="explicacaoAtiva() === 'parcela'" (click)="selecionarExplicacao('parcela')">
       <span class="rotulo">
         <span>Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -157,7 +180,7 @@
       </span>
       <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'valorLiquido'" (click)="selecionarExplicacao('valorLiquido')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'valorLiquido'" (click)="selecionarExplicacao('valorLiquido')">
       <span class="rotulo">
         <span>Valor líquido liberado</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -168,7 +191,7 @@
       </span>
       <strong>{{ +res.dados.valorLiquido | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'iof'" (click)="selecionarExplicacao('iof')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'iof'" (click)="selecionarExplicacao('iof')">
       <span class="rotulo">
         <span>IOF</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -179,7 +202,7 @@
       </span>
       <strong>{{ +res.dados.iof | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'totalPago'" (click)="selecionarExplicacao('totalPago')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'totalPago'" (click)="selecionarExplicacao('totalPago')">
       <span class="rotulo">
         <span>Total pago</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -190,7 +213,7 @@
       </span>
       <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'totalJuros'" (click)="selecionarExplicacao('totalJuros')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'totalJuros'" (click)="selecionarExplicacao('totalJuros')">
       <span class="rotulo">
         <span>Total de juros</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -201,7 +224,7 @@
       </span>
       <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'cetMensal'" (click)="selecionarExplicacao('cetMensal')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'cetMensal'" (click)="selecionarExplicacao('cetMensal')">
       <span class="rotulo">
         <span>CET mensal</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -210,9 +233,19 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.cetMensal | percent: formatoCetMensal() }}</strong>
+      <strong>
+        @if (store.cetBase(); as cet) {
+          @if (store.cetCalculando()) {
+            <span class="cet-calculando">calculando…</span>
+          } @else {
+            {{ +cet.mensal | percent: formatoCetMensal() }}
+          }
+        } @else {
+          <span class="cet-calculando">calculando…</span>
+        }
+      </strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'cetAnual'" (click)="selecionarExplicacao('cetAnual')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'cetAnual'" (click)="selecionarExplicacao('cetAnual')">
       <span class="rotulo">
         <span>CET anual</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -221,7 +254,17 @@
           <path d="M12 8h.01"></path>
         </svg>
       </span>
-      <strong>{{ +res.dados.cetAnual | percent: formatoCetAnual() }}</strong>
+      <strong>
+        @if (store.cetBase(); as cet) {
+          @if (store.cetCalculando()) {
+            <span class="cet-calculando">calculando…</span>
+          } @else {
+            {{ +cet.anual | percent: formatoCetAnual() }}
+          }
+        } @else {
+          <span class="cet-calculando">calculando…</span>
+        }
+      </strong>
     </div>
   </div>
 </app-secao>
@@ -229,7 +272,7 @@
 <app-secao titulo="Memória de Cálculo (Auditoria)" id="auditoria">
   <div class="resumo">
 
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'iofDiario'" (click)="selecionarExplicacao('iofDiario')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'iofDiario'" (click)="selecionarExplicacao('iofDiario')">
       <span class="rotulo">
         <span>IOF diário</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -240,7 +283,7 @@
       </span>
       <strong>{{ +res.dados.memoriaCalculo.iofDiario | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'iofAdicional'" (click)="selecionarExplicacao('iofAdicional')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'iofAdicional'" (click)="selecionarExplicacao('iofAdicional')">
       <span class="rotulo">
         <span>IOF adicional</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -319,7 +362,7 @@
 </app-secao>
 
 <app-secao titulo="Comparativo Price × SAC" sub="SAC costuma ter 1ª parcela maior e menos juros no total."
-  id="comparativo">
+  id="comparativo" (abertaChange)="store.comparativoVisivel.set($event)">
   <!-- comparativo só é calculado quando a seção está aberta (lazy): evita 2 CETs
        extras a cada recálculo enquanto a seção está recolhida. -->
   @let comp = store.comparativo();
@@ -361,8 +404,16 @@
         </tr>
         <tr>
           <td>CET (a.m.)</td>
-          <td>{{ comp.price.cetMensal ? (+comp.price.cetMensal | percent: formatoCetMensal()) : '—' }}</td>
-          <td>{{ comp.sac.cetMensal ? (+comp.sac.cetMensal | percent: formatoCetMensal()) : '—' }}</td>
+          @if (!comp.price.cetEntrada) {
+            <td>—</td>
+            <td>—</td>
+          } @else if (store.comparativoCet(); as cc) {
+            <td>{{ +cc.price.mensal | percent: formatoCetMensal() }}</td>
+            <td>{{ +cc.sac.mensal | percent: formatoCetMensal() }}</td>
+          } @else {
+            <td class="cet-calculando">calculando…</td>
+            <td class="cet-calculando">calculando…</td>
+          }
         </tr>
       </tbody>
     </table>
@@ -455,6 +506,11 @@
     </li>
     }
   </ul>
+  @if (eventosDescritos().length > 1) {
+  <div class="acoes-lista">
+    <button type="button" class="btn-remover" (click)="store.limparEventos()">Limpar todos</button>
+  </div>
+  }
   } @else {
   <p class="vazio">Nenhum evento. Adicione amortização, quitação, antecipação ou pagamento.</p>
   }
@@ -465,7 +521,7 @@
 <app-secao titulo="Resultado após eventos" sub="Cronograma recomposto pelos eventos acima." [realce]="true"
   id="pos-eventos">
   <div class="resumo">
-    <div class="card card--destaque" [class.card--ativo]="explicacaoAtiva() === 'prazoFinal'" (click)="selecionarExplicacao('prazoFinal')">
+    <div class="card card--destaque" appClicavel [class.card--ativo]="explicacaoAtiva() === 'prazoFinal'" (click)="selecionarExplicacao('prazoFinal')">
       <span class="rotulo">
         <span>Prazo final</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -476,7 +532,7 @@
       </span>
       <strong>{{ ev.resumo.prazoFinal }} meses</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'economiaJuros'" (click)="selecionarExplicacao('economiaJuros')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'economiaJuros'" (click)="selecionarExplicacao('economiaJuros')">
       <span class="rotulo">
         <span>Economia de juros</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -487,7 +543,7 @@
       </span>
       <strong>{{ +ev.resumo.economiaJuros | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'amortizacoesExtras'" (click)="selecionarExplicacao('amortizacoesExtras')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'amortizacoesExtras'" (click)="selecionarExplicacao('amortizacoesExtras')">
       <span class="rotulo">
         <span>Amortizações extras</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -498,7 +554,7 @@
       </span>
       <strong>{{ +ev.resumo.amortizacoesExtras | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'moraEncargos'" (click)="selecionarExplicacao('moraEncargos')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'moraEncargos'" (click)="selecionarExplicacao('moraEncargos')">
       <span class="rotulo">
         <span>Mora/encargos</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -509,7 +565,7 @@
       </span>
       <strong>{{ +ev.resumo.totalEncargos | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'totalPagoPos'" (click)="selecionarExplicacao('totalPagoPos')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'totalPagoPos'" (click)="selecionarExplicacao('totalPagoPos')">
       <span class="rotulo">
         <span>Total pago</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -520,7 +576,7 @@
       </span>
       <strong>{{ +ev.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
     </div>
-    <div class="card" [class.card--ativo]="explicacaoAtiva() === 'cetMensalPos'" (click)="selecionarExplicacao('cetMensalPos')">
+    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'cetMensalPos'" (click)="selecionarExplicacao('cetMensalPos')">
       <span class="rotulo">
         <span>CET mensal</span>
         <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">

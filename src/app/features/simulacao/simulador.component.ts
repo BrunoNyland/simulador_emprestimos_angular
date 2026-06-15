@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { CurrencyPipe, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -13,6 +21,7 @@ import { Parcela } from '../../core/engine/models';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
 import { valorParcelaPrice } from '../../core/engine/price';
 import { MoedaInputDirective } from '../../shared/moeda-input.directive';
+import { ClicavelDirective } from '../../shared/clicavel.directive';
 import { SecaoComponent } from '../../shared/secao.component';
 import { DataBrPipe } from '../../shared/data-br.pipe';
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
@@ -46,6 +55,7 @@ function descreverEvento(e: EventoCalc): string {
     DecimalPipe,
     PercentPipe,
     MoedaInputDirective,
+    ClicavelDirective,
     SecaoComponent,
     DataBrPipe,
     ExplicacaoModalComponent,
@@ -172,6 +182,8 @@ export class SimuladorComponent {
 
     this.aplicarTravas();
     this.sincronizarTipoTaxa();
+
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.linkTimer));
   }
 
   /** Hidrata o formulário a partir dos query params, validando tipo a tipo. */
@@ -239,6 +251,47 @@ export class SimuladorComponent {
     this.explicacaoParcela.set(null);
   }
 
+  // --- Compartilhar simulação (os parâmetros já vivem na URL) ---
+  readonly linkCopiado = signal(false);
+  private linkTimer?: ReturnType<typeof setTimeout>;
+
+  /** Copia a URL atual (com todos os parâmetros) para a área de transferência. */
+  copiarLink(): void {
+    const url = location.href;
+    const sucesso = () => {
+      this.linkCopiado.set(true);
+      clearTimeout(this.linkTimer);
+      this.linkTimer = setTimeout(() => this.linkCopiado.set(false), 1500);
+    };
+    // Clipboard API exige contexto seguro + ativação do usuário; em http/navegadores
+    // antigos cai no fallback execCommand para nunca ficar "sem resposta".
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(url)
+        .then(sucesso)
+        .catch(() => this.copiarFallback(url, sucesso));
+    } else {
+      this.copiarFallback(url, sucesso);
+    }
+  }
+
+  private copiarFallback(texto: string, aoCopiar: () => void): void {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      aoCopiar();
+    } catch {
+      // Sem clipboard disponível: não há como copiar; não emite falso sucesso.
+    }
+  }
+
   private static readonly TOPICOS_POS_EVENTOS = [
     'prazoFinal',
     'economiaJuros',
@@ -285,6 +338,14 @@ export class SimuladorComponent {
     }
 
     if (res.tipo !== 'ok') return null;
+
+    // CET é assíncrono (worker); injeta o valor resolvido no dados da explicação.
+    if (topico === 'cetMensal' || topico === 'cetAnual') {
+      const cet = this.store.cetBase();
+      if (!cet) return null; // ainda calculando
+      const dados = { ...res.dados, cetMensal: cet.mensal, cetAnual: cet.anual };
+      return obterExplicacaoMatematica(topico, dados, this.store.sistema(), arredondamento);
+    }
 
     return obterExplicacaoMatematica(topico, res.dados, this.store.sistema(), arredondamento);
   });

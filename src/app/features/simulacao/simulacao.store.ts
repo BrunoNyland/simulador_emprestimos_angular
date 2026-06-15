@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { Decimal, setCasasMonetarias } from '../../core/engine/decimal.config';
 import {
   ParametrosSimulacao,
@@ -13,7 +13,6 @@ import { gerarCronogramaSac } from '../../core/engine/sac';
 import { somarTotais, TotaisCronograma } from '../../core/engine/totais';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
 import { CampoAlvo, resolverCampoAlvo } from '../../core/engine/solver';
-import { calcularCet, FluxoCaixa } from '../../core/engine/cet';
 import { diasCorridos } from '../../core/engine/dates';
 import { calcularIof } from '../../core/engine/iof';
 import {
@@ -25,6 +24,7 @@ import {
 } from '../../core/engine/eventos';
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
 import { resolverParametrosIof } from '../../core/products/regulatory-config';
+import { CetService, EntradaCet, FluxoSerial, ResultadoCetSerial } from '../../core/cet.service';
 
 export interface MemoriaCalculo {
   iofDiario: string;
@@ -38,8 +38,6 @@ export interface ResultadoSimulacao {
   parcelaCalculada: string;
   parcelas: Parcela[];
   totais: TotaisCronograma;
-  cetMensal: string;
-  cetAnual: string;
   /** Valor liquido liberado (bruto - IOF - tarifa de abertura). */
   valorLiquido: string;
   /** IOF total da operacao. */
@@ -67,6 +65,7 @@ export type EstadoResultado =
 @Injectable({ providedIn: 'root' })
 export class SimulacaoStore {
   private readonly config = inject(RegulatoryConfigService);
+  private readonly cetService = inject(CetService);
 
   // --- Entradas (signals) ---
   readonly sistema = signal<SistemaAmortizacao>('price');
@@ -111,6 +110,98 @@ export class SimulacaoStore {
       return { tipo: 'erro', mensagem: e instanceof Error ? e.message : 'Erro de calculo' };
     }
   });
+
+  /**
+   * Fluxo serializado do CET base (valor liberado + parcelas datadas/365).
+   * É a entrada que o Web Worker consome. `null` quando não há simulação válida.
+   */
+  readonly cetEntradaBase = computed<EntradaCet | null>(() => {
+    if (this.resultado().tipo !== 'ok') return null;
+    const ctx = this.contexto();
+    return {
+      valorLiberado: ctx.valorLiberado.toString(),
+      fluxos: ctx.baseParcelas.map((p) => ({
+        periodo: new Decimal(diasCorridos(ctx.dataBase, p.dataVencimento)).div(365).toString(),
+        valor: new Decimal(p.valorParcela).toString(),
+      })),
+    };
+  });
+
+  /** CET base resolvido pelo worker. `null` = sem simulação válida. */
+  private readonly _cetBase = signal<ResultadoCetSerial | null>(null);
+  readonly cetBase = this._cetBase.asReadonly();
+  /**
+   * `true` somente quando o cálculo demora a ponto de valer um indicador
+   * visual (> ~120ms). Em recálculos rápidos o valor anterior continua visível
+   * e é substituído sem flicker — só prazos longos acendem o "calculando…".
+   */
+  private readonly _cetCalculando = signal(false);
+  readonly cetCalculando = this._cetCalculando.asReadonly();
+  /** Sequência p/ descartar respostas obsoletas (último pedido vence). */
+  private cetSeq = 0;
+
+  // --- CET do comparativo (Price × SAC), também fora da main thread ---
+  /** A seção do comparativo informa sua visibilidade; só então calculamos. */
+  readonly comparativoVisivel = signal(false);
+  private readonly _comparativoCet = signal<{
+    price: ResultadoCetSerial;
+    sac: ResultadoCetSerial;
+  } | null>(null);
+  readonly comparativoCet = this._comparativoCet.asReadonly();
+  private compCetSeq = 0;
+
+  /**
+   * Entrada dos dois CETs do comparativo. `null` enquanto a seção estiver
+   * recolhida — o `comparativo()` (e seus 2 cronogramas) nem chega a ser lido,
+   * preservando a laziness anterior.
+   */
+  private readonly comparativoCetEntrada = computed<{ price: EntradaCet; sac: EntradaCet } | null>(
+    () => {
+      if (!this.comparativoVisivel()) return null;
+      const c = this.comparativo();
+      if (!c || !c.price.cetEntrada || !c.sac.cetEntrada) return null;
+      return { price: c.price.cetEntrada, sac: c.sac.cetEntrada };
+    },
+  );
+
+  constructor() {
+    // CET base: dispara o worker a cada mudança da entrada. Mantém o último
+    // valor visível durante o recálculo e só marca "calculando" após ~120ms.
+    effect((onCleanup) => {
+      const entrada = this.cetEntradaBase();
+      const seq = ++this.cetSeq;
+      if (!entrada) {
+        this._cetBase.set(null);
+        this._cetCalculando.set(false);
+        return;
+      }
+      const timer = setTimeout(() => {
+        if (seq === this.cetSeq) this._cetCalculando.set(true);
+      }, 120);
+      onCleanup(() => clearTimeout(timer));
+      this.cetService.solicitar(entrada).then((res) => {
+        if (seq !== this.cetSeq) return;
+        clearTimeout(timer);
+        this._cetBase.set(res);
+        this._cetCalculando.set(false);
+      });
+    });
+
+    // CET do comparativo: os 2 TIR (Price e SAC) também saem da main thread —
+    // antes rodavam síncronos aqui e travavam o input em prazos longos.
+    effect(() => {
+      const entrada = this.comparativoCetEntrada();
+      const seq = ++this.compCetSeq;
+      this._comparativoCet.set(null);
+      if (!entrada) return;
+      Promise.all([
+        this.cetService.solicitar(entrada.price),
+        this.cetService.solicitar(entrada.sac),
+      ]).then(([price, sac]) => {
+        if (seq === this.compCetSeq) this._comparativoCet.set({ price, sac });
+      });
+    });
+  }
 
   // --- Projecao com eventos (tabela separada, abaixo da base) ---
   readonly eventosResultado = computed<ProjecaoEventos | null>(() => {
@@ -185,27 +276,34 @@ export class SimulacaoStore {
   });
 
   /**
-   * IOF total e CET mensal de um cronograma (para o comparativo Price × SAC).
-   * Reaproveita os mesmos custos de abertura e a TIR/365 da simulação base.
+   * IOF total e a ENTRADA do CET de um cronograma (para o comparativo Price ×
+   * SAC). O IOF é barato e fica síncrono; o CET (TIR/365) é caro e por isso só
+   * devolvemos a entrada serializada — o cálculo roda no worker ({@link comparativoCet}).
    * Sem data de liberação não há como contar dias/365 → devolve nulos.
    */
   private resumoCustos(
     principal: Decimal,
     parcelas: Parcela[],
     dataBase: string,
-  ): { iof: string | null; cetMensal: string | null } {
-    if (!dataBase) return { iof: null, cetMensal: null };
+  ): { iof: string | null; cetEntrada: EntradaCet | null } {
+    if (!dataBase) return { iof: null, cetEntrada: null };
     const { iofTotal, valorLiberado } = this.custosAbertura(principal, parcelas, dataBase);
-    const fluxos: FluxoCaixa[] = parcelas.map((p) => ({
-      periodo: new Decimal(diasCorridos(dataBase, p.dataVencimento)).div(365),
-      valor: new Decimal(p.valorParcela),
+    const fluxos: FluxoSerial[] = parcelas.map((p) => ({
+      periodo: new Decimal(diasCorridos(dataBase, p.dataVencimento)).div(365).toString(),
+      valor: new Decimal(p.valorParcela).toString(),
     }));
-    const cet = calcularCet(valorLiberado, fluxos, { periodosAno: 1 });
-    return { iof: iofTotal.toFixed(2), cetMensal: cet.mensal.toDecimalPlaces(6).toString() };
+    return {
+      iof: iofTotal.toFixed(2),
+      cetEntrada: { valorLiberado: valorLiberado.toString(), fluxos },
+    };
   }
 
-  /** Contexto compartilhado (solver + cronograma base + custos de abertura). */
-  private contexto() {
+  /**
+   * Contexto compartilhado (solver + cronograma base + custos de abertura),
+   * memoizado como computed para ser reaproveitado por `resultado`,
+   * `eventosResultado` e `cetEntradaBase` sem recalcular o cronograma.
+   */
+  private readonly contexto = computed(() => {
     setCasasMonetarias(2);
 
     const params: ParametrosSimulacao = {
@@ -268,27 +366,23 @@ export class SimulacaoStore {
       iofAdicional,
       valorLiberado,
     };
-  }
+  });
 
-  /** Simulacao base (sem eventos) — sempre exibida na tabela principal. */
+  /**
+   * Simulacao base (sem eventos) — sempre exibida na tabela principal.
+   * O CET NÃO é calculado aqui: ele é a parte cara (TIR/365) e roda fora da
+   * main thread via {@link cetBase}/CetService, mantendo a UI fluida.
+   */
   private calcularBase(): ResultadoSimulacao {
     const ctx = this.contexto();
 
     const totais = somarTotais(ctx.baseParcelas);
-    const fluxos: FluxoCaixa[] = ctx.baseParcelas.map((p) => ({
-      // BACEN: t_j = dias / 365
-      periodo: new Decimal(diasCorridos(ctx.dataBase, p.dataVencimento)).div(365),
-      valor: new Decimal(p.valorParcela),
-    }));
-    const cet = calcularCet(ctx.valorLiberado, fluxos, { periodosAno: 1 });
 
     return {
       parametros: ctx.resolvidos,
       parcelaCalculada: ctx.parcelaCalculada,
       parcelas: ctx.baseParcelas,
       totais,
-      cetMensal: cet.mensal.toDecimalPlaces(6).toString(),
-      cetAnual: cet.anual.toDecimalPlaces(6).toString(),
       valorLiquido: ctx.valorLiberado.toFixed(2),
       iof: ctx.iofTotal.toFixed(2),
       memoriaCalculo: {

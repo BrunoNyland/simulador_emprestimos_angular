@@ -1,5 +1,19 @@
 import { TestBed } from '@angular/core/testing';
 import { SimulacaoStore } from './simulacao.store';
+import { calcularCet } from '../../core/engine/cet';
+import { Decimal } from '../../core/engine/decimal.config';
+
+/** CET base síncrono a partir da entrada serializada do store (o app usa worker). */
+function cetBaseDe(store: SimulacaoStore): number {
+  const entrada = store.cetEntradaBase();
+  if (!entrada) return NaN;
+  const cet = calcularCet(
+    new Decimal(entrada.valorLiberado),
+    entrada.fluxos.map((f) => ({ periodo: new Decimal(f.periodo), valor: new Decimal(f.valor) })),
+    { periodosAno: 1 },
+  );
+  return cet.mensal.toNumber();
+}
 
 describe('SimulacaoStore', () => {
   let store: SimulacaoStore;
@@ -77,7 +91,13 @@ describe('SimulacaoStore', () => {
     expect(comp).not.toBeNull();
     for (const sis of [comp!.price, comp!.sac]) {
       expect(Number(sis.iof)).toBeGreaterThan(0);
-      expect(Number(sis.cetMensal)).toBeGreaterThan(0);
+      // CET agora roda no worker; aqui validamos a entrada calculando síncrono.
+      const cet = calcularCet(
+        new Decimal(sis.cetEntrada!.valorLiberado),
+        sis.cetEntrada!.fluxos.map((f) => ({ periodo: new Decimal(f.periodo), valor: new Decimal(f.valor) })),
+        { periodosAno: 1 },
+      );
+      expect(cet.mensal.toNumber()).toBeGreaterThan(0);
     }
     // SAC amortiza mais rapido -> IOF diario menor -> IOF total <= Price
     expect(Number(comp!.sac.iof)).toBeLessThanOrEqual(Number(comp!.price.iof));
@@ -153,7 +173,7 @@ describe('SimulacaoStore', () => {
     if (r.tipo === 'ok') {
       expect(Number(r.dados.iof)).toBeGreaterThan(3.8); // diario + adicional 0,38%
       expect(Number(r.dados.valorLiquido)).toBeLessThan(1000);
-      expect(Number(r.dados.cetMensal)).toBeGreaterThan(0.01); // CET > taxa por causa do IOF
+      expect(cetBaseDe(store)).toBeGreaterThan(0.01); // CET > taxa por causa do IOF
     }
   });
 
@@ -170,7 +190,7 @@ describe('SimulacaoStore', () => {
     if (r.tipo === 'ok') {
       expect(r.dados.valorLiquido).toBe('1000.00');
       // CET mensal ~ 1% (convencao BACEN dias/365 + arredondamento da parcela)
-      const cet = Number(r.dados.cetMensal);
+      const cet = cetBaseDe(store);
       expect(cet).toBeGreaterThan(0.0099);
       expect(cet).toBeLessThan(0.0102);
     }
