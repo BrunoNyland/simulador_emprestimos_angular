@@ -19,8 +19,9 @@
     <fieldset class="grupo-valores">
       <legend>Valores do empréstimo</legend>
       <p class="grupo-dica">
-        Preencha três campos; o quarto (<span class="tag-calc">↻ calculado</span>) é resolvido
-        automaticamente. Edite qualquer um e o sistema reidentifica o que calcular.
+        Edite <strong>valor, taxa ou prazo</strong> para calcular a <strong>parcela</strong>; edite a
+        <strong>parcela</strong> para calcular o <strong>valor bruto</strong>. O campo calculado fica
+        destacado (<span class="tag-calc">↻ calculado</span>).
       </p>
       <div class="grid">
         <label [class.alvo]="store.campoAlvo() === 'valorBruto'">

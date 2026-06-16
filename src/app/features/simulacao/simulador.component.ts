@@ -119,16 +119,13 @@ export class SimuladorComponent {
   });
 
   constructor() {
-    // Campo calculado inicial = o "mais antigo" da ordem (default: parcela).
-    this.definirRecenciaPara(this.store.campoAlvo());
-
     // Hidratação inicial pela URL
     this.route.queryParams.pipe(take(1)).subscribe((params) => this.hidratarPelaUrl(params));
 
-    // Detecção automática do campo a resolver: ao editar um dos quatro valores,
-    // ele passa a ser uma ENTRADA e o que ficou "esquecido" há mais tempo vira o
-    // CALCULADO. Sem debounce (só reordena uma lista; barato), e só muda o alvo
-    // quando o usuário mexe justamente no campo que estava sendo calculado.
+    // Detecção automática do campo a resolver (regra fixa):
+    //  - editar a Parcela        → calcula o Valor bruto;
+    //  - editar Valor/Taxa/Prazo → calcula a Parcela.
+    // Sem debounce (só troca um signal; barato).
     for (const campo of CAMPOS) {
       this.form
         .get(campo)!
@@ -192,21 +189,17 @@ export class SimuladorComponent {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.linkTimer));
   }
 
-  /** Ordem de edição dos 4 valores (mais recente → mais antigo). */
-  private recencia: CampoAlvo[] = [...CAMPOS];
   /** Evita que o patch de hidratação seja confundido com edição do usuário. */
   private hidratando = false;
 
-  /** Define a ordem de modo que `alvo` seja o campo calculado (o mais antigo). */
-  private definirRecenciaPara(alvo: CampoAlvo): void {
-    this.recencia = [...CAMPOS.filter((c) => c !== alvo), alvo];
-  }
-
-  /** Registra a edição de um campo e recalcula qual passa a ser o calculado. */
+  /**
+   * Regra de resolução: editar a Parcela calcula o Valor bruto; editar
+   * Valor bruto, Taxa ou Prazo calcula a Parcela. Taxa e Prazo nunca são
+   * o campo calculado.
+   */
   private marcarEdicao(campo: CampoAlvo): void {
     if (this.hidratando) return;
-    this.recencia = [campo, ...this.recencia.filter((c) => c !== campo)];
-    const alvo = this.recencia[this.recencia.length - 1];
+    const alvo: CampoAlvo = campo === 'parcela' ? 'valorBruto' : 'parcela';
     if (alvo !== this.store.campoAlvo()) {
       this.store.campoAlvo.set(alvo);
     }
@@ -237,18 +230,14 @@ export class SimuladorComponent {
     }
 
     if (Object.keys(patch).length > 0) {
-      // Patch programático: não deve reordenar a recência (não é edição do usuário).
+      // Patch programático: não deve disparar a regra de resolução.
       this.hidratando = true;
       this.form.patchValue(patch, { emitEvent: true });
       this.hidratando = false;
     }
 
-    // Campo calculado vindo da URL (fora do form): ajusta a ordem de recência.
-    if (CAMPOS.includes(p['campoAlvo'] as CampoAlvo)) {
-      const alvo = p['campoAlvo'] as CampoAlvo;
-      this.store.campoAlvo.set(alvo);
-      this.definirRecenciaPara(alvo);
-    }
+    // Campo calculado vindo da URL: só Parcela ou Valor bruto são válidos.
+    this.store.campoAlvo.set(p['campoAlvo'] === 'valorBruto' ? 'valorBruto' : 'parcela');
   }
 
   /** Explicação de uma linha do cronograma (construída sob demanda no clique). */
