@@ -204,7 +204,7 @@ html:has(dialog[open]) {
     transform 0.12s ease;
 
   &:hover {
-    border-color: var(--primary);
+    border-color: var(--accent);
   }
   &:active {
     transform: scale(0.9);

@@ -202,3 +202,38 @@ describe('eventos (pos-simulacao)', () => {
     expect(r.resumo.totalAmortizacao).toBe('1000.00');
   });
 });
+
+describe('eventos: tracos de calculo (transparencia por linha)', () => {
+  const passo = (tr: { passos: { id: string; resultado?: string }[] }, id: string) =>
+    tr.passos.find((p) => p.id === id)?.resultado;
+
+  it('mora: o traco reproduz multa + juros de mora = encargos da linha', () => {
+    const r = basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 30 }], {
+      mora: { jurosMensal: d('0.01'), multa: d('0.02') },
+    });
+    const tr = r.parcelas[0].tracosEvento?.find((t) => t.id === 'evento-mora');
+    expect(tr).toBeTruthy();
+    // multa = 88.85*0.02 = 1.777; juros = 88.85*0.01 = 0.8885; total -> 2.67 (= encargos)
+    expect(new Decimal(passo(tr!, 'total')!).toDecimalPlaces(2).toFixed(2)).toBe(
+      r.parcelas[0].encargos,
+    );
+  });
+
+  it('amortizacao extra: o traco mostra o valor aplicado e o novo saldo', () => {
+    const r = basePrice([{ tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-prazo' }]);
+    const tr = r.parcelas[0].tracosEvento?.find((t) => t.id === 'evento-amortizacao');
+    expect(tr).toBeTruthy();
+    expect(new Decimal(passo(tr!, 'valor')!).toFixed(2)).toBe('200.00');
+    // novo saldo = saldo apos a 1a parcela (saldoFinal da linha) - 200
+    const esperado = new Decimal(r.parcelas[0].saldoFinal).minus(200).toFixed(2);
+    expect(new Decimal(passo(tr!, 'saldo')!).toFixed(2)).toBe(esperado);
+  });
+
+  it('quitacao: o traco expoe o payoff igual ao saldo devedor da linha', () => {
+    const r = basePrice([{ tipo: 'quitacao', apos: 6 }]);
+    const tr = r.parcelas[5].tracosEvento?.find((t) => t.id === 'evento-quitacao');
+    expect(tr).toBeTruthy();
+    // sem fracao: payoff = saldo devedor antes da quitacao (= saldoFinal da parcela 6)
+    expect(new Decimal(passo(tr!, 'payoff')!).toFixed(2)).toBe(r.parcelas[5].saldoFinal);
+  });
+});

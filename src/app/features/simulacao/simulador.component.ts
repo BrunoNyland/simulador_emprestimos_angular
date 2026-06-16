@@ -9,12 +9,12 @@ import {
 } from '@angular/core';
 import { CurrencyPipe, DecimalPipe, PercentPipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { take, debounceTime } from 'rxjs';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
-import { EventoCalc } from '../../core/engine/eventos';
+import { EventoCalc, LinhaCronograma } from '../../core/engine/eventos';
 import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
 import { Decimal, arredondarMoeda } from '../../core/engine/decimal.config';
 import { Parcela } from '../../core/engine/models';
@@ -25,7 +25,12 @@ import { ClicavelDirective } from '../../shared/clicavel.directive';
 import { SecaoComponent } from '../../shared/secao.component';
 import { DataBrPipe } from '../../shared/data-br.pipe';
 import { RegulatoryConfigService } from '../../core/config/regulatory-config.service';
-import { obterExplicacaoMatematica, explicacaoDaParcela, Explicacao } from './explicador';
+import {
+  obterExplicacaoMatematica,
+  explicacaoDaParcela,
+  explicacaoDeLinhaEvento,
+  Explicacao,
+} from './explicador';
 import { ExplicacaoModalComponent } from './explicacao-modal.component';
 import { GraficoSaldoComponent, SerieLinha } from './grafico-saldo.component';
 
@@ -270,6 +275,16 @@ export class SimuladorComponent {
     this.explicacaoParcela.set(exp);
   }
 
+  /** Abre a explicação de uma linha do cronograma APÓS EVENTOS (com o evento). */
+  explicarLinhaEvento(linha: LinhaCronograma): void {
+    const res = this.store.resultado();
+    if (res.tipo !== 'ok') return;
+    const params = res.dados.parametros;
+    const i = taxaEfetivaMensal(new Decimal(params.taxa), params.tipoTaxa, params.unidadeTaxa);
+    this.explicacaoAtiva.set(null);
+    this.explicacaoParcela.set(explicacaoDeLinhaEvento(linha, i));
+  }
+
   fecharExplicacao(): void {
     this.explicacaoAtiva.set(null);
     this.explicacaoParcela.set(null);
@@ -451,7 +466,11 @@ export class SimuladorComponent {
   }
 
   adicionarEvento(): void {
-    const v = this.eventoForm.getRawValue();
+    this.store.adicionarEvento(this.construirEventoDoForm(this.eventoForm.getRawValue()));
+  }
+
+  /** Monta o EventoCalc a partir do valor cru do formulário (reusado no preview). */
+  private construirEventoDoForm(v: ReturnType<typeof this.eventoForm.getRawValue>): EventoCalc {
     const porData = v.indexarPor === 'data';
     const mapeado = porData ? this.resolverPorData(v.data) : null;
     const apos = mapeado ? mapeado.apos : Number(v.apos);
@@ -494,11 +513,41 @@ export class SimuladorComponent {
           ...(mapeado ? { fracaoPeriodo: mapeado.fracao.toString() } : {}),
         };
     }
-    this.store.adicionarEvento(evento);
+    return evento;
   }
 
   /** Eventos com descrição pré-computada (evita chamada de função no template). */
   readonly eventosDescritos = computed(() =>
     this.store.eventos().map((e) => ({ evento: e, descricao: descreverEvento(e) })),
   );
+
+  /** Valor do formulário de evento como signal, para o preview reativo. */
+  private readonly eventoFormSig = toSignal(this.eventoForm.valueChanges, {
+    initialValue: this.eventoForm.getRawValue(),
+  });
+
+  /** Texto de ajuda explicando o tipo de evento selecionado. */
+  readonly ajudaEvento = computed<string>(() => {
+    this.eventoFormSig(); // dependência reativa (o valor tipado vem do form)
+    switch (this.eventoForm.controls.tipo.value) {
+      case 'amortizacao':
+        return 'Um pagamento EXTRA que abate o saldo devedor. Você escolhe se isso reduz o prazo (termina antes) ou reduz o valor das próximas parcelas.';
+      case 'quitacao':
+        return 'Pagar TODO o saldo devedor restante de uma vez, encerrando a dívida. Na data de uma parcela, é o próprio saldo; no meio do mês, soma juros pro-rata.';
+      case 'antecipacao':
+        return 'Antecipar um número de parcelas futuras pagando hoje o VALOR PRESENTE delas (com desconto dos juros). Reduz o prazo ou a parcela.';
+      default:
+        return 'Simular o pagamento de uma parcela em ATRASO (gera multa + juros de mora) e/ou um pagamento PARCIAL (valor diferente do previsto).';
+    }
+  });
+
+  /** Pré-visualização do evento que será adicionado (descrição amigável). */
+  readonly previewEvento = computed<string | null>(() => {
+    this.eventoFormSig(); // dependência reativa
+    try {
+      return descreverEvento(this.construirEventoDoForm(this.eventoForm.getRawValue()));
+    } catch {
+      return null;
+    }
+  });
 }

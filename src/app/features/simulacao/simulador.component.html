@@ -428,73 +428,91 @@
 </app-secao>
 }
 
-<app-secao titulo="Eventos pós-simulação" sub="Geram um novo cronograma abaixo, sem alterar a simulação base."
+<app-secao titulo="Eventos pós-simulação"
+  sub="Lance amortizações, quitações, antecipações ou atrasos — geram um novo cronograma abaixo, sem alterar a simulação base."
   id="eventos">
-  <form [formGroup]="eventoForm" class="grid" (ngSubmit)="adicionarEvento()">
-    <label>
-      <span>Tipo</span>
-      <select formControlName="tipo">
-        <option value="amortizacao">Amortização extra</option>
-        <option value="quitacao">Quitação antecipada</option>
-        <option value="antecipacao">Antecipação de parcelas</option>
-        <option value="pagamento">Pagamento (atraso/parcial)</option>
-      </select>
-    </label>
-    <label>
-      <span>Indexar por</span>
-      <select formControlName="indexarPor">
-        <option value="parcela">Nº da parcela</option>
-        <option value="data">Data</option>
-      </select>
-    </label>
-    @if (eventoForm.controls.indexarPor.value === 'parcela') {
-    <label>
-      <span>Após a parcela nº</span>
-      <input type="number" formControlName="apos" min="0" step="1" />
-    </label>
-    } @else {
-    <label>
-      <span>Data do evento</span>
-      <input type="date" formControlName="data" />
-      <small>Pré-pagamento no meio do período usa juros pro-rata.</small>
-    </label>
-    }
-    @if (eventoForm.controls.tipo.value === 'amortizacao') {
-    <label>
-      <span>Valor (R$)</span>
-      <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valor" />
-    </label>
-    }
-    @if (eventoForm.controls.tipo.value === 'antecipacao') {
-    <label>
-      <span>Qtd. de parcelas</span>
-      <input type="number" formControlName="quantidade" min="1" step="1" />
-    </label>
-    }
-    @if (eventoForm.controls.tipo.value === 'amortizacao' || eventoForm.controls.tipo.value === 'antecipacao') {
-    <label>
-      <span>Opção</span>
-      <select formControlName="opcao">
-        <option value="reduzir-prazo">Reduzir prazo</option>
-        <option value="reduzir-parcela">Reduzir parcela</option>
-      </select>
-    </label>
-    }
-    @if (eventoForm.controls.tipo.value === 'pagamento') {
-    <label>
-      <span>Dias de atraso</span>
-      <input type="number" formControlName="diasAtraso" min="0" step="1" />
-    </label>
-    <label>
-      <span>Valor pago (R$, opc.)</span>
-      <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorPago"
-        placeholder="parcial" />
-    </label>
-    }
-    <label class="acao">
-      <span>&nbsp;</span>
+  <form [formGroup]="eventoForm" (ngSubmit)="adicionarEvento()">
+    <div class="grid">
+      <label>
+        <span>Tipo de evento</span>
+        <select formControlName="tipo">
+          <option value="amortizacao">Amortização extra</option>
+          <option value="quitacao">Quitação antecipada</option>
+          <option value="antecipacao">Antecipação de parcelas</option>
+          <option value="pagamento">Atraso / pagamento parcial</option>
+        </select>
+      </label>
+      <label>
+        <span>Quando ocorre</span>
+        <select formControlName="indexarPor">
+          <option value="parcela">Após uma parcela</option>
+          <option value="data">Em uma data</option>
+        </select>
+      </label>
+      @if (eventoForm.controls.indexarPor.value === 'parcela') {
+      <label>
+        <span>Após a parcela nº</span>
+        <input type="number" formControlName="apos" min="0" step="1" />
+        <small>0 = antes da 1ª parcela.</small>
+      </label>
+      } @else {
+      <label>
+        <span>Data do evento</span>
+        <input type="date" formControlName="data" />
+        <small>No meio do período, usa juros pro-rata.</small>
+      </label>
+      }
+      @if (eventoForm.controls.tipo.value === 'amortizacao') {
+      <label>
+        <span>Valor extra (R$)</span>
+        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valor" />
+      </label>
+      }
+      @if (eventoForm.controls.tipo.value === 'antecipacao') {
+      <label>
+        <span>Qtd. de parcelas</span>
+        <input type="number" formControlName="quantidade" min="1" step="1" />
+      </label>
+      }
+      @if (eventoForm.controls.tipo.value === 'amortizacao' || eventoForm.controls.tipo.value === 'antecipacao') {
+      <label>
+        <span>O que reduzir</span>
+        <select formControlName="opcao">
+          <option value="reduzir-prazo">Reduzir o prazo (termina antes)</option>
+          <option value="reduzir-parcela">Reduzir a parcela (mesmo prazo)</option>
+        </select>
+      </label>
+      }
+      @if (eventoForm.controls.tipo.value === 'pagamento') {
+      <label>
+        <span>Dias de atraso</span>
+        <input type="number" formControlName="diasAtraso" min="0" step="1" />
+        <small>0 = em dia (sem mora).</small>
+      </label>
+      <label>
+        <span>Valor pago (R$)</span>
+        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorPago"
+          placeholder="vazio = parcela cheia" />
+        <small>Só para pagamento parcial.</small>
+      </label>
+      }
+    </div>
+
+    <p class="evento-ajuda">
+      <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 16v-4"></path>
+        <path d="M12 8h.01"></path>
+      </svg>
+      {{ ajudaEvento() }}
+    </p>
+
+    <div class="evento-rodape">
+      @if (previewEvento(); as pv) {
+      <span class="evento-preview"><strong>Lançar:</strong> {{ pv }}</span>
+      }
       <button type="submit" class="btn-primario">＋ Adicionar evento</button>
-    </label>
+    </div>
   </form>
 
   @if (eventosDescritos().length) {
@@ -518,8 +536,9 @@
 
 @let ev = store.eventosResultado();
 @if (ev) {
-<app-secao titulo="Resultado após eventos" sub="Cronograma recomposto pelos eventos acima." [realce]="true"
-  id="pos-eventos">
+<app-secao titulo="Resultado após eventos"
+  sub="Cronograma recomposto pelos eventos. Clique numa parcela para ver o cálculo — inclui a conta do evento."
+  [realce]="true" id="pos-eventos">
   <div class="resumo">
     <div class="card card--destaque" appClicavel [class.card--ativo]="explicacaoAtiva() === 'prazoFinal'" (click)="selecionarExplicacao('prazoFinal')">
       <span class="rotulo">
@@ -605,7 +624,16 @@
       </thead>
       <tbody>
         @for (p of ev.parcelas; track p.numero) {
-        <tr [class.tem-evento]="p.observacao">
+        <tr
+          class="linha-clicavel"
+          [class.tem-evento]="p.observacao"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="'Ver cálculo da parcela ' + p.numero + (p.observacao ? ' (com evento)' : '')"
+          (click)="explicarLinhaEvento(p)"
+          (keydown.enter)="explicarLinhaEvento(p)"
+          (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
+        >
           <td>{{ p.numero }}</td>
           <td>{{ p.dataVencimento | dataBr }}</td>
           <td>{{ +p.saldoInicial | number:formatoMoeda() }}</td>

@@ -1,5 +1,6 @@
-import { Decimal } from '../../core/engine/decimal.config';
+import { Decimal, arredondarMoeda } from '../../core/engine/decimal.config';
 import { SistemaAmortizacao } from '../../core/engine/models';
+import type { LinhaCronograma } from '../../core/engine/eventos';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
 import { calcularParcelaPrice } from '../../core/engine/price';
 import { calcularPrimeiraParcelaSac } from '../../core/engine/sac';
@@ -403,6 +404,107 @@ export function explicacaoDaParcela(ctx: ContextoLinha): Explicacao {
     relacionados: [
       { topico: 'parcela', rotulo: 'Fórmula da parcela' },
       { topico: 'totalJuros', rotulo: 'Total de juros' },
+    ],
+  };
+}
+
+/**
+ * Explicação de UMA linha do cronograma APÓS EVENTOS (clicável na tabela de
+ * eventos). Mostra a composição da parcela por identidade (sempre exata) e, em
+ * seguida, o cálculo de cada evento aplicado, com os números reais que o motor
+ * anexou à linha (multa, juros de mora, payoff de quitação, valor amortizado…).
+ */
+export function explicacaoDeLinhaEvento(linha: LinhaCronograma, taxaPeriodo: Decimal): Explicacao {
+  const saldoIni = new Decimal(linha.saldoInicial);
+  const saldoFim = new Decimal(linha.saldoFinal);
+  const juros = new Decimal(linha.juros);
+  const amort = new Decimal(linha.amortizacao);
+  const encargos = new Decimal(linha.encargos ?? '0');
+  const parcela = new Decimal(linha.valorParcela);
+  const i = taxaPeriodo;
+  const proRata = !arredondarMoeda(saldoIni.times(i)).equals(juros);
+  const temEvento = (linha.tracosEvento?.length ?? 0) > 0;
+
+  const composicao: PassoCalculo[] = [
+    proRata
+      ? passoNota(
+          'juros',
+          `Juros do período: ${fmtBRL(juros)}. Houve pré-pagamento no meio do mês, então parte dos juros incide sobre o saldo anterior (juros pro-rata).`,
+        )
+      : passoCalculo('juros', 'Juros do mês sobre o saldo devedor inicial', 'J = Saldo × i', `${disp(saldoIni, 2)} × ${disp(i)}`, juros, 2),
+    passoCalculo('amort', 'Amortização: o quanto esta parcela reduz do saldo devedor', 'A = Saldo inicial − Saldo final', `${disp(saldoIni, 2)} − ${disp(saldoFim, 2)}`, amort, 2),
+    encargos.greaterThan(0)
+      ? passoCalculo('parcela', 'Valor pago no mês: juros + amortização + encargos de atraso', 'Parcela = J + A + encargos', `${disp(juros, 2)} + ${disp(amort, 2)} + ${disp(encargos, 2)}`, parcela, 2)
+      : passoCalculo('parcela', 'Valor pago no mês: juros + amortização', 'Parcela = J + A', `${disp(juros, 2)} + ${disp(amort, 2)}`, parcela, 2),
+    passoCalculo('saldoFinal', 'Saldo devedor ao fim do período', 'Saldo final = Saldo inicial − A', `${disp(saldoIni, 2)} − ${disp(amort, 2)}`, saldoFim, 2),
+  ];
+
+  const passosEvento: PassoCalculo[] = [];
+  for (const tr of linha.tracosEvento ?? []) {
+    passosEvento.push(passoNota(`titulo-${tr.id}`, `▸ ${tr.titulo}`));
+    passosEvento.push(...tr.passos);
+  }
+
+  const trace = montarTrace(
+    'linha-evento',
+    `Parcela ${linha.numero}${temEvento ? ' — com evento' : ''}`,
+    'Parcela = Juros + Amortização',
+    [...composicao, ...passosEvento],
+  );
+
+  const legenda = [
+    { simbolo: 'Parcela', nome: 'Valor pago neste mês', valor: fmtBRL(parcela) },
+    { simbolo: 'J', nome: 'Juros do período', valor: fmtBRL(juros) },
+    { simbolo: 'A', nome: 'Amortização (abate o principal)', valor: fmtBRL(amort) },
+    { simbolo: 'Saldo', nome: 'Saldo devedor no início do período', valor: fmtBRL(saldoIni) },
+    { simbolo: 'i', nome: 'Taxa efetiva do período (mensal)', valor: fmtPct(i.times(100), 4) },
+    { simbolo: 'Saldo final', nome: 'Saldo devedor ao fim do período', valor: fmtBRL(saldoFim) },
+  ];
+  if (encargos.greaterThan(0)) {
+    legenda.push({ simbolo: 'Encargos', nome: 'Multa + juros de mora por atraso', valor: fmtBRL(encargos) });
+  }
+
+  return {
+    titulo: trace.titulo,
+    formula: 'Parcela = Juros + Amortização   ·   Juros = Saldo × i',
+    formulaMathML:
+      '<math display="block"><mrow>' +
+      '<mi class="fx-v0">Parcela</mi><mo>=</mo><mi class="fx-v1">J</mi><mo>+</mo><mi class="fx-v2">A</mi>' +
+      '<mspace width="1.2em"></mspace><mtext>com</mtext><mspace width="1.2em"></mspace>' +
+      '<mi class="fx-v1">J</mi><mo>=</mo><mi class="fx-v3">Saldo</mi><mo>·</mo><mi class="fx-v4">i</mi>' +
+      '</mrow></math>',
+    descricao: temEvento
+      ? 'Esta linha teve um EVENTO aplicado. Abaixo vem primeiro a composição normal da parcela (juros + amortização) e, em seguida, o cálculo do evento com os valores reais usados.'
+      : 'Composição da parcela: os juros do período sobre o saldo devedor, mais a amortização que abate o principal. O saldo final é o saldo inicial menos a amortização.',
+    legenda,
+    passos: passosDeTrace(trace),
+    trace,
+    regras: temEvento
+      ? [
+          'O cronograma é recalculado de forma determinística: cancelar um evento equivale a reprojetar sem ele.',
+          'Pré-pagamentos (amortização/quitação/antecipação) reduzem o saldo devedor e, portanto, os juros futuros.',
+        ]
+      : [
+          'Os juros incidem sempre sobre o saldo devedor do INÍCIO do período.',
+          'A amortização é a parte da parcela que efetivamente reduz o saldo devedor.',
+        ],
+    hp12c: [
+      `${disp(saldoIni, 2)} ENTER ${disp(i.times(100), 4)} %   → juros do mês = ${disp(juros, 2)}`,
+      'Amortização = saldo inicial − saldo final; parcela = juros + amortização (+ encargos).',
+    ],
+    excel: [
+      `Juros: =saldo_inicial*${disp(i.times(100), 4)}%   → ${disp(juros, 2)}`,
+      'Amortização: =saldo_inicial-saldo_final   ·   Parcela: =juros+amortização',
+    ],
+    normas: temEvento
+      ? [NORMA_CDC_LIQUIDACAO, NORMA_CDC_MULTA, NORMA_CDC_TRANSPARENCIA]
+      : [NORMA_CDC_TRANSPARENCIA],
+    glossario: temEvento
+      ? [G.saldoDevedor, G.amortizacao, G.mora, G.proRata, G.vp]
+      : [G.jurosCompostos, G.amortizacao, G.saldoDevedor],
+    relacionados: [
+      { topico: 'prazoFinal', rotulo: 'Prazo final após eventos' },
+      { topico: 'economiaJuros', rotulo: 'Economia de juros' },
     ],
   };
 }
