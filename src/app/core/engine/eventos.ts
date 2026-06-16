@@ -23,6 +23,27 @@ export type EventoCalc =
     }
   | { tipo: 'pagamento'; apos: number; diasAtraso: number; valorPago?: string };
 
+/**
+ * Resumo de um evento aplicado a uma linha, ALINHADO às colunas das parcelas
+ * (data, juros, amortização, valor pago e saldo após), para virar uma linha
+ * própria na tabela do cronograma pós-eventos.
+ */
+export interface DetalheEvento {
+  tipo: EventoCalc['tipo'];
+  /** Data em que o evento ocorre (ISO). */
+  data: string;
+  /** Rótulo curto do evento. */
+  descricao: string;
+  /** Componente de juros do evento (mora/pro-rata); '0.00' se não houver. */
+  juros: string;
+  /** Principal movimentado pelo evento; '0.00' se não houver. */
+  amortizacao: string;
+  /** Caixa total pago no evento. */
+  valor: string;
+  /** Saldo devedor após o evento. */
+  saldoApos: string;
+}
+
 /** Linha do cronograma com observacao opcional (evento aplicado). */
 export interface LinhaCronograma extends Parcela {
   observacao?: string;
@@ -32,6 +53,8 @@ export interface LinhaCronograma extends Parcela {
    * os exibe ao clicar na linha — mesma transparência da simulação base.
    */
   tracosEvento?: TraceCalculo[];
+  /** Resumo alinhado de cada evento, para exibir como linha própria na tabela. */
+  detalhes?: DetalheEvento[];
 }
 
 export interface ParametrosMora {
@@ -50,6 +73,11 @@ export interface EntradaProjecao {
   mora?: ParametrosMora;
   /** Valor efetivamente liberado ao cliente (base do CET). Default: principal. */
   valorLiberado?: Decimal;
+  /**
+   * Pula o cálculo do CET (TIR/365), que é caro. Usado quando a projeção serve
+   * apenas para validar um lançamento (precisamos do saldo/parcelas, não do CET).
+   */
+  omitirCet?: boolean;
 }
 
 export interface ResumoProjecao {
@@ -196,6 +224,15 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
                 : 'Opção "reduzir parcela": o prazo continua o mesmo e as próximas parcelas ficam menores.'),
             ]),
         );
+        addDetalhe(linha, {
+          tipo: 'amortizacao',
+          data: linha?.dataVencimento ?? dataBase,
+          descricao: `Amortização extra · ${rotuloOpcao(ev.opcao)}`,
+          juros: '0.00',
+          amortizacao: arredondarMoeda(v).toFixed(2),
+          valor: arredondarMoeda(v).toFixed(2),
+          saldoApos: arredondarMoeda(saldoAntes.minus(v)).toFixed(2),
+        });
       } else if (ev.tipo === 'antecipacao') {
         const frac = new Decimal(ev.fracaoPeriodo ?? '0');
         const saldoAntes = saldo;
@@ -223,6 +260,15 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
                 'saldo − VP', `${disp(saldoAntes, 2)} − ${disp(v, 2)}`, saldoAntes.minus(v), 2),
             ]),
         );
+        addDetalhe(linha, {
+          tipo: 'antecipacao',
+          data: linha?.dataVencimento ?? dataBase,
+          descricao: `Antecipação de ${ev.quantidade} parcela(s)`,
+          juros: '0.00',
+          amortizacao: arredondarMoeda(v).toFixed(2),
+          valor: arredondarMoeda(v).toFixed(2),
+          saldoApos: arredondarMoeda(saldoAntes.minus(v)).toFixed(2),
+        });
       } else if (ev.tipo === 'quitacao') {
         const frac = new Decimal(ev.fracaoPeriodo ?? '0');
         const saldoQuit = saldo;
@@ -245,6 +291,15 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
                 'payoff = saldo', disp(saldoQuit, 2), arredondarMoeda(payoff), 2),
             ];
         addTraco(linha, montarTrace('evento-quitacao', `Quitação antecipada após a parcela ${numeroAtual}`, 'payoff = saldo (+ juros pro-rata)', passosQuit));
+        addDetalhe(linha, {
+          tipo: 'quitacao',
+          data: linha?.dataVencimento ?? dataBase,
+          descricao: frac.greaterThan(0) ? 'Quitação antecipada (pro-rata)' : 'Quitação antecipada',
+          juros: arredondarMoeda(payoff.minus(saldoQuit)).toFixed(2),
+          amortizacao: arredondarMoeda(saldoQuit).toFixed(2),
+          valor: arredondarMoeda(payoff).toFixed(2),
+          saldoApos: '0.00',
+        });
       } else if (ev.tipo === 'pagamento') {
         if (!linha) {
           continue;
@@ -280,6 +335,15 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
                   'saldo inicial − A', `${disp(saldoInicial, 2)} − ${disp(arredondarMoeda(amort), 2)}`, arredondarMoeda(saldo), 2),
               ]),
           );
+          addDetalhe(linha, {
+            tipo: 'pagamento',
+            data: linha.dataVencimento,
+            descricao: 'Pagamento parcial',
+            juros: arredondarMoeda(juros).toFixed(2),
+            amortizacao: arredondarMoeda(amort).toFixed(2),
+            valor: arredondarMoeda(amort.plus(juros)).toFixed(2),
+            saldoApos: arredondarMoeda(saldo).toFixed(2),
+          });
         }
 
         // Mora por atraso (calculada sobre a parcela agendada).
@@ -307,6 +371,15 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
                   'multa + j', `${disp(arredondarMoeda(multa), 2)} + ${disp(arredondarMoeda(jurosMora), 2)}`, moraTotal, 2),
               ]),
           );
+          addDetalhe(linha, {
+            tipo: 'pagamento',
+            data: linha.dataVencimento,
+            descricao: `Atraso de ${ev.diasAtraso} dia(s) · multa + mora`,
+            juros: moraTotal.toFixed(2),
+            amortizacao: '0.00',
+            valor: moraTotal.toFixed(2),
+            saldoApos: linha.saldoFinal,
+          });
         }
       }
     }
@@ -378,7 +451,7 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   // CET do fluxo real (sem IOF/encargos de abertura nesta fase).
   let cetMensal = '';
   let cetAnual = '';
-  if (fluxos.length > 0) {
+  if (!e.omitirCet && fluxos.length > 0) {
     try {
       const cet = calcularCet(e.valorLiberado ?? principal, fluxos, { periodosAno: 1 });
       cetMensal = cet.mensal.toDecimalPlaces(6).toString();
@@ -421,4 +494,11 @@ function addTraco(linha: LinhaCronograma | undefined, traco: TraceCalculo): void
     return;
   }
   (linha.tracosEvento ??= []).push(traco);
+}
+
+function addDetalhe(linha: LinhaCronograma | undefined, detalhe: DetalheEvento): void {
+  if (!linha) {
+    return;
+  }
+  (linha.detalhes ??= []).push(detalhe);
 }

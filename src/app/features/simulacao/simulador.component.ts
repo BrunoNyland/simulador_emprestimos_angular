@@ -33,7 +33,6 @@ import {
 } from './explicador';
 import { ExplicacaoModalComponent } from './explicacao-modal.component';
 import { GraficoSaldoComponent, SerieLinha } from './grafico-saldo.component';
-import { TraceCalculo } from '../../core/engine/trace';
 
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
@@ -572,16 +571,23 @@ export class SimuladorComponent {
       case 'antecipacao': {
         const q = Math.floor(Number(v.quantidade));
         if (!Number.isFinite(q) || q < 1) return 'Antecipe ao menos 1 parcela.';
-        const restantes = prazo - apos;
-        if (restantes <= 0) return 'Não há parcelas futuras para antecipar nesse ponto.';
-        if (q > restantes) {
-          return `Faltam ${restantes} parcela(s) após a parcela ${apos}; não dá para antecipar ${q}.`;
+        // Parcelas que SOBRAM nesse ponto no cenário real (depois dos demais
+        // eventos), não no prazo nominal — antecipações/amortizações anteriores
+        // já podem ter encurtado o cronograma.
+        if (!ctx || ctx.restantes <= 0) return 'Não há parcelas futuras para antecipar nesse ponto.';
+        if (q > ctx.restantes) {
+          return `Faltam ${ctx.restantes} parcela(s) após a parcela ${apos}; não dá para antecipar ${q}.`;
         }
         break;
       }
       case 'pagamento': {
         if (apos < 1) {
           return 'O pagamento se refere a uma parcela existente — informe um número ≥ 1.';
+        }
+        // A parcela tem de existir no cronograma projetado (a dívida pode
+        // terminar antes do prazo nominal por causa de eventos anteriores).
+        if (!ctx || apos > ctx.total) {
+          return 'Essa parcela não existe no cronograma projetado — a dívida termina antes.';
         }
         const dias = Math.floor(Number(v.diasAtraso));
         if (!Number.isFinite(dias) || dias < 0) return 'Os dias de atraso não podem ser negativos.';
@@ -605,37 +611,43 @@ export class SimuladorComponent {
   }
 
   /**
-   * Saldo devedor e juros do mês no ponto `apos`, lidos do cronograma vigente
-   * (projeção com eventos quando há; senão, o base). `apos = 0` → principal.
-   * Serve de limite para validar amortização/quitação/pagamento.
+   * Eventos de REFERÊNCIA para validar um novo lançamento: todos os já
+   * existentes, EXCETO o que está em edição (senão ele entraria duas vezes na
+   * projeção e distorceria o saldo/parcelas restantes).
    */
-  private contextoPonto(apos: number): { saldo: Decimal; juros: Decimal } | null {
-    const res = this.store.resultado();
-    if (res.tipo !== 'ok') return null;
-    if (apos <= 0) {
-      return { saldo: new Decimal(res.dados.parametros.valorBruto), juros: new Decimal(0) };
-    }
-    const proj = this.store.eventosResultado();
-    const parcelas = proj ? proj.parcelas : res.dados.parcelas;
-    const linha = parcelas[apos - 1];
-    if (!linha) return { saldo: new Decimal(0), juros: new Decimal(0) };
-    return { saldo: new Decimal(linha.saldoFinal), juros: new Decimal(linha.juros) };
+  private eventosReferencia(): EventoCalc[] {
+    const idx = this.editandoIndice();
+    const eventos = this.store.eventos();
+    return idx === null ? eventos : eventos.filter((_, i) => i !== idx);
   }
 
-  /** Rótulo amigável de um evento (título + valor-chave) para a linha da tabela. */
-  rotuloEvento(trace: TraceCalculo): string {
-    const idPorTipo: Record<string, string> = {
-      'evento-amortizacao': 'valor',
-      'evento-antecipacao': 'valor',
-      'evento-quitacao': 'payoff',
-      'evento-pagamento-parcial': 'amort',
-      'evento-mora': 'total',
-    };
-    const passo = trace.passos.find((p) => p.id === idPorTipo[trace.id]);
-    if (passo?.resultado) {
-      return `${trace.titulo} — ${this.fmtBRL(new Decimal(passo.resultado))}`;
+  /**
+   * Estado EXATO no ponto `apos`, projetando de verdade o cenário dos demais
+   * eventos (sem o que está em edição) e lendo a linha correspondente. Devolve
+   * o saldo devedor, os juros do mês, quantas parcelas ainda restam após esse
+   * ponto e o total projetado — base rígida para validar qualquer lançamento.
+   * `apos = 0` → antes da 1ª parcela (principal). Linha inexistente (dívida já
+   * encerrada antes) → saldo zero e nenhuma parcela restante.
+   */
+  private contextoPonto(
+    apos: number,
+  ): { saldo: Decimal; juros: Decimal; restantes: number; total: number } | null {
+    const cenario = this.store.projetarCenario(this.eventosReferencia());
+    if (!cenario) return null;
+    const total = cenario.parcelas.length;
+    if (apos <= 0) {
+      return { saldo: cenario.principal, juros: new Decimal(0), restantes: total, total };
     }
-    return trace.titulo;
+    const linha = cenario.parcelas[apos - 1];
+    if (!linha) {
+      return { saldo: new Decimal(0), juros: new Decimal(0), restantes: 0, total };
+    }
+    return {
+      saldo: new Decimal(linha.saldoFinal),
+      juros: new Decimal(linha.juros),
+      restantes: total - apos,
+      total,
+    };
   }
 
   /** Monta o EventoCalc a partir do valor cru do formulário (reusado no preview). */

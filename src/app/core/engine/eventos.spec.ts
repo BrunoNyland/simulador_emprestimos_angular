@@ -237,3 +237,46 @@ describe('eventos: tracos de calculo (transparencia por linha)', () => {
     expect(new Decimal(passo(tr!, 'payoff')!).toFixed(2)).toBe(r.parcelas[5].saldoFinal);
   });
 });
+
+describe('eventos: detalhes alinhados (linha propria na tabela)', () => {
+  it('amortizacao extra: detalhe traz data, amortizacao e saldo apos', () => {
+    const r = basePrice([{ tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-prazo' }]);
+    const det = r.parcelas[0].detalhes?.[0];
+    expect(det).toBeTruthy();
+    expect(det!.tipo).toBe('amortizacao');
+    expect(det!.data).toBe(r.parcelas[0].dataVencimento);
+    expect(det!.juros).toBe('0.00');
+    expect(det!.amortizacao).toBe('200.00');
+    expect(det!.valor).toBe('200.00');
+    expect(det!.saldoApos).toBe(new Decimal(r.parcelas[0].saldoFinal).minus(200).toFixed(2));
+  });
+
+  it('quitacao: detalhe separa amortizacao (saldo) de juros e zera o saldo apos', () => {
+    const r = basePrice([{ tipo: 'quitacao', apos: 6 }]);
+    const det = r.parcelas[5].detalhes?.[0];
+    expect(det).toBeTruthy();
+    expect(det!.tipo).toBe('quitacao');
+    expect(det!.amortizacao).toBe(r.parcelas[5].saldoFinal);
+    expect(det!.saldoApos).toBe('0.00');
+  });
+
+  it('mora: detalhe registra o encargo como juros do evento', () => {
+    const r = basePrice([{ tipo: 'pagamento', apos: 1, diasAtraso: 30 }], {
+      mora: { jurosMensal: d('0.01'), multa: d('0.02') },
+    });
+    const det = r.parcelas[0].detalhes?.find((x) => x.descricao.includes('Atraso'));
+    expect(det).toBeTruthy();
+    expect(det!.juros).toBe('2.67');
+    expect(det!.amortizacao).toBe('0.00');
+  });
+
+  it('omitirCet: pula o CET (caro) mas mantem o cronograma e os detalhes', () => {
+    const r = basePrice([{ tipo: 'amortizacao', apos: 3, valor: '300', opcao: 'reduzir-prazo' }], {
+      omitirCet: true,
+    });
+    expect(r.resumo.cetMensal).toBe('');
+    expect(r.resumo.cetAnual).toBe('');
+    expect(r.resumo.totalAmortizacao).toBe('1000.00');
+    expect(r.parcelas[2].detalhes?.[0]?.amortizacao).toBe('300.00');
+  });
+});

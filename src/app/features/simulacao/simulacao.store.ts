@@ -247,6 +247,38 @@ export class SimulacaoStore {
     }
   });
 
+  /**
+   * Projeta o cronograma de um conjunto ARBITRÁRIO de eventos (sem CET, que é
+   * caro) para validação rígida: a UI projeta o cenário dos OUTROS eventos e lê
+   * o saldo/parcelas restantes no ponto exato onde um novo evento entraria.
+   * Devolve `null` se não houver simulação válida ou se a projeção for inviável.
+   */
+  projetarCenario(eventos: EventoCalc[]): { parcelas: LinhaCronograma[]; principal: Decimal } | null {
+    if (this.resultado().tipo !== 'ok') {
+      return null;
+    }
+    try {
+      const ctx = this.contexto();
+      const proj = projetarComEventos({
+        principal: ctx.principal,
+        taxaPeriodo: ctx.i,
+        prazo: ctx.n,
+        sistema: this.sistema(),
+        eventos,
+        dataBase: ctx.dataBase,
+        mora: {
+          jurosMensal: new Decimal(this.moraJurosMensal()),
+          multa: new Decimal(this.moraMulta()),
+        },
+        valorLiberado: ctx.valorLiberado,
+        omitirCet: true,
+      });
+      return { parcelas: proj.parcelas, principal: ctx.principal };
+    } catch {
+      return null;
+    }
+  }
+
   /** Comparativo Price vs SAC para os mesmos {valorBruto, taxa, prazo}. */
   readonly comparativo = computed(() => {
     try {

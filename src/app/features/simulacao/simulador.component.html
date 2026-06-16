@@ -687,17 +687,23 @@
           <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda() }}</td>
           <td>{{ +p.saldoFinal | number:formatoMoeda() }}</td>
         </tr>
-        @for (tr of p.tracosEvento ?? []; track tr.id + '-' + $index) {
+        @for (d of p.detalhes ?? []; track $index) {
         <tr
           class="linha-evento"
           tabindex="0"
           role="button"
-          [attr.aria-label]="'Ver cálculo do evento: ' + tr.titulo"
+          [attr.aria-label]="'Ver cálculo do evento: ' + d.descricao"
           (click)="explicarLinhaEvento(p)"
           (keydown.enter)="explicarLinhaEvento(p)"
           (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
         >
-          <td colspan="7" class="evento-celula">↳ {{ rotuloEvento(tr) }}</td>
+          <td class="evento-marcador">↳</td>
+          <td>{{ d.data | dataBr }}</td>
+          <td class="evento-desc">{{ d.descricao }}</td>
+          <td>{{ +d.juros ? (+d.juros | number:formatoMoeda()) : '—' }}</td>
+          <td>{{ +d.amortizacao ? (+d.amortizacao | number:formatoMoeda()) : '—' }}</td>
+          <td class="num-forte">{{ +d.valor | number:formatoMoeda() }}</td>
+          <td>{{ +d.saldoApos | number:formatoMoeda() }}</td>
         </tr>
         }
         }
