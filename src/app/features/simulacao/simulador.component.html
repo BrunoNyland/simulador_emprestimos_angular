@@ -507,20 +507,67 @@
       {{ ajudaEvento() }}
     </p>
 
+    @if (erroEvento(); as erro) {
+    <p class="evento-erro" role="alert">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      {{ erro }}
+    </p>
+    }
+
     <div class="evento-rodape">
-      @if (previewEvento(); as pv) {
-      <span class="evento-preview"><strong>Lançar:</strong> {{ pv }}</span>
+      @if (!erroEvento() && previewEvento(); as pv) {
+      <span class="evento-preview">
+        <strong>{{ editandoIndice() !== null ? 'Salvar:' : 'Lançar:' }}</strong> {{ pv }}
+      </span>
       }
-      <button type="submit" class="btn-primario">＋ Adicionar evento</button>
+      <span class="evento-botoes">
+        @if (editandoIndice() !== null) {
+        <button type="button" class="btn-secundario" (click)="cancelarEdicao()">Cancelar edição</button>
+        }
+        <button type="submit" class="btn-primario" [disabled]="!!erroEvento()">
+          {{ editandoIndice() !== null ? '✓ Salvar evento' : '＋ Adicionar evento' }}
+        </button>
+      </span>
     </div>
   </form>
 
   @if (eventosDescritos().length) {
   <ul class="lista-eventos">
     @for (item of eventosDescritos(); track $index) {
-    <li>
+    <li [class.em-edicao]="editandoIndice() === $index">
       <span>{{ item.descricao }}</span>
-      <button type="button" class="btn-remover" (click)="store.removerEvento($index)">Cancelar</button>
+      <span class="evento-acoes">
+        <button
+          type="button"
+          class="btn-icone"
+          (click)="editarEvento($index)"
+          aria-label="Editar evento"
+          title="Editar"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="btn-icone btn-icone--perigo"
+          (click)="removerEvento($index)"
+          aria-label="Remover evento"
+          title="Remover"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </button>
+      </span>
     </li>
     }
   </ul>
@@ -619,17 +666,15 @@
           <th>Amortização</th>
           <th>Parcela</th>
           <th>Saldo final</th>
-          <th>Obs.</th>
         </tr>
       </thead>
       <tbody>
         @for (p of ev.parcelas; track p.numero) {
         <tr
           class="linha-clicavel"
-          [class.tem-evento]="p.observacao"
           tabindex="0"
           role="button"
-          [attr.aria-label]="'Ver cálculo da parcela ' + p.numero + (p.observacao ? ' (com evento)' : '')"
+          [attr.aria-label]="'Ver cálculo da parcela ' + p.numero"
           (click)="explicarLinhaEvento(p)"
           (keydown.enter)="explicarLinhaEvento(p)"
           (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
@@ -641,8 +686,20 @@
           <td>{{ +p.amortizacao | number:formatoMoeda() }}</td>
           <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda() }}</td>
           <td>{{ +p.saldoFinal | number:formatoMoeda() }}</td>
-          <td class="obs">{{ p.observacao }}</td>
         </tr>
+        @for (tr of p.tracosEvento ?? []; track tr.id + '-' + $index) {
+        <tr
+          class="linha-evento"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="'Ver cálculo do evento: ' + tr.titulo"
+          (click)="explicarLinhaEvento(p)"
+          (keydown.enter)="explicarLinhaEvento(p)"
+          (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
+        >
+          <td colspan="7" class="evento-celula">↳ {{ rotuloEvento(tr) }}</td>
+        </tr>
+        }
         }
       </tbody>
       <tfoot>
@@ -651,7 +708,7 @@
           <td>{{ +ev.totais.totalJuros | number:formatoMoeda() }}</td>
           <td>{{ +ev.totais.totalAmortizacao | number:formatoMoeda() }}</td>
           <td>{{ +ev.totais.totalParcelas | number:formatoMoeda() }}</td>
-          <td colspan="2">—</td>
+          <td>—</td>
         </tr>
       </tfoot>
     </table>

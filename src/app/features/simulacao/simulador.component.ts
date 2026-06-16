@@ -33,6 +33,7 @@ import {
 } from './explicador';
 import { ExplicacaoModalComponent } from './explicacao-modal.component';
 import { GraficoSaldoComponent, SerieLinha } from './grafico-saldo.component';
+import { TraceCalculo } from '../../core/engine/trace';
 
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
@@ -465,8 +466,176 @@ export class SimuladorComponent {
     return { apos, fracao };
   }
 
+  /** Índice do evento em edição na lista; `null` quando se está adicionando um novo. */
+  readonly editandoIndice = signal<number | null>(null);
+
   adicionarEvento(): void {
-    this.store.adicionarEvento(this.construirEventoDoForm(this.eventoForm.getRawValue()));
+    // Trava lançamentos impossíveis (qtd > parcelas restantes, valores/datas inválidos).
+    if (this.erroEvento()) return;
+    const evento = this.construirEventoDoForm(this.eventoForm.getRawValue());
+    const idx = this.editandoIndice();
+    if (idx !== null) {
+      this.store.atualizarEvento(idx, evento);
+      this.editandoIndice.set(null);
+    } else {
+      this.store.adicionarEvento(evento);
+    }
+  }
+
+  /** Carrega um evento da lista no formulário para edição. */
+  editarEvento(indice: number): void {
+    const e = this.store.eventos()[indice];
+    if (!e) return;
+    this.editandoIndice.set(indice);
+    // Reidrata sempre por "após a parcela N" (a data original vira o nº de parcela).
+    this.eventoForm.patchValue({
+      tipo: e.tipo,
+      indexarPor: 'parcela',
+      apos: e.apos,
+      valor: e.tipo === 'amortizacao' ? e.valor : this.eventoForm.controls.valor.value,
+      quantidade: e.tipo === 'antecipacao' ? e.quantidade : this.eventoForm.controls.quantidade.value,
+      opcao:
+        (e.tipo === 'amortizacao' || e.tipo === 'antecipacao') && e.opcao
+          ? e.opcao
+          : this.eventoForm.controls.opcao.value,
+      diasAtraso: e.tipo === 'pagamento' ? e.diasAtraso : this.eventoForm.controls.diasAtraso.value,
+      valorPago: e.tipo === 'pagamento' ? e.valorPago ?? '' : this.eventoForm.controls.valorPago.value,
+    });
+  }
+
+  /** Cancela a edição em andamento, voltando ao modo "adicionar". */
+  cancelarEdicao(): void {
+    this.editandoIndice.set(null);
+  }
+
+  /** Remove um evento; se ele estava em edição, sai do modo de edição. */
+  removerEvento(indice: number): void {
+    this.store.removerEvento(indice);
+    this.editandoIndice.set(null);
+  }
+
+  /**
+   * Valida o evento em digitação contra a simulação base. Retorna a mensagem de
+   * erro (ou `null` se válido) — usada para bloquear o lançamento e avisar o
+   * usuário: datas/parcelas fora do período, valores ≤ 0, antecipar mais
+   * parcelas do que restam, etc.
+   */
+  readonly erroEvento = computed<string | null>(() => {
+    this.eventoFormSig(); // dependência reativa
+    const v = this.eventoForm.getRawValue();
+    const prazo = this.store.prazo();
+    const dataBase = this.store.dataBase();
+
+    if (!(prazo >= 1)) return 'Defina uma simulação válida antes de lançar eventos.';
+
+    // Quando ocorre: por parcela ou por data, ambos dentro do período.
+    let apos: number;
+    if (v.indexarPor === 'data') {
+      if (!v.data) return 'Informe a data do evento.';
+      const ultimoVenc = adicionarMeses(dataBase, prazo);
+      if (v.data < dataBase) return `A data deve ser a partir da liberação (${dataBase}).`;
+      if (v.data > ultimoVenc) {
+        return `A data deve estar dentro do período do empréstimo (até ${ultimoVenc}).`;
+      }
+      apos = this.resolverPorData(v.data).apos;
+    } else {
+      apos = Math.floor(Number(v.apos));
+      if (!Number.isFinite(apos) || apos < 0) return 'A parcela de referência não pode ser negativa.';
+      if (apos > prazo - 1) {
+        return `O empréstimo tem ${prazo} parcelas; informe um número entre 0 e ${prazo - 1}.`;
+      }
+    }
+
+    // Saldo devedor e juros do mês NO PONTO escolhido (referência para os limites).
+    const ctx = this.contextoPonto(apos);
+
+    switch (v.tipo) {
+      case 'amortizacao': {
+        const valor = new Decimal(v.valor || '0');
+        if (valor.lessThanOrEqualTo(0)) {
+          return 'O valor da amortização deve ser maior que zero.';
+        }
+        if (!ctx || ctx.saldo.lessThanOrEqualTo(0)) {
+          return 'Nesse ponto a dívida já está quitada — não há saldo a amortizar.';
+        }
+        if (valor.greaterThan(ctx.saldo)) {
+          return `A amortização (${this.fmtBRL(valor)}) não pode ser maior que o saldo devedor nesse ponto (${this.fmtBRL(ctx.saldo)}).`;
+        }
+        break;
+      }
+      case 'quitacao': {
+        if (!ctx || ctx.saldo.lessThanOrEqualTo(0)) {
+          return 'Nesse ponto a dívida já está quitada — não há o que quitar.';
+        }
+        break;
+      }
+      case 'antecipacao': {
+        const q = Math.floor(Number(v.quantidade));
+        if (!Number.isFinite(q) || q < 1) return 'Antecipe ao menos 1 parcela.';
+        const restantes = prazo - apos;
+        if (restantes <= 0) return 'Não há parcelas futuras para antecipar nesse ponto.';
+        if (q > restantes) {
+          return `Faltam ${restantes} parcela(s) após a parcela ${apos}; não dá para antecipar ${q}.`;
+        }
+        break;
+      }
+      case 'pagamento': {
+        if (apos < 1) {
+          return 'O pagamento se refere a uma parcela existente — informe um número ≥ 1.';
+        }
+        const dias = Math.floor(Number(v.diasAtraso));
+        if (!Number.isFinite(dias) || dias < 0) return 'Os dias de atraso não podem ser negativos.';
+        if (v.valorPago) {
+          const pago = new Decimal(v.valorPago);
+          if (pago.lessThanOrEqualTo(0)) return 'O valor pago deve ser maior que zero.';
+          if (ctx && pago.lessThanOrEqualTo(ctx.juros)) {
+            return `O valor pago deve cobrir ao menos os juros do mês (${this.fmtBRL(ctx.juros)}).`;
+          }
+        }
+        break;
+      }
+    }
+    return null;
+  });
+
+  /** Moeda BRL para as mensagens de validação (fora do template/pipes). */
+  private readonly brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  private fmtBRL(v: Decimal): string {
+    return this.brl.format(v.toNumber());
+  }
+
+  /**
+   * Saldo devedor e juros do mês no ponto `apos`, lidos do cronograma vigente
+   * (projeção com eventos quando há; senão, o base). `apos = 0` → principal.
+   * Serve de limite para validar amortização/quitação/pagamento.
+   */
+  private contextoPonto(apos: number): { saldo: Decimal; juros: Decimal } | null {
+    const res = this.store.resultado();
+    if (res.tipo !== 'ok') return null;
+    if (apos <= 0) {
+      return { saldo: new Decimal(res.dados.parametros.valorBruto), juros: new Decimal(0) };
+    }
+    const proj = this.store.eventosResultado();
+    const parcelas = proj ? proj.parcelas : res.dados.parcelas;
+    const linha = parcelas[apos - 1];
+    if (!linha) return { saldo: new Decimal(0), juros: new Decimal(0) };
+    return { saldo: new Decimal(linha.saldoFinal), juros: new Decimal(linha.juros) };
+  }
+
+  /** Rótulo amigável de um evento (título + valor-chave) para a linha da tabela. */
+  rotuloEvento(trace: TraceCalculo): string {
+    const idPorTipo: Record<string, string> = {
+      'evento-amortizacao': 'valor',
+      'evento-antecipacao': 'valor',
+      'evento-quitacao': 'payoff',
+      'evento-pagamento-parcial': 'amort',
+      'evento-mora': 'total',
+    };
+    const passo = trace.passos.find((p) => p.id === idPorTipo[trace.id]);
+    if (passo?.resultado) {
+      return `${trace.titulo} — ${this.fmtBRL(new Decimal(passo.resultado))}`;
+    }
+    return trace.titulo;
   }
 
   /** Monta o EventoCalc a partir do valor cru do formulário (reusado no preview). */

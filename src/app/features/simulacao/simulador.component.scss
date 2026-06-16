@@ -353,6 +353,27 @@ td.obs {
   min-width: 220px;
 }
 
+/* Linha de EVENTO no cronograma pós-eventos: item proprio, em destaque (accent). */
+tbody tr.linha-evento {
+  background: var(--accent-soft);
+  cursor: pointer;
+}
+tbody tr.linha-evento:hover {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+tbody tr.linha-evento:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.evento-celula {
+  text-align: left;
+  font-family: var(--sans);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.76rem;
+  white-space: normal;
+}
+
 tfoot td {
   font-family: var(--mono);
   font-weight: 700;
@@ -381,6 +402,13 @@ tfoot td {
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border-color: var(--border-strong);
   }
 }
 
@@ -421,6 +449,52 @@ tfoot td {
   font-weight: 600;
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+/* Ações por item da lista de eventos (editar + remover). */
+.evento-acoes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.btn-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-soft);
+  border-radius: var(--radius);
+  padding: 0.25rem;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  &--perigo:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: var(--danger-soft);
+  }
+}
+
+/* Item destacado enquanto está sendo editado no formulário acima. */
+.lista-eventos li.em-edicao {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 /* Ação "Limpar todos" abaixo da lista de eventos. */
@@ -520,6 +594,34 @@ tfoot td {
   strong {
     color: var(--accent);
     font-weight: 700;
+  }
+}
+
+.evento-botoes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+/* Aviso de validação do evento (valor/qtd/data impossíveis). */
+.evento-erro {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0;
+  padding: 0.45rem 0.6rem;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--danger);
+  font-weight: 600;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
   }
 }
 

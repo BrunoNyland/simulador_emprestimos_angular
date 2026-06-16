@@ -98,6 +98,12 @@ export class SimulacaoStore {
     this.eventos.update((lista) => lista.filter((_, i) => i !== indice));
   }
 
+  atualizarEvento(indice: number, evento: EventoCalc): void {
+    this.eventos.update((lista) =>
+      lista.map((e, i) => (i === indice ? evento : e)).sort((a, b) => a.apos - b.apos),
+    );
+  }
+
   limparEventos(): void {
     this.eventos.set([]);
   }
