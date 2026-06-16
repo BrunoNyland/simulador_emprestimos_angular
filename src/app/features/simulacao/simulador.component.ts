@@ -102,7 +102,6 @@ export class SimuladorComponent {
 
   readonly form = this.fb.nonNullable.group({
     sistema: this.store.sistema(),
-    campoAlvo: this.store.campoAlvo(),
     valorBruto: this.store.valorBruto(),
     // taxa exibida em PORCENTAGEM (store guarda fracao).
     taxa: this.fracaoParaPct(this.store.taxa()),
@@ -120,18 +119,30 @@ export class SimuladorComponent {
   });
 
   constructor() {
+    // Campo calculado inicial = o "mais antigo" da ordem (default: parcela).
+    this.definirRecenciaPara(this.store.campoAlvo());
+
     // Hidratação inicial pela URL
     this.route.queryParams.pipe(take(1)).subscribe((params) => this.hidratarPelaUrl(params));
 
-    // Formulario -> store (le getRawValue p/ incluir campos travados).
-    // debounce: coalesce digitacao rapida (ex.: prazo 360) num unico recalculo,
-    // evitando rodar a simulacao + CET a cada tecla.
+    // Detecção automática do campo a resolver: ao editar um dos quatro valores,
+    // ele passa a ser uma ENTRADA e o que ficou "esquecido" há mais tempo vira o
+    // CALCULADO. Sem debounce (só reordena uma lista; barato), e só muda o alvo
+    // quando o usuário mexe justamente no campo que estava sendo calculado.
+    for (const campo of CAMPOS) {
+      this.form
+        .get(campo)!
+        .valueChanges.pipe(takeUntilDestroyed())
+        .subscribe(() => this.marcarEdicao(campo));
+    }
+
+    // Formulario -> store. debounce: coalesce digitacao rapida (ex.: prazo 360)
+    // num unico recalculo, evitando rodar a simulacao + CET a cada tecla.
     this.form.valueChanges.pipe(debounceTime(150), takeUntilDestroyed()).subscribe(() => {
       const v = this.form.getRawValue();
       // ao mudar a simulação, volta a tabela ao modo janelado (perf).
       this.mostrarTodasParcelas.set(false);
       this.store.sistema.set(v.sistema);
-      this.store.campoAlvo.set(v.campoAlvo as CampoAlvo);
       this.store.valorBruto.set(String(v.valorBruto));
       this.store.taxa.set(this.pctParaFracao(v.taxa));
       this.store.tipoTaxa.set(v.tipoTaxa);
@@ -153,19 +164,17 @@ export class SimuladorComponent {
       this.store.tarifaAbertura.set(String(v.tarifaAbertura));
       this.store.moraJurosMensal.set(this.pctParaFracao(v.moraJurosMensal));
       this.store.moraMulta.set(this.pctParaFracao(v.moraMulta));
-      this.aplicarTravas();
-      this.sincronizarTipoTaxa();
 
-      // Serializar na URL
+      // Serializar na URL (inclui o campo calculado, derivado fora do form).
       this.router.navigate([], {
         relativeTo: this.route,
-        queryParams: { ...v },
+        queryParams: { ...v, campoAlvo: this.store.campoAlvo() },
         queryParamsHandling: 'merge',
-        replaceUrl: true
+        replaceUrl: true,
       });
     });
 
-    // Resultado -> reflete o valor resolvido no campo-alvo (somente leitura).
+    // Resultado -> reflete o valor resolvido no campo calculado (somente leitura).
     effect(() => {
       const r = this.store.resultado();
       if (r.tipo !== 'ok') {
@@ -180,10 +189,27 @@ export class SimuladorComponent {
       this.form.patchValue(patch, { emitEvent: false });
     });
 
-    this.aplicarTravas();
-    this.sincronizarTipoTaxa();
-
     inject(DestroyRef).onDestroy(() => clearTimeout(this.linkTimer));
+  }
+
+  /** Ordem de edição dos 4 valores (mais recente → mais antigo). */
+  private recencia: CampoAlvo[] = [...CAMPOS];
+  /** Evita que o patch de hidratação seja confundido com edição do usuário. */
+  private hidratando = false;
+
+  /** Define a ordem de modo que `alvo` seja o campo calculado (o mais antigo). */
+  private definirRecenciaPara(alvo: CampoAlvo): void {
+    this.recencia = [...CAMPOS.filter((c) => c !== alvo), alvo];
+  }
+
+  /** Registra a edição de um campo e recalcula qual passa a ser o calculado. */
+  private marcarEdicao(campo: CampoAlvo): void {
+    if (this.hidratando) return;
+    this.recencia = [campo, ...this.recencia.filter((c) => c !== campo)];
+    const alvo = this.recencia[this.recencia.length - 1];
+    if (alvo !== this.store.campoAlvo()) {
+      this.store.campoAlvo.set(alvo);
+    }
   }
 
   /** Hidrata o formulário a partir dos query params, validando tipo a tipo. */
@@ -192,7 +218,6 @@ export class SimuladorComponent {
     const patch: Partial<ReturnType<typeof this.form.getRawValue>> = {};
 
     if (p['sistema'] === 'price' || p['sistema'] === 'sac') patch.sistema = p['sistema'];
-    if (CAMPOS.includes(p['campoAlvo'] as CampoAlvo)) patch.campoAlvo = p['campoAlvo'] as CampoAlvo;
     if (p['valorBruto'] !== undefined) patch.valorBruto = p['valorBruto'];
     if (p['taxa'] !== undefined && Number.isFinite(Number(p['taxa']))) patch.taxa = Number(p['taxa']);
     if (p['tipoTaxa'] === 'efetiva' || p['tipoTaxa'] === 'nominal') patch.tipoTaxa = p['tipoTaxa'];
@@ -212,7 +237,17 @@ export class SimuladorComponent {
     }
 
     if (Object.keys(patch).length > 0) {
+      // Patch programático: não deve reordenar a recência (não é edição do usuário).
+      this.hidratando = true;
       this.form.patchValue(patch, { emitEvent: true });
+      this.hidratando = false;
+    }
+
+    // Campo calculado vindo da URL (fora do form): ajusta a ordem de recência.
+    if (CAMPOS.includes(p['campoAlvo'] as CampoAlvo)) {
+      const alvo = p['campoAlvo'] as CampoAlvo;
+      this.store.campoAlvo.set(alvo);
+      this.definirRecenciaPara(alvo);
     }
   }
 
@@ -392,21 +427,6 @@ export class SimuladorComponent {
     return new Decimal(Math.round(v * 100) / 100).div(100).toString();
   }
 
-  /**
-   * "Tipo de taxa" (efetiva/nominal) so faz diferenca para taxa ANUAL.
-   * Em base mensal, nominal = efetiva -> desabilita o campo.
-   */
-  private sincronizarTipoTaxa(): void {
-    const ctrl = this.form.controls.tipoTaxa;
-    if (this.form.controls.unidadeTaxa.value === 'mensal') {
-      if (ctrl.enabled) {
-        ctrl.disable({ emitEvent: false });
-      }
-    } else if (ctrl.disabled) {
-      ctrl.enable({ emitEvent: false });
-    }
-  }
-
   // --- Painel de eventos pos-simulacao ---
   readonly eventoForm = this.fb.nonNullable.group({
     tipo: 'amortizacao',
@@ -492,18 +512,4 @@ export class SimuladorComponent {
   readonly eventosDescritos = computed(() =>
     this.store.eventos().map((e) => ({ evento: e, descricao: descreverEvento(e) })),
   );
-
-  /** Trava (disable) o campo-alvo (Price e SAC; no SAC a parcela e a 1a). */
-  private aplicarTravas(): void {
-    const alvo = this.form.controls.campoAlvo.value as CampoAlvo;
-    for (const c of CAMPOS) {
-      const ctrl = this.form.get(c)!;
-      const deveTravar = c === alvo;
-      if (deveTravar && ctrl.enabled) {
-        ctrl.disable({ emitEvent: false });
-      } else if (!deveTravar && ctrl.disabled) {
-        ctrl.enable({ emitEvent: false });
-      }
-    }
-  }
 }

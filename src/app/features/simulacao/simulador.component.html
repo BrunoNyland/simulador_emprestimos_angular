@@ -1,9 +1,9 @@
-<app-secao titulo="Parâmetros da simulação" sub="Escolha o sistema e o campo a calcular; os demais você edita."
+<app-secao titulo="Parâmetros da simulação" sub="Informe os valores — o campo destacado é calculado automaticamente."
   id="params">
   <form [formGroup]="form">
-    <div class="grid">
+    <div class="grid grid--topo">
       <label>
-        <span>Sistema</span>
+        <span>Sistema de amortização</span>
         <select formControlName="sistema">
           <option value="price">Price (parcela constante)</option>
           <option value="sac">SAC (amortização constante)</option>
@@ -11,79 +11,78 @@
       </label>
 
       <label>
-        <span>Campo-alvo (resolver)</span>
-        <select formControlName="campoAlvo">
-          <option value="parcela">Parcela</option>
-          <option value="valorBruto">Valor bruto</option>
-          <option value="taxa">Taxa</option>
-          <option value="prazo">Prazo</option>
-        </select>
-      </label>
-
-      <label [class.alvo]="store.campoAlvo() === 'valorBruto'">
-        <span>Valor bruto (R$)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorBruto" />
-      </label>
-
-      <label [class.alvo]="store.campoAlvo() === 'taxa'">
-        <span>
-          Taxa ({{ form.controls.unidadeTaxa.value === 'mensal' ? '% a.m.' : '% a.a.' }})
-        </span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites().taxaMaximaPct" formControlName="taxa" />
-      </label>
-
-      <label>
-        <span class="rotulo-campo">
-          Tipo de taxa
-          <button
-            type="button"
-            class="btn-info"
-            (click)="selecionarExplicacao('tipoTaxa')"
-            aria-label="Entenda taxa efetiva × nominal e como converter"
-            title="Entenda taxa efetiva × nominal"
-          >
-            <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 16v-4"></path>
-              <path d="M12 8h.01"></path>
-            </svg>
-          </button>
-        </span>
-        <select formControlName="tipoTaxa">
-          <option value="efetiva">Efetiva</option>
-          <option value="nominal">Nominal</option>
-        </select>
-        @if (form.controls.unidadeTaxa.value === 'mensal') {
-        <small>Só afeta taxa anual (em base mensal, efetiva = nominal).</small>
-        }
-      </label>
-
-      <label>
-        <span>Unidade da taxa</span>
-        <select formControlName="unidadeTaxa">
-          <option value="mensal">Mensal</option>
-          <option value="anual">Anual</option>
-        </select>
-      </label>
-
-      <label [class.alvo]="store.campoAlvo() === 'prazo'">
-        <span>Prazo (meses)</span>
-        <input type="number" formControlName="prazo" min="1" step="1" [max]="limites().prazoMaximo" />
-      </label>
-
-      <label [class.alvo]="store.campoAlvo() === 'parcela'">
-        <span>
-          Parcela (R$)
-          @if (form.controls.sistema.value === 'sac') {<em>· 1ª parcela</em>}
-        </span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="parcela" />
-      </label>
-
-      <label>
         <span>Data da liberação do crédito</span>
         <input type="date" formControlName="dataBase" />
       </label>
     </div>
+
+    <fieldset class="grupo-valores">
+      <legend>Valores do empréstimo</legend>
+      <p class="grupo-dica">
+        Preencha três campos; o quarto (<span class="tag-calc">↻ calculado</span>) é resolvido
+        automaticamente. Edite qualquer um e o sistema reidentifica o que calcular.
+      </p>
+      <div class="grid">
+        <label [class.alvo]="store.campoAlvo() === 'valorBruto'">
+          <span class="rotulo-valor">
+            <span>Valor bruto (R$)</span>
+            @if (store.campoAlvo() === 'valorBruto') {<span class="tag-calc">↻ calculado</span>}
+          </span>
+          <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorBruto" />
+        </label>
+
+        <label [class.alvo]="store.campoAlvo() === 'taxa'">
+          <span class="rotulo-valor">
+            <span>Taxa de juros</span>
+            @if (store.campoAlvo() === 'taxa') {<span class="tag-calc">↻ calculado</span>}
+          </span>
+          <div class="campo-composto">
+            <input type="text" inputmode="decimal" appMoeda [max]="limites().taxaMaximaPct" formControlName="taxa" />
+            <select formControlName="unidadeTaxa" class="sufixo" aria-label="Unidade da taxa">
+              <option value="mensal">% a.m.</option>
+              <option value="anual">% a.a.</option>
+            </select>
+          </div>
+          @if (form.controls.unidadeTaxa.value === 'anual') {
+          <span class="rotulo-campo rotulo-secundario">
+            <select formControlName="tipoTaxa" aria-label="Tipo de taxa anual">
+              <option value="efetiva">Taxa efetiva</option>
+              <option value="nominal">Taxa nominal</option>
+            </select>
+            <button
+              type="button"
+              class="btn-info"
+              (click)="selecionarExplicacao('tipoTaxa')"
+              aria-label="Entenda taxa efetiva × nominal e como converter"
+              title="Entenda taxa efetiva × nominal"
+            >
+              <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 16v-4"></path>
+                <path d="M12 8h.01"></path>
+              </svg>
+            </button>
+          </span>
+          }
+        </label>
+
+        <label [class.alvo]="store.campoAlvo() === 'prazo'">
+          <span class="rotulo-valor">
+            <span>Prazo (meses)</span>
+            @if (store.campoAlvo() === 'prazo') {<span class="tag-calc">↻ calculado</span>}
+          </span>
+          <input type="number" formControlName="prazo" min="1" step="1" [max]="limites().prazoMaximo" />
+        </label>
+
+        <label [class.alvo]="store.campoAlvo() === 'parcela'">
+          <span class="rotulo-valor">
+            <span>Parcela (R$) @if (form.controls.sistema.value === 'sac') {<em>· 1ª</em>}</span>
+            @if (store.campoAlvo() === 'parcela') {<span class="tag-calc">↻ calculado</span>}
+          </span>
+          <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="parcela" />
+        </label>
+      </div>
+    </fieldset>
 
     <h3 class="sub-titulo">Custos de abertura (entram no CET)</h3>
     <div class="grid">

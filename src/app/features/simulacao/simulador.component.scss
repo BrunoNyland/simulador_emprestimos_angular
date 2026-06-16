@@ -114,6 +114,92 @@ select:disabled {
   font-weight: 700;
 }
 
+/* Linha de topo (sistema + data) — separada do bloco de valores. */
+.grid--topo {
+  margin-bottom: 0.2rem;
+}
+
+/* Bloco destacado dos 4 valores do empréstimo (solver). */
+.grupo-valores {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.7rem 0.7rem;
+  margin: 0.5rem 0 0;
+  min-width: 0;
+
+  > legend {
+    padding: 0 0.35rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--primary);
+  }
+}
+
+.grupo-dica {
+  margin: 0 0 0.6rem;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* Etiqueta "↻ calculado" no campo resolvido automaticamente. */
+.tag-calc {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.02rem 0.32rem;
+  white-space: nowrap;
+}
+
+/* Rótulo dos campos de valor: nome à esquerda, etiqueta à direita. */
+.rotulo-valor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-height: 1.1rem;
+}
+
+/* Campo com sufixo embutido (taxa + unidade % a.m./a.a.). */
+.campo-composto {
+  display: flex;
+
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+  }
+
+  .sufixo {
+    flex: 0 0 auto;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    font-family: var(--mono);
+  }
+}
+
+/* Linha secundária (tipo de taxa, só quando anual). */
+.rotulo-secundario {
+  margin-top: 0.3rem;
+
+  select {
+    font-size: 0.74rem;
+  }
+}
+
 /* ===== Cards de resumo ===== */
 .resumo {
   display: grid;
