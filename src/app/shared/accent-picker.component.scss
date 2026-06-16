@@ -1,0 +1,48 @@
+:host {
+  display: inline-flex;
+}
+
+.cores {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.bolinha {
+  --cor: var(--accent);
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--cor);
+  border: 1px solid color-mix(in srgb, var(--cor) 60%, var(--border-strong));
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease;
+
+  &:hover {
+    transform: scale(1.18);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* Bolinha ativa: anel ao redor com a própria cor. */
+  &.ativa {
+    box-shadow: 0 0 0 2px var(--header-bg), 0 0 0 3.5px var(--cor);
+  }
+}
+
+/* Padrão do tema: contorno vazado (sem cor fixa). */
+.bolinha--padrao {
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+
+  &.ativa {
+    border-color: var(--text-muted);
+    box-shadow: 0 0 0 2px var(--header-bg), 0 0 0 3.5px var(--text-muted);
+  }
+}

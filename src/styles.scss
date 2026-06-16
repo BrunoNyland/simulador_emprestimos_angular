@@ -211,6 +211,83 @@ html:has(dialog[open]) {
   }
 }
 
+.controles {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
 main {
   display: block;
+}
+
+/* ===== Cursor personalizado (anel que segue o ponteiro) ===== */
+/* Esconde o cursor nativo, exceto sobre campos de texto (caret) e o modal
+   (que fica no top-layer, acima do anel — ali o nativo volta a aparecer). */
+html.cursor-custom,
+html.cursor-custom * {
+  cursor: none !important;
+}
+html.cursor-custom input,
+html.cursor-custom textarea {
+  cursor: text !important;
+}
+html.cursor-custom dialog[open],
+html.cursor-custom dialog[open] * {
+  cursor: auto !important;
+}
+
+.cursor-anel,
+.cursor-ponto {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2147483600;
+  will-change: transform;
+  transition: opacity 0.25s ease;
+}
+
+/* O anel é posicionado por JS (sem transição); só o miolo <i> anima a escala. */
+.cursor-anel i {
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    transform 0.18s ease,
+    background-color 0.18s ease;
+}
+.cursor-anel.is-grande i {
+  transform: scale(1.9);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.cursor-anel.is-clicando i {
+  transform: scale(0.8);
+}
+.cursor-anel.is-grande.is-clicando i {
+  transform: scale(1.6);
+}
+
+.cursor-ponto {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+html.cursor-oculto .cursor-anel,
+html.cursor-oculto .cursor-ponto {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-anel,
+  .cursor-ponto {
+    display: none;
+  }
 }
