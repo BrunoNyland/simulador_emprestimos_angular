@@ -14,10 +14,10 @@ import { ActivatedRoute, Params, Router } from '@angular/router';
 import { take, debounceTime } from 'rxjs';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
-import { EventoCalc, LinhaCronograma } from '../../core/engine/eventos';
-import { adicionarMeses, diasCorridos } from '../../core/engine/dates';
+import { BaseAmortizacao, EventoCalc, LinhaCronograma, mapearData } from '../../core/engine/eventos';
+import { adicionarMeses } from '../../core/engine/dates';
 import { Decimal, arredondarMoeda } from '../../core/engine/decimal.config';
-import { Parcela } from '../../core/engine/models';
+import { OpcaoAmortizacao, Parcela } from '../../core/engine/models';
 import { taxaEfetivaMensal } from '../../core/engine/rates';
 import { valorParcelaPrice } from '../../core/engine/price';
 import { MoedaInputDirective } from '../../shared/moeda-input.directive';
@@ -39,14 +39,18 @@ const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
 
 function descreverEvento(e: EventoCalc): string {
   switch (e.tipo) {
-    case 'amortizacao':
-      return `Amortização R$ ${e.valor} após parc. ${e.apos} (${e.opcao})`;
+    case 'amortizacao': {
+      const base = e.base === 'pago' ? 'total pago' : 'amortizado';
+      return `Amortização R$ ${e.valor} (${base}) em ${e.data} · ${e.opcao}`;
+    }
     case 'antecipacao':
-      return `Antecipar ${e.quantidade} parc. após parc. ${e.apos}`;
-    case 'pagamento':
-      return `Pagamento parc. ${e.apos} com ${e.diasAtraso} dia(s) de atraso`;
+      return `Antecipar ${e.quantidade} parc. em ${e.data}`;
+    case 'pagamento': {
+      const parcial = e.valorPago ? ` parcial R$ ${e.valorPago}` : '';
+      return `Pagamento da parcela de ${e.dataVencimento} em ${e.dataPagamento}${parcial}`;
+    }
     default:
-      return `Quitação após parc. ${e.apos}`;
+      return `Quitação em ${e.data}`;
   }
 }
 
@@ -431,38 +435,27 @@ export class SimuladorComponent {
     return new Decimal(Math.round(v * 100) / 100).div(100).toString();
   }
 
-  // --- Painel de eventos pos-simulacao ---
+  // --- Painel de eventos pos-simulacao (dirigidos por DATA) ---
   readonly eventoForm = this.fb.nonNullable.group({
     tipo: 'amortizacao',
-    indexarPor: 'parcela',
-    apos: 1,
     data: '2026-07-01',
     valor: '1000',
+    // amortização: 'amortizado' = valor abate principal; 'pago' = total desembolsado.
+    base: 'amortizado',
     opcao: 'reduzir-prazo',
     quantidade: 2,
-    diasAtraso: 30,
+    // cobrança: vencimento da parcela × data do pagamento efetivo (atraso = diferença).
+    dataVencimento: '2026-07-01',
+    dataPagamento: '2026-07-10',
     valorPago: '',
   });
 
-  /** Mapeia uma data para {apos, fracao} usando a data-base mensal (30/360). */
-  private resolverPorData(data: string): { apos: number; fracao: Decimal } {
-    const dataBase = this.store.dataBase();
-    const prazo = this.store.prazo();
-    let apos = 0;
-    for (let k = 1; k <= prazo; k++) {
-      if (adicionarMeses(dataBase, k) <= data) {
-        apos = k;
-      } else {
-        break;
-      }
-    }
-    const vencApos = apos === 0 ? dataBase : adicionarMeses(dataBase, apos);
-    const dias = Math.max(0, diasCorridos(vencApos, data));
-    let fracao = new Decimal(Math.min(dias, 30)).div(30);
-    if (fracao.greaterThanOrEqualTo(1)) {
-      fracao = new Decimal('0.999999');
-    }
-    return { apos, fracao };
+  /** Taxa do período da simulação vigente (para juros pro-rata). `null` se inválida. */
+  private taxaPeriodoAtual(): Decimal | null {
+    const res = this.store.resultado();
+    if (res.tipo !== 'ok') return null;
+    const p = res.dados.parametros;
+    return taxaEfetivaMensal(new Decimal(p.taxa), p.tipoTaxa, p.unidadeTaxa);
   }
 
   /** Índice do evento em edição na lista; `null` quando se está adicionando um novo. */
@@ -486,18 +479,18 @@ export class SimuladorComponent {
     const e = this.store.eventos()[indice];
     if (!e) return;
     this.editandoIndice.set(indice);
-    // Reidrata sempre por "após a parcela N" (a data original vira o nº de parcela).
     this.eventoForm.patchValue({
       tipo: e.tipo,
-      indexarPor: 'parcela',
-      apos: e.apos,
+      data: e.tipo === 'pagamento' ? e.dataVencimento : e.data,
       valor: e.tipo === 'amortizacao' ? e.valor : this.eventoForm.controls.valor.value,
+      base: e.tipo === 'amortizacao' ? e.base : this.eventoForm.controls.base.value,
       quantidade: e.tipo === 'antecipacao' ? e.quantidade : this.eventoForm.controls.quantidade.value,
       opcao:
         (e.tipo === 'amortizacao' || e.tipo === 'antecipacao') && e.opcao
           ? e.opcao
           : this.eventoForm.controls.opcao.value,
-      diasAtraso: e.tipo === 'pagamento' ? e.diasAtraso : this.eventoForm.controls.diasAtraso.value,
+      dataVencimento: e.tipo === 'pagamento' ? e.dataVencimento : this.eventoForm.controls.dataVencimento.value,
+      dataPagamento: e.tipo === 'pagamento' ? e.dataPagamento : this.eventoForm.controls.dataPagamento.value,
       valorPago: e.tipo === 'pagamento' ? e.valorPago ?? '' : this.eventoForm.controls.valorPago.value,
     });
   }
@@ -526,27 +519,43 @@ export class SimuladorComponent {
     const dataBase = this.store.dataBase();
 
     if (!(prazo >= 1)) return 'Defina uma simulação válida antes de lançar eventos.';
+    const ultimoVenc = adicionarMeses(dataBase, prazo);
+    const i = this.taxaPeriodoAtual();
 
-    // Quando ocorre: por parcela ou por data, ambos dentro do período.
-    let apos: number;
-    if (v.indexarPor === 'data') {
-      if (!v.data) return 'Informe a data do evento.';
-      const ultimoVenc = adicionarMeses(dataBase, prazo);
-      if (v.data < dataBase) return `A data deve ser a partir da liberação (${dataBase}).`;
-      if (v.data > ultimoVenc) {
-        return `A data deve estar dentro do período do empréstimo (até ${ultimoVenc}).`;
+    // Cobrança: duas datas (vencimento da parcela × pagamento efetivo).
+    if (v.tipo === 'pagamento') {
+      if (!v.dataVencimento) return 'Informe a data de vencimento da parcela.';
+      if (!v.dataPagamento) return 'Informe a data do pagamento.';
+      const m = mapearData(dataBase, prazo, v.dataVencimento);
+      const vencParcela = m.apos >= 1 ? adicionarMeses(dataBase, m.apos) : '';
+      if (m.apos < 1 || vencParcela !== v.dataVencimento) {
+        return 'A data de vencimento deve coincidir com o vencimento de uma parcela.';
       }
-      apos = this.resolverPorData(v.data).apos;
-    } else {
-      apos = Math.floor(Number(v.apos));
-      if (!Number.isFinite(apos) || apos < 0) return 'A parcela de referência não pode ser negativa.';
-      if (apos > prazo - 1) {
-        return `O empréstimo tem ${prazo} parcelas; informe um número entre 0 e ${prazo - 1}.`;
+      const ctx = this.contextoPonto(m.apos);
+      if (!ctx || m.apos > ctx.total) {
+        return 'Essa parcela não existe no cronograma projetado — a dívida termina antes.';
       }
+      if (v.dataPagamento < v.dataVencimento) {
+        return 'A data do pagamento não pode ser anterior ao vencimento.';
+      }
+      if (v.valorPago) {
+        const pago = new Decimal(v.valorPago);
+        if (pago.lessThanOrEqualTo(0)) return 'O valor pago deve ser maior que zero.';
+        if (pago.lessThanOrEqualTo(ctx.juros)) {
+          return `O valor pago deve cobrir ao menos os juros do mês (${this.fmtBRL(ctx.juros)}).`;
+        }
+      }
+      return null;
     }
 
-    // Saldo devedor e juros do mês NO PONTO escolhido (referência para os limites).
-    const ctx = this.contextoPonto(apos);
+    // Demais eventos: uma data, dentro do período.
+    if (!v.data) return 'Informe a data do evento.';
+    if (v.data < dataBase) return `A data deve ser a partir da liberação (${dataBase}).`;
+    if (v.data > ultimoVenc) {
+      return `A data deve estar dentro do período do empréstimo (até ${ultimoVenc}).`;
+    }
+    const m = mapearData(dataBase, prazo, v.data);
+    const ctx = this.contextoPonto(m.apos);
 
     switch (v.tipo) {
       case 'amortizacao': {
@@ -557,7 +566,14 @@ export class SimuladorComponent {
         if (!ctx || ctx.saldo.lessThanOrEqualTo(0)) {
           return 'Nesse ponto a dívida já está quitada — não há saldo a amortizar.';
         }
-        if (valor.greaterThan(ctx.saldo)) {
+        const jurosPro = i ? arredondarMoeda(ctx.saldo.times(i).times(m.fracao)) : new Decimal(0);
+        if (v.base === 'pago') {
+          // Total pago: tem de cobrir ao menos os juros pro-rata corridos.
+          if (m.fracao.greaterThan(0) && valor.lessThanOrEqualTo(jurosPro)) {
+            return `O total pago deve cobrir ao menos os juros pro-rata do período (${this.fmtBRL(jurosPro)}).`;
+          }
+        } else if (valor.greaterThan(ctx.saldo)) {
+          // Total amortizado: o principal a abater não pode passar do saldo.
           return `A amortização (${this.fmtBRL(valor)}) não pode ser maior que o saldo devedor nesse ponto (${this.fmtBRL(ctx.saldo)}).`;
         }
         break;
@@ -571,32 +587,12 @@ export class SimuladorComponent {
       case 'antecipacao': {
         const q = Math.floor(Number(v.quantidade));
         if (!Number.isFinite(q) || q < 1) return 'Antecipe ao menos 1 parcela.';
-        // Parcelas que SOBRAM nesse ponto no cenário real (depois dos demais
-        // eventos), não no prazo nominal — antecipações/amortizações anteriores
-        // já podem ter encurtado o cronograma.
-        if (!ctx || ctx.restantes <= 0) return 'Não há parcelas futuras para antecipar nesse ponto.';
+        // Parcelas que SOBRAM nessa data no cenário real (depois dos demais
+        // eventos), não no prazo nominal — eventos anteriores já podem ter
+        // encurtado o cronograma.
+        if (!ctx || ctx.restantes <= 0) return 'Não há parcelas futuras para antecipar nessa data.';
         if (q > ctx.restantes) {
-          return `Faltam ${ctx.restantes} parcela(s) após a parcela ${apos}; não dá para antecipar ${q}.`;
-        }
-        break;
-      }
-      case 'pagamento': {
-        if (apos < 1) {
-          return 'O pagamento se refere a uma parcela existente — informe um número ≥ 1.';
-        }
-        // A parcela tem de existir no cronograma projetado (a dívida pode
-        // terminar antes do prazo nominal por causa de eventos anteriores).
-        if (!ctx || apos > ctx.total) {
-          return 'Essa parcela não existe no cronograma projetado — a dívida termina antes.';
-        }
-        const dias = Math.floor(Number(v.diasAtraso));
-        if (!Number.isFinite(dias) || dias < 0) return 'Os dias de atraso não podem ser negativos.';
-        if (v.valorPago) {
-          const pago = new Decimal(v.valorPago);
-          if (pago.lessThanOrEqualTo(0)) return 'O valor pago deve ser maior que zero.';
-          if (ctx && pago.lessThanOrEqualTo(ctx.juros)) {
-            return `O valor pago deve cobrir ao menos os juros do mês (${this.fmtBRL(ctx.juros)}).`;
-          }
+          return `Após essa data restam ${ctx.restantes} parcela(s); não dá para antecipar ${q}.`;
         }
         break;
       }
@@ -650,51 +646,34 @@ export class SimuladorComponent {
     };
   }
 
-  /** Monta o EventoCalc a partir do valor cru do formulário (reusado no preview). */
+  /** Monta o EventoCalc (dirigido por data) a partir do form (reusado no preview). */
   private construirEventoDoForm(v: ReturnType<typeof this.eventoForm.getRawValue>): EventoCalc {
-    const porData = v.indexarPor === 'data';
-    const mapeado = porData ? this.resolverPorData(v.data) : null;
-    const apos = mapeado ? mapeado.apos : Number(v.apos);
-    let evento: EventoCalc;
     switch (v.tipo) {
       case 'amortizacao':
-        evento = {
+        return {
           tipo: 'amortizacao',
-          apos,
+          data: v.data,
           valor: String(v.valor),
-          opcao: v.opcao as 'reduzir-prazo' | 'reduzir-parcela',
-          ...(mapeado && mapeado.fracao.greaterThan(0)
-            ? { fracaoPeriodo: mapeado.fracao.toString() }
-            : {}),
+          base: v.base as BaseAmortizacao,
+          opcao: v.opcao as OpcaoAmortizacao,
         };
-        break;
       case 'antecipacao':
-        evento = {
+        return {
           tipo: 'antecipacao',
-          apos,
+          data: v.data,
           quantidade: Number(v.quantidade),
-          opcao: v.opcao as 'reduzir-prazo' | 'reduzir-parcela',
-          ...(mapeado && mapeado.fracao.greaterThan(0)
-            ? { fracaoPeriodo: mapeado.fracao.toString() }
-            : {}),
+          opcao: v.opcao as OpcaoAmortizacao,
         };
-        break;
       case 'pagamento':
-        evento = {
+        return {
           tipo: 'pagamento',
-          apos,
-          diasAtraso: Number(v.diasAtraso),
+          dataVencimento: v.dataVencimento,
+          dataPagamento: v.dataPagamento,
           ...(v.valorPago ? { valorPago: String(v.valorPago) } : {}),
         };
-        break;
       default:
-        evento = {
-          tipo: 'quitacao',
-          apos,
-          ...(mapeado ? { fracaoPeriodo: mapeado.fracao.toString() } : {}),
-        };
+        return { tipo: 'quitacao', data: v.data };
     }
-    return evento;
   }
 
   /** Eventos com descrição pré-computada (evita chamada de função no template). */
@@ -712,13 +691,13 @@ export class SimuladorComponent {
     this.eventoFormSig(); // dependência reativa (o valor tipado vem do form)
     switch (this.eventoForm.controls.tipo.value) {
       case 'amortizacao':
-        return 'Um pagamento EXTRA que abate o saldo devedor. Você escolhe se isso reduz o prazo (termina antes) ou reduz o valor das próximas parcelas.';
+        return 'Pagamento EXTRA numa data. "Total amortizado": o valor abate o principal e os juros corridos no mês entram por cima. "Total pago": o valor é o desembolso e o sistema separa juros + amortização. Reduz prazo ou parcela.';
       case 'quitacao':
         return 'Pagar TODO o saldo devedor restante de uma vez, encerrando a dívida. Na data de uma parcela, é o próprio saldo; no meio do mês, soma juros pro-rata.';
       case 'antecipacao':
         return 'Antecipar um número de parcelas futuras pagando hoje o VALOR PRESENTE delas (com desconto dos juros). Reduz o prazo ou a parcela.';
       default:
-        return 'Simular o pagamento de uma parcela em ATRASO (gera multa + juros de mora) e/ou um pagamento PARCIAL (valor diferente do previsto).';
+        return 'Pagar uma parcela numa data diferente do vencimento: o atraso (vencimento → pagamento) gera multa + juros de mora. Informe um valor pago para simular pagamento PARCIAL.';
     }
   });
 

@@ -8,20 +8,26 @@ import { calcularCet, FluxoCaixa } from './cet';
 import { disp, montarTrace, passoCalculo, passoNota, TraceCalculo } from './trace';
 
 /**
- * Eventos pos-simulacao (CALCULATION_REFERENCE.md secao 9).
- * `apos` = numero da parcela apos a qual o evento ocorre (0 = antes da 1a).
+ * Como interpretar o valor digitado numa amortização extra feita no meio do
+ * período (CALC_REF secao 9):
+ * - `amortizado`: o valor é o que abate do PRINCIPAL; os juros pro-rata corridos
+ *   entram por cima (caixa = principal + juros). Espelha a quitação.
+ * - `pago`: o valor é o TOTAL pago (caixa); ele cobre primeiro os juros pro-rata
+ *   corridos e o restante abate o principal (juros + amortização = pago).
+ */
+export type BaseAmortizacao = 'pago' | 'amortizado';
+
+/**
+ * Eventos pos-simulacao (CALCULATION_REFERENCE.md secao 9), DIRIGIDOS POR DATA.
+ * A data de lançamento é a referência: o motor a converte para o ponto do
+ * cronograma (parcela + fração de período decorrida) e calcula os juros
+ * pro-rata corridos como na vida real.
  */
 export type EventoCalc =
-  | { tipo: 'amortizacao'; apos: number; valor: string; opcao: OpcaoAmortizacao; fracaoPeriodo?: string }
-  | { tipo: 'quitacao'; apos: number; fracaoPeriodo?: string }
-  | {
-      tipo: 'antecipacao';
-      apos: number;
-      quantidade: number;
-      opcao?: OpcaoAmortizacao;
-      fracaoPeriodo?: string;
-    }
-  | { tipo: 'pagamento'; apos: number; diasAtraso: number; valorPago?: string };
+  | { tipo: 'amortizacao'; data: string; valor: string; base: BaseAmortizacao; opcao: OpcaoAmortizacao }
+  | { tipo: 'quitacao'; data: string }
+  | { tipo: 'antecipacao'; data: string; quantidade: number; opcao?: OpcaoAmortizacao }
+  | { tipo: 'pagamento'; dataVencimento: string; dataPagamento: string; valorPago?: string };
 
 /**
  * Resumo de um evento aplicado a uma linha, ALINHADO às colunas das parcelas
@@ -101,6 +107,42 @@ export interface ResultadoProjecao {
 const QUASE_ZERO = new Decimal('0.005');
 
 /**
+ * Converte uma data de lançamento no ponto do cronograma:
+ * - `apos`: nº da última parcela cujo vencimento é <= data (0 = antes da 1ª);
+ * - `fracao`: fração do período já decorrida entre essa parcela e a próxima
+ *   (dias/30, no padrão mensal 30/360; saturada < 1 para não "virar" o período).
+ * É a base do pro-rata: data no meio do mês => juros proporcionais aos dias.
+ */
+export function mapearData(
+  dataBase: string,
+  prazo: number,
+  data: string,
+): { apos: number; fracao: Decimal } {
+  let apos = 0;
+  for (let k = 1; k <= prazo; k++) {
+    if (adicionarMeses(dataBase, k) <= data) {
+      apos = k;
+    } else {
+      break;
+    }
+  }
+  const vencApos = apos === 0 ? dataBase : adicionarMeses(dataBase, apos);
+  const dias = Math.max(0, diasCorridos(vencApos, data));
+  let fracao = new Decimal(Math.min(dias, 30)).div(30);
+  if (fracao.greaterThanOrEqualTo(1)) {
+    fracao = new Decimal('0.999999');
+  }
+  return { apos, fracao };
+}
+
+/** Evento já posicionado no cronograma (parcela + fração do período). */
+interface EventoPosicionado {
+  apos: number;
+  frac: Decimal;
+  ev: EventoCalc;
+}
+
+/**
  * Projeta o cronograma aplicando eventos de forma deterministica.
  * O cronograma e funcao pura de (base + eventos): cancelar um evento e
  * apenas reprojetar sem ele (CALC_REF secao 9.5).
@@ -124,7 +166,14 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
       : gerarCronogramaSac({ principal, taxaPeriodo: i, prazo: n });
   const jurosBase = new Decimal(somarTotais(base).totalJuros);
 
-  const eventosApos = (k: number): EventoCalc[] => eventos.filter((ev) => ev.apos === k);
+  // Posiciona cada evento pela sua DATA (vencimento, no caso da cobrança).
+  const posicionados: EventoPosicionado[] = eventos.map((ev) => {
+    const dataRef = ev.tipo === 'pagamento' ? ev.dataVencimento : ev.data;
+    const { apos, fracao } = mapearData(dataBase, n, dataRef);
+    return { apos, frac: fracao, ev };
+  });
+  const eventosApos = (k: number): EventoPosicionado[] =>
+    posicionados.filter((p) => p.apos === k);
 
   // Periodo de um fluxo para o CET, no padrao BACEN: dias corridos / 365.
   const periodoFluxo = (k: number, frac: Decimal): Decimal => {
@@ -150,9 +199,12 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   let encargos = new Decimal(0);
   // Quando um pre-pagamento ocorre no meio do periodo, a proxima parcela divide
   // os juros entre o saldo antigo (fracao decorrida) e o novo (restante).
+  // `ajusteVelhoPago`: o pro-rata do saldo antigo JA foi liquidado no evento
+  // (amortizacao), entao a proxima parcela so cobra o restante sobre o saldo novo.
   let ajusteAtivo = false;
   let ajusteSaldoAntes = new Decimal(0);
   let ajusteFrac = new Decimal(0);
+  let ajusteVelhoPago = false;
   const CAP = n * 2 + 12;
 
   const reamortizar = (numeroAtual: number): void => {
@@ -198,43 +250,83 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
   };
 
   const aplicarEventos = (numeroAtual: number, linha?: LinhaCronograma): void => {
-    for (const ev of eventosApos(numeroAtual)) {
+    for (const { ev, frac } of eventosApos(numeroAtual)) {
       if (ev.tipo === 'amortizacao') {
-        const frac = new Decimal(ev.fracaoPeriodo ?? '0');
+        // Pro-rata: na vida real, pagar no meio do mês acerta os juros corridos
+        // desde a última parcela. O motor liquida esses juros AQUI (no evento) e
+        // a próxima parcela cobra só o restante do período sobre o saldo novo.
         const saldoAntes = saldo;
-        const v = prepagar(new Decimal(ev.valor), ev.opcao, numeroAtual);
-        fluxos.push({ periodo: periodoFluxo(numeroAtual, frac), valor: v });
+        const jurosPro = frac.greaterThan(0)
+          ? arredondarMoeda(saldoAntes.times(i).times(frac))
+          : new Decimal(0);
+        let amort: Decimal;
+        let pago: Decimal;
+        if (ev.base === 'amortizado') {
+          // valor = principal a abater; juros corridos entram por cima.
+          amort = Decimal.min(new Decimal(ev.valor), saldoAntes);
+          pago = amort.plus(jurosPro);
+        } else {
+          // valor = total pago; cobre os juros corridos e o resto abate principal.
+          pago = new Decimal(ev.valor);
+          amort = pago.minus(jurosPro);
+          if (amort.lessThanOrEqualTo(0)) {
+            throw new Error('Amortizacao: total pago nao cobre os juros pro-rata do periodo.');
+          }
+          amort = Decimal.min(amort, saldoAntes);
+        }
+        saldo = saldoAntes.minus(amort);
+        extras = extras.plus(amort);
+        jurosExtras = jurosExtras.plus(jurosPro);
+        if (ev.opcao === 'reduzir-prazo') {
+          prazoAlvo = null;
+        } else {
+          reamortizar(numeroAtual);
+        }
+        fluxos.push({ periodo: periodoFluxo(numeroAtual, frac), valor: pago });
         if (frac.greaterThan(0)) {
           ajusteAtivo = true;
           ajusteSaldoAntes = saldoAntes;
           ajusteFrac = frac;
+          ajusteVelhoPago = true; // pro-rata do saldo antigo ja foi pago no evento
         }
-        const nota = frac.greaterThan(0) ? ` pro-rata ${frac.toDecimalPlaces(4)}` : '';
-        marcar(linha, `Amortizacao extra ${v.toFixed(2)} (${rotuloOpcao(ev.opcao)})${nota}`);
-        addTraco(
-          linha,
-          montarTrace('evento-amortizacao', `Amortização extra após a parcela ${numeroAtual}`,
-            'novo saldo = saldo − valor amortizado', [
-              passoCalculo('valor', 'Valor amortizado, limitado ao saldo devedor atual',
-                'v = min(valor solicitado, saldo)', `min(${disp(new Decimal(ev.valor), 2)}, ${disp(saldoAntes, 2)})`, v, 2),
-              passoCalculo('saldo', 'Saldo devedor após a amortização extra',
-                'saldo − v', `${disp(saldoAntes, 2)} − ${disp(v, 2)}`, saldoAntes.minus(v), 2),
-              passoNota('opcao', ev.opcao === 'reduzir-prazo'
-                ? 'Opção "reduzir prazo": a parcela continua a mesma e o empréstimo termina antes.'
-                : 'Opção "reduzir parcela": o prazo continua o mesmo e as próximas parcelas ficam menores.'),
-            ]),
+        const nota = frac.greaterThan(0) ? ` (+ juros pro-rata ${jurosPro.toFixed(2)})` : '';
+        marcar(linha, `Amortizacao extra ${amort.toFixed(2)} (${rotuloOpcao(ev.opcao)})${nota}`);
+        const passos = [
+          passoNota('base', ev.base === 'amortizado'
+            ? 'Você informou quanto abater do principal; os juros pro-rata corridos no período entram por cima.'
+            : 'Você informou o total pago no dia; ele cobre primeiro os juros pro-rata corridos e o restante abate o principal.'),
+        ];
+        if (frac.greaterThan(0)) {
+          passos.push(passoCalculo('juros', 'Juros pro-rata corridos desde a última parcela (fração do mês)',
+            'J = saldo × i × f', `${disp(saldoAntes, 2)} × ${disp(i)} × ${disp(frac, 4)}`, jurosPro, 2));
+        }
+        passos.push(
+          passoCalculo('amort', 'Parte que efetivamente abate o saldo devedor',
+            ev.base === 'amortizado' ? 'A = min(valor, saldo)' : 'A = pago − juros',
+            ev.base === 'amortizado'
+              ? `min(${disp(new Decimal(ev.valor), 2)}, ${disp(saldoAntes, 2)})`
+              : `${disp(pago, 2)} − ${disp(jurosPro, 2)}`,
+            amort, 2),
+          passoCalculo('pago', 'Total desembolsado no dia (caixa)',
+            'pago = juros + amortização', `${disp(jurosPro, 2)} + ${disp(amort, 2)}`, pago, 2),
+          passoCalculo('saldo', 'Saldo devedor após a amortização',
+            'saldo − A', `${disp(saldoAntes, 2)} − ${disp(amort, 2)}`, saldoAntes.minus(amort), 2),
+          passoNota('opcao', ev.opcao === 'reduzir-prazo'
+            ? 'Opção "reduzir prazo": a parcela continua a mesma e o empréstimo termina antes.'
+            : 'Opção "reduzir parcela": o prazo continua o mesmo e as próximas parcelas ficam menores.'),
         );
+        addTraco(linha, montarTrace('evento-amortizacao', `Amortização extra em ${ev.data}`,
+          'pago = juros pro-rata + amortização', passos));
         addDetalhe(linha, {
           tipo: 'amortizacao',
-          data: linha?.dataVencimento ?? dataBase,
+          data: ev.data,
           descricao: `Amortização extra · ${rotuloOpcao(ev.opcao)}`,
-          juros: '0.00',
-          amortizacao: arredondarMoeda(v).toFixed(2),
-          valor: arredondarMoeda(v).toFixed(2),
-          saldoApos: arredondarMoeda(saldoAntes.minus(v)).toFixed(2),
+          juros: jurosPro.toFixed(2),
+          amortizacao: arredondarMoeda(amort).toFixed(2),
+          valor: arredondarMoeda(pago).toFixed(2),
+          saldoApos: arredondarMoeda(saldoAntes.minus(amort)).toFixed(2),
         });
       } else if (ev.tipo === 'antecipacao') {
-        const frac = new Decimal(ev.fracaoPeriodo ?? '0');
         const saldoAntes = saldo;
         const v = prepagar(
           pvProximasParcelas(ev.quantidade),
@@ -246,12 +338,13 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
           ajusteAtivo = true;
           ajusteSaldoAntes = saldoAntes;
           ajusteFrac = frac;
+          ajusteVelhoPago = false;
         }
         const nota = frac.greaterThan(0) ? ` pro-rata ${frac.toDecimalPlaces(4)}` : '';
         marcar(linha, `Antecipacao de ${ev.quantidade} parcela(s): VP ${v.toFixed(2)}${nota}`);
         addTraco(
           linha,
-          montarTrace('evento-antecipacao', `Antecipação de ${ev.quantidade} parcela(s) após a parcela ${numeroAtual}`,
+          montarTrace('evento-antecipacao', `Antecipação de ${ev.quantidade} parcela(s) em ${ev.data}`,
             'paga-se hoje o VALOR PRESENTE das próximas parcelas', [
               passoNota('vp', `Antecipar parcelas futuras não custa a soma nominal delas: traz-se cada uma a valor de hoje descontando os juros, somando o valor presente (VP) das ${ev.quantidade} próximas.`),
               passoCalculo('valor', 'Valor presente das parcelas antecipadas (limitado ao saldo)',
@@ -262,7 +355,7 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
         );
         addDetalhe(linha, {
           tipo: 'antecipacao',
-          data: linha?.dataVencimento ?? dataBase,
+          data: ev.data,
           descricao: `Antecipação de ${ev.quantidade} parcela(s)`,
           juros: '0.00',
           amortizacao: arredondarMoeda(v).toFixed(2),
@@ -270,7 +363,6 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
           saldoApos: arredondarMoeda(saldoAntes.minus(v)).toFixed(2),
         });
       } else if (ev.tipo === 'quitacao') {
-        const frac = new Decimal(ev.fracaoPeriodo ?? '0');
         const saldoQuit = saldo;
         const payoff = frac.greaterThan(0) ? saldo.times(i.plus(1).pow(frac)) : saldo;
         extras = extras.plus(saldo); // principal
@@ -290,10 +382,10 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
               passoCalculo('payoff', 'Valor para quitar na data de uma parcela: o próprio saldo devedor',
                 'payoff = saldo', disp(saldoQuit, 2), arredondarMoeda(payoff), 2),
             ];
-        addTraco(linha, montarTrace('evento-quitacao', `Quitação antecipada após a parcela ${numeroAtual}`, 'payoff = saldo (+ juros pro-rata)', passosQuit));
+        addTraco(linha, montarTrace('evento-quitacao', `Quitação antecipada em ${ev.data}`, 'payoff = saldo (+ juros pro-rata)', passosQuit));
         addDetalhe(linha, {
           tipo: 'quitacao',
-          data: linha?.dataVencimento ?? dataBase,
+          data: ev.data,
           descricao: frac.greaterThan(0) ? 'Quitação antecipada (pro-rata)' : 'Quitação antecipada',
           juros: arredondarMoeda(payoff.minus(saldoQuit)).toFixed(2),
           amortizacao: arredondarMoeda(saldoQuit).toFixed(2),
@@ -307,9 +399,11 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
         const saldoInicial = new Decimal(linha.saldoInicial);
         const juros = new Decimal(linha.juros);
         const agendada = new Decimal(linha.valorParcela);
+        // Atraso = dias corridos entre o vencimento e o pagamento efetivo.
+        const diasAtraso = Math.max(0, diasCorridos(ev.dataVencimento, ev.dataPagamento));
 
         // Pagamento parcial: re-define a amortizacao desta parcela.
-        if (ev.valorPago !== undefined) {
+        if (ev.valorPago !== undefined && ev.valorPago !== '') {
           const pago = new Decimal(ev.valorPago);
           let amort = pago.minus(juros);
           if (amort.lessThanOrEqualTo(0)) {
@@ -337,7 +431,7 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
           );
           addDetalhe(linha, {
             tipo: 'pagamento',
-            data: linha.dataVencimento,
+            data: ev.dataPagamento,
             descricao: 'Pagamento parcial',
             juros: arredondarMoeda(juros).toFixed(2),
             amortizacao: arredondarMoeda(amort).toFixed(2),
@@ -347,34 +441,34 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
         }
 
         // Mora por atraso (calculada sobre a parcela agendada).
-        if (ev.diasAtraso > 0 && mora) {
+        if (diasAtraso > 0 && mora) {
           const multa = agendada.times(mora.multa);
           const jurosMora = agendada
             .times(mora.jurosMensal)
-            .times(new Decimal(ev.diasAtraso).div(30));
+            .times(new Decimal(diasAtraso).div(30));
           const moraTotal = arredondarMoeda(multa.plus(jurosMora));
           encargos = encargos.plus(moraTotal);
           linha.encargos = moraTotal.toFixed(2);
           linha.valorParcela = arredondarMoeda(
             new Decimal(linha.valorParcela).plus(moraTotal),
           ).toFixed(2);
-          marcar(linha, `Atraso ${ev.diasAtraso} dia(s): mora ${moraTotal.toFixed(2)}`);
+          marcar(linha, `Atraso ${diasAtraso} dia(s): mora ${moraTotal.toFixed(2)}`);
           addTraco(
             linha,
-            montarTrace('evento-mora', `Atraso de ${ev.diasAtraso} dia(s) na parcela ${numeroAtual}`,
+            montarTrace('evento-mora', `Atraso de ${diasAtraso} dia(s) na parcela ${numeroAtual}`,
               'encargo = multa + juros de mora', [
                 passoCalculo('multa', 'Multa de mora sobre o valor da parcela (CDC: até 2%)',
                   'multa = parcela × m', `${disp(agendada, 2)} × ${disp(mora.multa)}`, arredondarMoeda(multa), 2),
                 passoCalculo('jurosMora', 'Juros de mora proporcionais aos dias de atraso',
-                  'j = parcela × i_mora × dias/30', `${disp(agendada, 2)} × ${disp(mora.jurosMensal)} × ${ev.diasAtraso}/30`, arredondarMoeda(jurosMora), 2),
+                  'j = parcela × i_mora × dias/30', `${disp(agendada, 2)} × ${disp(mora.jurosMensal)} × ${diasAtraso}/30`, arredondarMoeda(jurosMora), 2),
                 passoCalculo('total', 'Encargo total somado ao valor da parcela',
                   'multa + j', `${disp(arredondarMoeda(multa), 2)} + ${disp(arredondarMoeda(jurosMora), 2)}`, moraTotal, 2),
               ]),
           );
           addDetalhe(linha, {
             tipo: 'pagamento',
-            data: linha.dataVencimento,
-            descricao: `Atraso de ${ev.diasAtraso} dia(s) · multa + mora`,
+            data: ev.dataPagamento,
+            descricao: `Atraso de ${diasAtraso} dia(s) · multa + mora`,
             juros: moraTotal.toFixed(2),
             amortizacao: '0.00',
             valor: moraTotal.toFixed(2),
@@ -394,14 +488,16 @@ export function projetarComEventos(e: EntradaProjecao): ResultadoProjecao {
     const saldoInicial = saldo;
     let juros: Decimal;
     if (ajusteAtivo) {
-      // Pro-rata: juros do saldo antigo na fracao decorrida + saldo novo no restante.
-      juros = arredondarMoeda(
-        ajusteSaldoAntes
-          .times(i)
-          .times(ajusteFrac)
-          .plus(saldoInicial.times(i).times(new Decimal(1).minus(ajusteFrac))),
-      );
+      // Pro-rata do período em que houve um evento. O saldo novo sempre paga o
+      // restante do mês; o termo do saldo antigo (fração decorrida) só entra se
+      // ainda NÃO tiver sido liquidado no próprio evento (amortização já paga).
+      const termoNovo = saldoInicial.times(i).times(new Decimal(1).minus(ajusteFrac));
+      const termoVelho = ajusteVelhoPago
+        ? new Decimal(0)
+        : ajusteSaldoAntes.times(i).times(ajusteFrac);
+      juros = arredondarMoeda(termoVelho.plus(termoNovo));
       ajusteAtivo = false;
+      ajusteVelhoPago = false;
     } else {
       juros = arredondarMoeda(saldoInicial.times(i));
     }

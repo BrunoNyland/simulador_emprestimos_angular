@@ -87,11 +87,20 @@ export class SimulacaoStore {
   readonly moraJurosMensal = signal(this.config.config().mora.jurosMensal);
   readonly moraMulta = signal(this.config.config().mora.multa);
 
-  // --- Eventos pos-simulacao (lista ordenada; cronograma = projecao dela) ---
+  // --- Eventos pos-simulacao (lista ordenada por DATA; cronograma = projecao dela) ---
   readonly eventos = signal<EventoCalc[]>([]);
 
+  /** Data de referência de um evento (vencimento, no caso da cobrança) p/ ordenar. */
+  private dataDoEvento(ev: EventoCalc): string {
+    return ev.tipo === 'pagamento' ? ev.dataVencimento : ev.data;
+  }
+
+  private ordenar(lista: EventoCalc[]): EventoCalc[] {
+    return [...lista].sort((a, b) => this.dataDoEvento(a).localeCompare(this.dataDoEvento(b)));
+  }
+
   adicionarEvento(evento: EventoCalc): void {
-    this.eventos.update((lista) => [...lista, evento].sort((a, b) => a.apos - b.apos));
+    this.eventos.update((lista) => this.ordenar([...lista, evento]));
   }
 
   removerEvento(indice: number): void {
@@ -99,9 +108,7 @@ export class SimulacaoStore {
   }
 
   atualizarEvento(indice: number, evento: EventoCalc): void {
-    this.eventos.update((lista) =>
-      lista.map((e, i) => (i === indice ? evento : e)).sort((a, b) => a.apos - b.apos),
-    );
+    this.eventos.update((lista) => this.ordenar(lista.map((e, i) => (i === indice ? evento : e))));
   }
 
   limparEventos(): void {

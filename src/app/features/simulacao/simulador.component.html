@@ -442,20 +442,7 @@
           <option value="pagamento">Atraso / pagamento parcial</option>
         </select>
       </label>
-      <label>
-        <span>Quando ocorre</span>
-        <select formControlName="indexarPor">
-          <option value="parcela">Após uma parcela</option>
-          <option value="data">Em uma data</option>
-        </select>
-      </label>
-      @if (eventoForm.controls.indexarPor.value === 'parcela') {
-      <label>
-        <span>Após a parcela nº</span>
-        <input type="number" formControlName="apos" min="0" step="1" />
-        <small>0 = antes da 1ª parcela.</small>
-      </label>
-      } @else {
+      @if (eventoForm.controls.tipo.value !== 'pagamento') {
       <label>
         <span>Data do evento</span>
         <input type="date" formControlName="data" />
@@ -466,6 +453,13 @@
       <label>
         <span>Valor extra (R$)</span>
         <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valor" />
+      </label>
+      <label>
+        <span>O valor é</span>
+        <select formControlName="base">
+          <option value="amortizado">Total amortizado (abate o principal)</option>
+          <option value="pago">Total pago (caixa: juros + amortização)</option>
+        </select>
       </label>
       }
       @if (eventoForm.controls.tipo.value === 'antecipacao') {
@@ -485,9 +479,14 @@
       }
       @if (eventoForm.controls.tipo.value === 'pagamento') {
       <label>
-        <span>Dias de atraso</span>
-        <input type="number" formControlName="diasAtraso" min="0" step="1" />
-        <small>0 = em dia (sem mora).</small>
+        <span>Data de vencimento</span>
+        <input type="date" formControlName="dataVencimento" />
+        <small>Vencimento da parcela.</small>
+      </label>
+      <label>
+        <span>Data do pagamento</span>
+        <input type="date" formControlName="dataPagamento" />
+        <small>Atraso = diferença para o vencimento.</small>
       </label>
       <label>
         <span>Valor pago (R$)</span>

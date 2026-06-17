@@ -123,7 +123,7 @@ describe('SimulacaoStore', () => {
     store.valorBruto.set('1000');
     store.taxa.set('0.01');
     store.prazo.set(12);
-    store.adicionarEvento({ tipo: 'amortizacao', apos: 1, valor: '200', opcao: 'reduzir-prazo' });
+    store.adicionarEvento({ tipo: 'amortizacao', data: '2026-02-01', valor: '200', base: 'amortizado', opcao: 'reduzir-prazo' });
 
     const base = store.resultado();
     expect(base.tipo).toBe('ok');
@@ -143,7 +143,7 @@ describe('SimulacaoStore', () => {
     store.valorBruto.set('1000');
     store.taxa.set('0.01');
     store.prazo.set(12);
-    store.adicionarEvento({ tipo: 'quitacao', apos: 6 });
+    store.adicionarEvento({ tipo: 'quitacao', data: '2026-07-01' });
     expect(store.eventosResultado()!.parcelas).toHaveLength(6);
     const base = store.resultado();
     if (base.tipo === 'ok') {
