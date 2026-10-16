@@ -17,13 +17,15 @@ const TAU_MS = 45;
  * 36px sobre links e botões. O cursor nativo continua visível; o ponto é só
  * um acompanhamento.
  *
- * O brunonyland.com reinicia uma animação de 0,18 s a cada `mousemove`. Com
- * mouse de 500-1000 Hz chegam vários eventos por quadro, cada um zera o
- * progresso e o ponto quase não sai do lugar (medido: 280 px atrás do
- * ponteiro a 600 px/s). Aqui a posição alvo só é anotada no evento e o ponto
- * anda por quadro, conforme o tempo decorrido, independente de quantos
- * eventos chegaram. Sem GSAP (~27 kB). Só liga em ponteiro fino (mouse) e
- * respeita `prefers-reduced-motion`.
+ * O brunonyland.com reinicia um gsap.to de 0,18 s a cada `mousemove`; ali
+ * funciona porque o GSAP conta o progresso a partir do último quadro. A
+ * primeira versão deste arquivo imitava isso contando a partir do horário do
+ * evento: com mouse de 500-1000 Hz chegam vários eventos por quadro, cada um
+ * zerava o progresso e o ponto travava (medido: 289 px atrás do ponteiro a
+ * 600 px/s). Aqui a posição alvo só é anotada no evento e o ponto anda por
+ * quadro, conforme o tempo decorrido, independente de quantos eventos
+ * chegaram. Sem GSAP (~27 kB). Só liga em ponteiro fino (mouse) e respeita
+ * `prefers-reduced-motion`.
  */
 @Injectable({ providedIn: 'root' })
 export class CursorService {
