@@ -1,15 +1,22 @@
 import { Injectable } from '@angular/core';
 
-/** Elementos interativos sobre os quais o anel do cursor "cresce". */
+/** Elementos interativos sobre os quais o ponto vira um anel. */
 const SELETOR_INTERATIVO =
   'a, button, [role="button"], select, summary, label, .bolinha, .linha-clicavel, .card[role="button"]';
 
+/** Mesma animação do brunonyland.com: gsap.to(..., { duration: 0.18, ease: 'power2.out' }). */
+const DURACAO_MS = 180;
+const power2Out = (p: number): number => 1 - (1 - p) ** 3;
+
 /**
- * Cursor personalizado no estilo do portfólio: um anel que segue o ponteiro
- * com suavização (lerp) e cresce ao passar por links/botões, mais um ponto
- * que acompanha a posição exata. Usa `var(--accent)`, então reflete a cor de
- * destaque escolhida. Só liga em ponteiro fino (não-touch) e respeita
- * `prefers-reduced-motion`.
+ * Cursor do brunonyland.com: um ponto de 8px na cor de destaque
+ * (`var(--accent)`, com `mix-blend-mode: difference`) que segue o ponteiro com
+ * um leve atraso e vira um anel de 36px sobre links e botões. O cursor nativo
+ * continua visível; o ponto é só um acompanhamento.
+ *
+ * Cada movimento reinicia a animação a partir da posição atual, como o
+ * `overwrite: true` do GSAP, sem trazer o GSAP (~27 kB) para o bundle. Só liga
+ * em ponteiro fino (mouse) e respeita `prefers-reduced-motion`.
  */
 @Injectable({ providedIn: 'root' })
 export class CursorService {
@@ -22,58 +29,60 @@ export class CursorService {
     if (!fino || reduzMovimento) return;
     this.iniciado = true;
 
-    const anel = document.createElement('div');
-    anel.className = 'cursor-anel';
-    anel.setAttribute('aria-hidden', 'true');
-    anel.innerHTML = '<i></i>';
+    const cursor = document.createElement('div');
+    cursor.className = 'cursor';
+    cursor.setAttribute('aria-hidden', 'true');
+    document.body.append(cursor);
 
-    const ponto = document.createElement('div');
-    ponto.className = 'cursor-ponto';
-    ponto.setAttribute('aria-hidden', 'true');
+    let x = 0;
+    let y = 0;
+    let deX = 0;
+    let deY = 0;
+    let paraX = 0;
+    let paraY = 0;
+    let inicio = 0;
+    let quadro = 0;
+    let primeiro = true;
 
-    document.body.append(anel, ponto);
-    document.documentElement.classList.add('cursor-custom', 'cursor-oculto');
-
-    let alvoX = innerWidth / 2;
-    let alvoY = innerHeight / 2;
-    let anelX = alvoX;
-    let anelY = alvoY;
+    const mover = (): void => {
+      cursor.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+    };
+    const animar = (agora: number): void => {
+      const p = Math.min(1, Math.max(0, (agora - inicio) / DURACAO_MS));
+      const k = power2Out(p);
+      x = deX + (paraX - deX) * k;
+      y = deY + (paraY - deY) * k;
+      mover();
+      quadro = p < 1 ? requestAnimationFrame(animar) : 0;
+    };
 
     addEventListener(
-      'pointermove',
-      (e: PointerEvent) => {
-        alvoX = e.clientX;
-        alvoY = e.clientY;
-        ponto.style.transform = `translate(${alvoX}px, ${alvoY}px)`;
-        document.documentElement.classList.remove('cursor-oculto');
+      'mousemove',
+      (e: MouseEvent) => {
+        cursor.classList.add('is-on');
+        if (primeiro) {
+          // Primeiro movimento: aparece já no ponteiro, sem atravessar a tela.
+          primeiro = false;
+          x = e.clientX;
+          y = e.clientY;
+          mover();
+        }
+        deX = x;
+        deY = y;
+        paraX = e.clientX;
+        paraY = e.clientY;
+        inicio = performance.now();
+        if (!quadro) quadro = requestAnimationFrame(animar);
       },
       { passive: true },
     );
 
-    // Cresce sobre elementos interativos.
-    document.addEventListener('pointerover', (e) => {
+    document.addEventListener('mouseover', (e) => {
       const alvo = e.target as Element | null;
-      const interativo = !!alvo?.closest?.(SELETOR_INTERATIVO);
-      anel.classList.toggle('is-grande', interativo);
+      cursor.classList.toggle('is-hover', !!alvo?.closest?.(SELETOR_INTERATIVO));
     });
 
-    // Feedback ao clicar e ocultar quando o ponteiro sai da janela.
-    addEventListener('pointerdown', () => anel.classList.add('is-clicando'));
-    addEventListener('pointerup', () => anel.classList.remove('is-clicando'));
-    document.addEventListener('mouseleave', () =>
-      document.documentElement.classList.add('cursor-oculto'),
-    );
-    document.addEventListener('mouseenter', () =>
-      document.documentElement.classList.remove('cursor-oculto'),
-    );
-
-    // O anel persegue o alvo com suavização (lerp), criando o "atraso" elegante.
-    const animar = (): void => {
-      anelX += (alvoX - anelX) * 0.18;
-      anelY += (alvoY - anelY) * 0.18;
-      anel.style.transform = `translate(${anelX}px, ${anelY}px)`;
-      requestAnimationFrame(animar);
-    };
-    requestAnimationFrame(animar);
+    // Some quando o ponteiro sai da janela, para não ficar parado na borda.
+    document.documentElement.addEventListener('mouseleave', () => cursor.classList.remove('is-on'));
   }
 }

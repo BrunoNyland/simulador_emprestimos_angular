@@ -221,73 +221,98 @@ main {
   display: block;
 }
 
-/* ===== Cursor personalizado (anel que segue o ponteiro) ===== */
-/* Esconde o cursor nativo, exceto sobre campos de texto (caret) e o modal
-   (que fica no top-layer, acima do anel — ali o nativo volta a aparecer). */
-html.cursor-custom,
-html.cursor-custom * {
-  cursor: none !important;
+/* ===== Rodapé com o crédito do desenvolvedor (igual ao sintraffms.com) ===== */
+/* O roxo é a cor da marca do brunonyland.com e aparece só no hover/foco. No
+   tema claro usa um roxo mais escuro: o #9b85ff sobre branco não tem
+   contraste para texto. */
+.rodape {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  margin-top: 1.5rem;
+  background: var(--header-bg);
+  border-top: 1px solid var(--border);
 }
-html.cursor-custom input,
-html.cursor-custom textarea {
-  cursor: text !important;
+.credito {
+  --credito-cor: #6d44d9;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+
+  img {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: border-color 0.15s;
+  }
+  .credito-nome {
+    font-weight: 700;
+    color: var(--text);
+    transition: color 0.15s;
+  }
+  &:hover .credito-nome,
+  &:focus-visible .credito-nome {
+    color: var(--credito-cor);
+  }
+  &:hover img,
+  &:focus-visible img {
+    border-color: var(--credito-cor);
+  }
 }
-html.cursor-custom dialog[open],
-html.cursor-custom dialog[open] * {
-  cursor: auto !important;
+:root[data-theme='escuro'] .credito {
+  --credito-cor: #9b85ff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .credito img,
+  .credito .credito-nome {
+    transition: none;
+  }
 }
 
-.cursor-anel,
-.cursor-ponto {
+/* ===== Cursor (o mesmo do brunonyland.com) ===== */
+/* Ponto que acompanha o ponteiro e vira anel sobre links e botões
+   (core/cursor/cursor.service.ts). O cursor nativo continua visível. */
+.cursor {
   position: fixed;
   top: 0;
   left: 0;
-  pointer-events: none;
-  z-index: 2147483600;
-  will-change: transform;
-  transition: opacity 0.25s ease;
-}
-
-/* O anel é posicionado por JS (sem transição); só o miolo <i> anima a escala. */
-.cursor-anel i {
-  display: block;
-  width: 30px;
-  height: 30px;
-  margin: -15px 0 0 -15px;
-  border: 1.5px solid var(--accent);
-  border-radius: 50%;
-  background: transparent;
-  transition:
-    transform 0.18s ease,
-    background-color 0.18s ease;
-}
-.cursor-anel.is-grande i {
-  transform: scale(1.9);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.cursor-anel.is-clicando i {
-  transform: scale(0.8);
-}
-.cursor-anel.is-grande.is-clicando i {
-  transform: scale(1.6);
-}
-
-.cursor-ponto {
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--accent);
-}
-
-html.cursor-oculto .cursor-anel,
-html.cursor-oculto .cursor-ponto {
+  z-index: 9000;
+  pointer-events: none;
+  transition:
+    width 0.25s,
+    height 0.25s,
+    background 0.25s,
+    opacity 0.25s;
   opacity: 0;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .cursor-anel,
-  .cursor-ponto {
+/* O difference do brunonyland.com mantém o ponto na cor de destaque sobre
+   fundo escuro; sobre o fundo claro ele inverteria a cor (verde vira rosa),
+   então só vale no tema escuro. */
+:root[data-theme='escuro'] .cursor {
+  mix-blend-mode: difference;
+}
+.cursor.is-on {
+  opacity: 1;
+}
+.cursor.is-hover {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--accent);
+}
+@media (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .cursor {
     display: none;
   }
 }
