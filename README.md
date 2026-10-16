@@ -36,6 +36,20 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Deploy
+
+O site roda em https://simulador.brunonyland.com (VPS, nginx estático). Para
+publicar a versão do `origin/main`, na VPS:
+
+```bash
+./deploy.sh
+```
+
+O script atualiza do `origin/main`, roda `npm ci`, os testes e o build numa
+pasta temporária, gera `.br` (brotli -q 11) e `.gz` (gzip -9) de cada arquivo
+de texto e só então publica. Se qualquer etapa falhar, o site fica como estava.
+`./deploy.sh --local` publica a árvore local sem `git pull`.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
