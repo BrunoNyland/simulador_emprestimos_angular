@@ -4,19 +4,26 @@ import { Injectable } from '@angular/core';
 const SELETOR_INTERATIVO =
   'a, button, [role="button"], select, summary, label, .bolinha, .linha-clicavel, .card[role="button"]';
 
-/** Mesma animação do brunonyland.com: gsap.to(..., { duration: 0.18, ease: 'power2.out' }). */
-const DURACAO_MS = 180;
-const power2Out = (p: number): number => 1 - (1 - p) ** 3;
+/**
+ * Constante de tempo da perseguição: a cada quadro o ponto anda
+ * 1 - e^(-dt/TAU) do que falta até o ponteiro. Com 45 ms ele chega a 95% em
+ * ~135 ms, a mesma sensação dos 0,18 s do brunonyland.com.
+ */
+const TAU_MS = 45;
 
 /**
  * Cursor do brunonyland.com: um ponto de 8px na cor de destaque
- * (`var(--accent)`, com `mix-blend-mode: difference`) que segue o ponteiro com
- * um leve atraso e vira um anel de 36px sobre links e botões. O cursor nativo
- * continua visível; o ponto é só um acompanhamento.
+ * (`var(--accent)`) que segue o ponteiro com um leve atraso e vira um anel de
+ * 36px sobre links e botões. O cursor nativo continua visível; o ponto é só
+ * um acompanhamento.
  *
- * Cada movimento reinicia a animação a partir da posição atual, como o
- * `overwrite: true` do GSAP, sem trazer o GSAP (~27 kB) para o bundle. Só liga
- * em ponteiro fino (mouse) e respeita `prefers-reduced-motion`.
+ * O brunonyland.com reinicia uma animação de 0,18 s a cada `mousemove`. Com
+ * mouse de 500-1000 Hz chegam vários eventos por quadro, cada um zera o
+ * progresso e o ponto quase não sai do lugar (medido: 280 px atrás do
+ * ponteiro a 600 px/s). Aqui a posição alvo só é anotada no evento e o ponto
+ * anda por quadro, conforme o tempo decorrido, independente de quantos
+ * eventos chegaram. Sem GSAP (~27 kB). Só liga em ponteiro fino (mouse) e
+ * respeita `prefers-reduced-motion`.
  */
 @Injectable({ providedIn: 'root' })
 export class CursorService {
@@ -36,11 +43,9 @@ export class CursorService {
 
     let x = 0;
     let y = 0;
-    let deX = 0;
-    let deY = 0;
-    let paraX = 0;
-    let paraY = 0;
-    let inicio = 0;
+    let alvoX = 0;
+    let alvoY = 0;
+    let ultimo = 0;
     let quadro = 0;
     let primeiro = true;
 
@@ -48,30 +53,37 @@ export class CursorService {
       cursor.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
     };
     const animar = (agora: number): void => {
-      const p = Math.min(1, Math.max(0, (agora - inicio) / DURACAO_MS));
-      const k = power2Out(p);
-      x = deX + (paraX - deX) * k;
-      y = deY + (paraY - deY) * k;
+      // Primeiro quadro de uma perseguição: conta como um quadro de 60 Hz.
+      const dt = ultimo ? Math.min(agora - ultimo, 100) : 1000 / 60;
+      ultimo = agora;
+      const k = 1 - Math.exp(-Math.max(dt, 0) / TAU_MS);
+      x += (alvoX - x) * k;
+      y += (alvoY - y) * k;
+      if (Math.abs(alvoX - x) < 0.1 && Math.abs(alvoY - y) < 0.1) {
+        x = alvoX;
+        y = alvoY;
+        quadro = 0;
+        ultimo = 0;
+      } else {
+        quadro = requestAnimationFrame(animar);
+      }
       mover();
-      quadro = p < 1 ? requestAnimationFrame(animar) : 0;
     };
 
     addEventListener(
       'mousemove',
       (e: MouseEvent) => {
         cursor.classList.add('is-on');
+        alvoX = e.clientX;
+        alvoY = e.clientY;
         if (primeiro) {
           // Primeiro movimento: aparece já no ponteiro, sem atravessar a tela.
           primeiro = false;
-          x = e.clientX;
-          y = e.clientY;
+          x = alvoX;
+          y = alvoY;
           mover();
+          return;
         }
-        deX = x;
-        deY = y;
-        paraX = e.clientX;
-        paraY = e.clientY;
-        inicio = performance.now();
         if (!quadro) quadro = requestAnimationFrame(animar);
       },
       { passive: true },

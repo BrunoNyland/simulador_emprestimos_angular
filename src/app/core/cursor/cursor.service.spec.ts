@@ -40,6 +40,29 @@ describe('CursorService', () => {
     botao.remove();
   });
 
+  it('avança a cada quadro mesmo com vários eventos por quadro (mouse de 1000 Hz)', () => {
+    simularPonteiro(true);
+    const quadros: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => quadros.push(cb));
+    TestBed.inject(CursorService).iniciar();
+    const cursor = document.querySelector('.cursor') as HTMLElement;
+    const xAtual = () => Number(/translate\(([-\d.]+)px/.exec(cursor.style.transform)![1]);
+
+    dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }));
+    for (let quadro = 1; quadro <= 3; quadro++) {
+      // 16 eventos entre um quadro e outro, como num mouse de 1000 Hz.
+      for (let i = 1; i <= 16; i++) {
+        dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 0 }));
+      }
+      // Roda todos os callbacks do quadro, como o navegador (os serviços dos
+      // testes anteriores continuam ouvindo a janela e também enfileiram).
+      quadros.splice(0).forEach((cb) => cb(quadro * 16));
+    }
+    // Três quadros de 16 ms com TAU de 45 ms: ~66% do caminho.
+    expect(xAtual()).toBeGreaterThan(150);
+    expect(xAtual()).toBeLessThan(300);
+  });
+
   it('não liga em tela de toque nem com movimento reduzido', () => {
     simularPonteiro(false);
     TestBed.inject(CursorService).iniciar();
