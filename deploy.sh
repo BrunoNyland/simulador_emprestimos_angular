@@ -52,13 +52,18 @@ NOVO="$SAIDA/browser"
 [[ -f "$NOVO/index.html" ]] || { echo "Build sem index.html." >&2; exit 1; }
 
 etapa "Compactando (brotli -q 11, gzip -9)"
-find "$NOVO" -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' \
-    -o -name '*.json' -o -name '*.jsonc' -o -name '*.svg' -o -name '*.ico' \
-    -o -name '*.txt' -o -name '*.xml' -o -name '*.webmanifest' \) -print0 |
-    while IFS= read -r -d '' f; do
-        brotli -q 11 -f -k -o "$f.br" "$f"
-        gzip -9 -n -f -k "$f"
-    done
+# precomprimir e o passo comum dos sites da VPS; o find e a reserva.
+if command -v precomprimir >/dev/null; then
+    precomprimir "$NOVO"
+else
+    find "$NOVO" -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' \
+        -o -name '*.json' -o -name '*.jsonc' -o -name '*.svg' -o -name '*.ico' \
+        -o -name '*.txt' -o -name '*.xml' -o -name '*.webmanifest' \) -print0 |
+        while IFS= read -r -d '' f; do
+            brotli -q 11 -f -k -o "$f.br" "$f"
+            gzip -9 -n -f -k "$f"
+        done
+fi
 du -sh --apparent-size "$NOVO" | cut -f1 | xargs echo "Tamanho com as versões compactadas:"
 
 etapa "Publicando em $DESTINO"
