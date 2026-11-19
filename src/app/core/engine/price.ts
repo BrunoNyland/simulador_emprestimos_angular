@@ -144,7 +144,8 @@ export function gerarCronogramaPrice(entrada: EntradaCronograma): Parcela[] {
       encargos: new Decimal(0).toFixed(CASAS_MONETARIAS),
       valorParcela: valorParcela.toFixed(CASAS_MONETARIAS),
       saldoFinal: arredondarMoeda(saldo).toFixed(CASAS_MONETARIAS),
-      residuo: residuoValor && !residuoValor.isZero() ? residuoValor.toFixed(CASAS_MONETARIAS) : undefined,
+      residuo:
+        residuoValor && !residuoValor.isZero() ? residuoValor.toFixed(CASAS_MONETARIAS) : undefined,
     });
   }
 

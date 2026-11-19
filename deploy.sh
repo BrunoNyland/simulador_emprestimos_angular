@@ -41,6 +41,9 @@ echo "Versão: $(git log -1 --format='%h %s')"
 etapa "Instalando dependências"
 npm ci --no-audit --no-fund --loglevel=error
 
+etapa "Formatação (prettier; corrija com npm run format)"
+npm run -s format:check
+
 etapa "Testes"
 npx ng test --watch=false
 

@@ -38,7 +38,13 @@ describe('eventos (pos-simulacao, dirigidos por data)', () => {
 
   it('amortizacao extra reduzir-prazo: encurta o cronograma e fecha o principal', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: venc(1), valor: '200', base: 'amortizado', opcao: 'reduzir-prazo' },
+      {
+        tipo: 'amortizacao',
+        data: venc(1),
+        valor: '200',
+        base: 'amortizado',
+        opcao: 'reduzir-prazo',
+      },
     ]);
     expect(r.resumo.prazoFinal).toBeLessThan(12);
     expect(r.resumo.totalAmortizacao).toBe('1000.00');
@@ -48,7 +54,13 @@ describe('eventos (pos-simulacao, dirigidos por data)', () => {
 
   it('amortizacao extra reduzir-parcela: mantem o prazo e reduz a parcela', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: venc(1), valor: '200', base: 'amortizado', opcao: 'reduzir-parcela' },
+      {
+        tipo: 'amortizacao',
+        data: venc(1),
+        valor: '200',
+        base: 'amortizado',
+        opcao: 'reduzir-parcela',
+      },
     ]);
     expect(r.resumo.prazoFinal).toBe(12);
     expect(Number(r.parcelas[1].valorParcela)).toBeLessThan(88.85);
@@ -96,7 +108,13 @@ describe('eventos (pos-simulacao, dirigidos por data)', () => {
 
   it('CET com eventos: sem tarifas, o CET ~ taxa do contrato (1%)', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: venc(3), valor: '300', base: 'amortizado', opcao: 'reduzir-prazo' },
+      {
+        tipo: 'amortizacao',
+        data: venc(3),
+        valor: '300',
+        base: 'amortizado',
+        opcao: 'reduzir-prazo',
+      },
     ]);
     expect(Number(r.resumo.cetMensal)).toBeGreaterThan(0.0099);
     expect(Number(r.resumo.cetMensal)).toBeLessThan(0.0102);
@@ -220,7 +238,13 @@ describe('eventos (pos-simulacao, dirigidos por data)', () => {
 
   it('amortizacao extra maior que o saldo: capa no saldo e quita a operacao', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: venc(1), valor: '5000', base: 'amortizado', opcao: 'reduzir-prazo' },
+      {
+        tipo: 'amortizacao',
+        data: venc(1),
+        valor: '5000',
+        base: 'amortizado',
+        opcao: 'reduzir-prazo',
+      },
     ]);
     expect(r.resumo.prazoFinal).toBe(1);
     // saldo apos parc.1 = 921.15 -> amortiza so o saldo, nao os 5000
@@ -253,7 +277,13 @@ describe('eventos (pos-simulacao, dirigidos por data)', () => {
       prazo: 12,
       sistema: 'sac',
       eventos: [
-        { tipo: 'amortizacao', data: venc(1), valor: '200', base: 'amortizado', opcao: 'reduzir-parcela' },
+        {
+          tipo: 'amortizacao',
+          data: venc(1),
+          valor: '200',
+          base: 'amortizado',
+          opcao: 'reduzir-parcela',
+        },
       ],
       dataBase: DATA_BASE,
     });
@@ -271,7 +301,13 @@ describe('eventos (pos-simulacao, dirigidos por data)', () => {
 
   it('eventos antes da 1a parcela (data de liberacao) sao aplicados sobre o principal', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: DATA_BASE, valor: '200', base: 'amortizado', opcao: 'reduzir-parcela' },
+      {
+        tipo: 'amortizacao',
+        data: DATA_BASE,
+        valor: '200',
+        base: 'amortizado',
+        opcao: 'reduzir-parcela',
+      },
     ]);
     // saldo cai p/ 800 antes da 1a parcela -> juros da parc.1 = 8.00
     expect(r.parcelas[0].juros).toBe('8.00');
@@ -299,7 +335,13 @@ describe('eventos: tracos de calculo (transparencia por linha)', () => {
 
   it('amortizacao extra: o traco mostra a amortizacao e o novo saldo', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: venc(1), valor: '200', base: 'amortizado', opcao: 'reduzir-prazo' },
+      {
+        tipo: 'amortizacao',
+        data: venc(1),
+        valor: '200',
+        base: 'amortizado',
+        opcao: 'reduzir-prazo',
+      },
     ]);
     const tr = r.parcelas[0].tracosEvento?.find((t) => t.id === 'evento-amortizacao');
     expect(tr).toBeTruthy();
@@ -321,7 +363,13 @@ describe('eventos: tracos de calculo (transparencia por linha)', () => {
 describe('eventos: detalhes alinhados (linha propria na tabela)', () => {
   it('amortizacao extra: detalhe traz data, amortizacao e saldo apos', () => {
     const r = basePrice([
-      { tipo: 'amortizacao', data: venc(1), valor: '200', base: 'amortizado', opcao: 'reduzir-prazo' },
+      {
+        tipo: 'amortizacao',
+        data: venc(1),
+        valor: '200',
+        base: 'amortizado',
+        opcao: 'reduzir-prazo',
+      },
     ]);
     const det = r.parcelas[0].detalhes?.[0];
     expect(det).toBeTruthy();
@@ -344,10 +392,9 @@ describe('eventos: detalhes alinhados (linha propria na tabela)', () => {
 
   it('mora: detalhe registra o encargo como juros do evento na data do pagamento', () => {
     const dataPag = maisDias(venc(1), 30);
-    const r = basePrice(
-      [{ tipo: 'pagamento', dataVencimento: venc(1), dataPagamento: dataPag }],
-      { mora: { jurosMensal: d('0.01'), multa: d('0.02') } },
-    );
+    const r = basePrice([{ tipo: 'pagamento', dataVencimento: venc(1), dataPagamento: dataPag }], {
+      mora: { jurosMensal: d('0.01'), multa: d('0.02') },
+    });
     const det = r.parcelas[0].detalhes?.find((x) => x.descricao.includes('Atraso'));
     expect(det).toBeTruthy();
     expect(det!.juros).toBe('2.67');
@@ -357,7 +404,15 @@ describe('eventos: detalhes alinhados (linha propria na tabela)', () => {
 
   it('omitirCet: pula o CET (caro) mas mantem o cronograma e os detalhes', () => {
     const r = basePrice(
-      [{ tipo: 'amortizacao', data: venc(3), valor: '300', base: 'amortizado', opcao: 'reduzir-prazo' }],
+      [
+        {
+          tipo: 'amortizacao',
+          data: venc(3),
+          valor: '300',
+          base: 'amortizado',
+          opcao: 'reduzir-prazo',
+        },
+      ],
       { omitirCet: true },
     );
     expect(r.resumo.cetMensal).toBe('');

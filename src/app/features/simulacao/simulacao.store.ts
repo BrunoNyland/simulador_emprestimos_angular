@@ -55,8 +55,7 @@ export interface ProjecaoEventos {
 }
 
 export type EstadoResultado =
-  | { tipo: 'ok'; dados: ResultadoSimulacao }
-  | { tipo: 'erro'; mensagem: string };
+  { tipo: 'ok'; dados: ResultadoSimulacao } | { tipo: 'erro'; mensagem: string };
 
 /**
  * Store de simulacao baseado em signals. Orquestra o motor de calculo e
@@ -260,7 +259,9 @@ export class SimulacaoStore {
    * o saldo/parcelas restantes no ponto exato onde um novo evento entraria.
    * Devolve `null` se não houver simulação válida ou se a projeção for inviável.
    */
-  projetarCenario(eventos: EventoCalc[]): { parcelas: LinhaCronograma[]; principal: Decimal } | null {
+  projetarCenario(
+    eventos: EventoCalc[],
+  ): { parcelas: LinhaCronograma[]; principal: Decimal } | null {
     if (this.resultado().tipo !== 'ok') {
       return null;
     }

@@ -40,8 +40,9 @@
   --shadow-md: 0 4px 14px rgba(20, 24, 33, 0.08);
   --radius: 2px;
   --radius-sm: 2px;
-  --mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, 'SFMono-Regular',
-    Consolas, 'Liberation Mono', monospace;
+  --mono:
+    'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, 'SFMono-Regular', Consolas,
+    'Liberation Mono', monospace;
   --sans: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -126,12 +127,24 @@ html:has(dialog[open]) {
 
 /* ===== Fórmulas MathML (conteúdo via innerHTML, fora do encapsulamento) ===== */
 /* Cada variável recebe a mesma cor na fórmula e na tabela de legenda. */
-.fx-v0 { color: var(--fx-0); }
-.fx-v1 { color: var(--fx-1); }
-.fx-v2 { color: var(--fx-2); }
-.fx-v3 { color: var(--fx-3); }
-.fx-v4 { color: var(--fx-4); }
-.fx-v5 { color: var(--fx-5); }
+.fx-v0 {
+  color: var(--fx-0);
+}
+.fx-v1 {
+  color: var(--fx-1);
+}
+.fx-v2 {
+  color: var(--fx-2);
+}
+.fx-v3 {
+  color: var(--fx-3);
+}
+.fx-v4 {
+  color: var(--fx-4);
+}
+.fx-v5 {
+  color: var(--fx-5);
+}
 
 /*
  * Quando a classe de cor está no BASE de um sub/sobrescrito (ex.: IOF em
@@ -148,7 +161,10 @@ html:has(dialog[open]) {
   font-size: 1.15rem;
   font-family: 'Latin Modern Math', 'STIX Two Math', 'Cambria Math', serif;
 
-  mi, mn, mo, mtext {
+  mi,
+  mn,
+  mo,
+  mtext {
     font-weight: 600;
   }
 

@@ -108,8 +108,7 @@ const NORMA_CDC_TRANSPARENCIA: ReferenciaNormativa = {
 
 const NORMA_CDC_MULTA: ReferenciaNormativa = {
   rotulo: 'Lei nº 8.078/1990 (CDC), art. 52, § 1º',
-  descricao:
-    'Limita a multa de mora a 2% do valor da prestação em dívidas de consumo.',
+  descricao: 'Limita a multa de mora a 2% do valor da prestação em dívidas de consumo.',
   url: 'https://www.planalto.gov.br/ccivil_03/leis/l8078compilado.htm',
 };
 
@@ -156,13 +155,19 @@ function fmtBRL(v: string | number | Decimal): string {
 /** Formata número como porcentagem */
 function fmtPct(v: string | number | Decimal, dec = 2): string {
   const n = typeof v === 'number' ? v : Number(v.toString());
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '%';
+  return (
+    n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '%'
+  );
 }
 
 /** Número em formato PT-BR (vírgula decimal) para uso nas fórmulas de Excel. */
 function fmtNum(v: Decimal | number, dec = 2): string {
   const n = typeof v === 'number' ? v : Number(v.toString());
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: false });
+  return n.toLocaleString('pt-BR', {
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec,
+    useGrouping: false,
+  });
 }
 
 /** Espelha o traço do motor como lista de passos textuais (backward-compat). */
@@ -341,7 +346,7 @@ export function obterExplicacaoMatematica(
   topico: string,
   dados: any,
   sistema: SistemaAmortizacao,
-  arredondamento: 'half-even' | 'half-up'
+  arredondamento: 'half-even' | 'half-up',
 ): Explicacao | null {
   // O motor pode lançar para entradas inviáveis (ex.: parcela < juros → prazo
   // infinito). Nesse caso não há cálculo a explicar: devolvemos null.
@@ -364,7 +369,8 @@ export function obterExplicacaoMatematica(
  */
 export function explicacaoDaParcela(ctx: ContextoLinha): Explicacao {
   const trace = tracarLinhaCronograma(ctx);
-  const passo = (id: string) => new Decimal(trace.passos.find((p) => p.id === id)!.resultado ?? '0');
+  const passo = (id: string) =>
+    new Decimal(trace.passos.find((p) => p.id === id)!.resultado ?? '0');
 
   return {
     titulo: trace.titulo,
@@ -379,11 +385,27 @@ export function explicacaoDaParcela(ctx: ContextoLinha): Explicacao {
       'Cada parcela do cronograma é composta de duas partes: os JUROS do período (a taxa aplicada sobre o saldo devedor no início do mês) e a AMORTIZAÇÃO (a fatia que efetivamente abate o saldo). O saldo final é o saldo inicial menos a amortização — e vira o saldo inicial da próxima parcela.',
     legenda: [
       { simbolo: 'Parcela', nome: 'Valor pago neste mês', valor: fmtBRL(passo('parcela')) },
-      { simbolo: 'J', nome: 'Juros do período (sobre o saldo inicial)', valor: fmtBRL(passo('juros')) },
+      {
+        simbolo: 'J',
+        nome: 'Juros do período (sobre o saldo inicial)',
+        valor: fmtBRL(passo('juros')),
+      },
       { simbolo: 'A', nome: 'Amortização (abate o principal)', valor: fmtBRL(passo('amort')) },
-      { simbolo: 'Saldo', nome: 'Saldo devedor no início do período', valor: fmtBRL(ctx.saldoInicial) },
-      { simbolo: 'i', nome: 'Taxa efetiva do período (mensal)', valor: fmtPct(ctx.taxaPeriodo.times(100), 4) },
-      { simbolo: 'Saldo final', nome: 'Saldo devedor ao fim do período', valor: fmtBRL(passo('saldoFinal')) },
+      {
+        simbolo: 'Saldo',
+        nome: 'Saldo devedor no início do período',
+        valor: fmtBRL(ctx.saldoInicial),
+      },
+      {
+        simbolo: 'i',
+        nome: 'Taxa efetiva do período (mensal)',
+        valor: fmtPct(ctx.taxaPeriodo.times(100), 4),
+      },
+      {
+        simbolo: 'Saldo final',
+        nome: 'Saldo devedor ao fim do período',
+        valor: fmtBRL(passo('saldoFinal')),
+      },
     ],
     passos: passosDeTrace(trace),
     trace,
@@ -431,12 +453,47 @@ export function explicacaoDeLinhaEvento(linha: LinhaCronograma, taxaPeriodo: Dec
           'juros',
           `Juros do período: ${fmtBRL(juros)}. Houve pré-pagamento no meio do mês, então parte dos juros incide sobre o saldo anterior (juros pro-rata).`,
         )
-      : passoCalculo('juros', 'Juros do mês sobre o saldo devedor inicial', 'J = Saldo × i', `${disp(saldoIni, 2)} × ${disp(i)}`, juros, 2),
-    passoCalculo('amort', 'Amortização: o quanto esta parcela reduz do saldo devedor', 'A = Saldo inicial − Saldo final', `${disp(saldoIni, 2)} − ${disp(saldoFim, 2)}`, amort, 2),
+      : passoCalculo(
+          'juros',
+          'Juros do mês sobre o saldo devedor inicial',
+          'J = Saldo × i',
+          `${disp(saldoIni, 2)} × ${disp(i)}`,
+          juros,
+          2,
+        ),
+    passoCalculo(
+      'amort',
+      'Amortização: o quanto esta parcela reduz do saldo devedor',
+      'A = Saldo inicial − Saldo final',
+      `${disp(saldoIni, 2)} − ${disp(saldoFim, 2)}`,
+      amort,
+      2,
+    ),
     encargos.greaterThan(0)
-      ? passoCalculo('parcela', 'Valor pago no mês: juros + amortização + encargos de atraso', 'Parcela = J + A + encargos', `${disp(juros, 2)} + ${disp(amort, 2)} + ${disp(encargos, 2)}`, parcela, 2)
-      : passoCalculo('parcela', 'Valor pago no mês: juros + amortização', 'Parcela = J + A', `${disp(juros, 2)} + ${disp(amort, 2)}`, parcela, 2),
-    passoCalculo('saldoFinal', 'Saldo devedor ao fim do período', 'Saldo final = Saldo inicial − A', `${disp(saldoIni, 2)} − ${disp(amort, 2)}`, saldoFim, 2),
+      ? passoCalculo(
+          'parcela',
+          'Valor pago no mês: juros + amortização + encargos de atraso',
+          'Parcela = J + A + encargos',
+          `${disp(juros, 2)} + ${disp(amort, 2)} + ${disp(encargos, 2)}`,
+          parcela,
+          2,
+        )
+      : passoCalculo(
+          'parcela',
+          'Valor pago no mês: juros + amortização',
+          'Parcela = J + A',
+          `${disp(juros, 2)} + ${disp(amort, 2)}`,
+          parcela,
+          2,
+        ),
+    passoCalculo(
+      'saldoFinal',
+      'Saldo devedor ao fim do período',
+      'Saldo final = Saldo inicial − A',
+      `${disp(saldoIni, 2)} − ${disp(amort, 2)}`,
+      saldoFim,
+      2,
+    ),
   ];
 
   const passosEvento: PassoCalculo[] = [];
@@ -461,7 +518,11 @@ export function explicacaoDeLinhaEvento(linha: LinhaCronograma, taxaPeriodo: Dec
     { simbolo: 'Saldo final', nome: 'Saldo devedor ao fim do período', valor: fmtBRL(saldoFim) },
   ];
   if (encargos.greaterThan(0)) {
-    legenda.push({ simbolo: 'Encargos', nome: 'Multa + juros de mora por atraso', valor: fmtBRL(encargos) });
+    legenda.push({
+      simbolo: 'Encargos',
+      nome: 'Multa + juros de mora por atraso',
+      valor: fmtBRL(encargos),
+    });
   }
 
   return {
@@ -513,7 +574,7 @@ function construirExplicacao(
   topico: string,
   dados: any,
   sistema: SistemaAmortizacao,
-  arredondamento: 'half-even' | 'half-up'
+  arredondamento: 'half-even' | 'half-up',
 ): Explicacao | null {
   if (!dados) return null;
 
@@ -530,7 +591,7 @@ function construirExplicacao(
   const iMensal = taxaEfetivaMensal(
     new Decimal(resolvidos?.taxa || '0'),
     resolvidos?.tipoTaxa || 'efetiva',
-    resolvidos?.unidadeTaxa || 'mensal'
+    resolvidos?.unidadeTaxa || 'mensal',
   );
   const iPct = iMensal.times(100); // taxa mensal em % (como se digita na HP12C/Excel)
   const taxaExibicao = fmtPct(iPct, 4);
@@ -567,9 +628,17 @@ function construirExplicacao(
           descricao:
             'No sistema Price (também chamado de Sistema Francês de Amortização), todas as parcelas têm o MESMO valor do início ao fim do contrato. Cada parcela é composta de uma parte de juros (calculados sobre o saldo devedor do mês) e uma parte de amortização (que abate o saldo). Como o saldo devedor diminui mês a mês, os juros caem e a amortização cresce — mas a soma das duas partes permanece constante. A fórmula vem da soma de uma progressão geométrica: ela encontra o pagamento fixo cujo valor presente, descontado a juros compostos, é exatamente igual ao valor financiado.',
           legenda: [
-            { simbolo: 'PMT', nome: 'Valor da Parcela Periódica (constante)', valor: fmtBRL(dados.parcelaCalculada) },
+            {
+              simbolo: 'PMT',
+              nome: 'Valor da Parcela Periódica (constante)',
+              valor: fmtBRL(dados.parcelaCalculada),
+            },
             { simbolo: 'PV', nome: 'Valor Bruto financiado (Present Value)', valor: fmtBRL(pv) },
-            { simbolo: 'i', nome: 'Taxa de juros efetiva do período (mensal, em fração)', valor: taxaExibicao },
+            {
+              simbolo: 'i',
+              nome: 'Taxa de juros efetiva do período (mensal, em fração)',
+              valor: taxaExibicao,
+            },
             { simbolo: 'n', nome: 'Prazo total em meses', valor: String(n) },
           ],
           passos: passosDeTrace(trace),
@@ -615,7 +684,11 @@ function construirExplicacao(
           descricao:
             'No Sistema de Amortização Constante (SAC), o que é fixo não é a parcela, e sim a AMORTIZAÇÃO: todo mês o cliente abate exatamente PV/n do principal. Os juros de cada mês incidem sobre o saldo devedor restante — por isso começam altos e caem linearmente, fazendo as parcelas serem DECRESCENTES. Comparado ao Price com a mesma taxa e prazo, o SAC tem primeira parcela maior, última parcela menor e paga MENOS juros no total, porque amortiza o principal mais rápido no início. É o sistema mais comum no crédito imobiliário brasileiro.',
           legenda: [
-            { simbolo: 'PMT₁', nome: 'Primeira parcela (a maior do cronograma)', valor: fmtBRL(dados.parcelaCalculada) },
+            {
+              simbolo: 'PMT₁',
+              nome: 'Primeira parcela (a maior do cronograma)',
+              valor: fmtBRL(dados.parcelaCalculada),
+            },
             { simbolo: 'A', nome: 'Amortização constante mensal', valor: fmtBRL(amort) },
             { simbolo: 'J₁', nome: 'Juros da primeira parcela', valor: fmtBRL(juros1) },
             { simbolo: 'PV', nome: 'Valor Bruto financiado', valor: fmtBRL(pv) },
@@ -736,9 +809,18 @@ function construirExplicacao(
         'Taxa de Juros (i) — Métodos Numéricos',
         'Encontrar i tal que PV = Σ [ PMT_k / (1 + i)^k ]',
         [
-          passoNota('f', 'Definir f(i) = (valor presente das parcelas à taxa i) − PV. A raiz de f é a taxa procurada.'),
-          passoNota('newton', "Newton-Raphson: i_(j+1) = i_j − f(i_j) / f'(i_j). Cada iteração usa a inclinação da curva para saltar mais perto da raiz (convergência quadrática)."),
-          passoNota('fallback', 'Se a derivada zerar ou a iteração sair do domínio (i ≤ −100%), troca para a bisseção: corta o intervalo ao meio mantendo a metade onde f muda de sinal.'),
+          passoNota(
+            'f',
+            'Definir f(i) = (valor presente das parcelas à taxa i) − PV. A raiz de f é a taxa procurada.',
+          ),
+          passoNota(
+            'newton',
+            "Newton-Raphson: i_(j+1) = i_j − f(i_j) / f'(i_j). Cada iteração usa a inclinação da curva para saltar mais perto da raiz (convergência quadrática).",
+          ),
+          passoNota(
+            'fallback',
+            'Se a derivada zerar ou a iteração sair do domínio (i ≤ −100%), troca para a bisseção: corta o intervalo ao meio mantendo a metade onde f muda de sinal.',
+          ),
           passoNota('tol', 'Convergência declarada quando |f(i)| < 10⁻¹⁰ (tolerância do motor).'),
           passoNum('i', 'Taxa mensal encontrada', 'i', 'raiz de f(i) = 0', iMensal, 6),
         ],
@@ -798,10 +880,34 @@ function construirExplicacao(
         'Taxa Efetiva × Nominal',
         'i_ef = (1 + i_nom / m)^m − 1',
         [
-          passoNota('base', `Ponto de partida: taxa efetiva mensal i_m = ${disp(imPct, 4)}% (${disp(im, 6)} em fração).`),
-          passoNum('nominal', 'Taxa NOMINAL anual — multiplica por 12 (capitalização linear, sem juros sobre juros)', 'i_nom = i_m × 12', `${disp(imPct, 4)}% × 12`, iNomAnualPct, 4),
-          passoNum('efetiva', 'Taxa EFETIVA anual — capitaliza os 12 meses a juros compostos', 'i_ef = (1 + i_m)^12 − 1', `(1 + ${disp(im, 6)})^12 − 1`, iEfAnualPct, 4),
-          passoNum('dif', 'Diferença — o "ganho" embutido da capitalização composta', 'i_ef − i_nom', `${disp(iEfAnualPct, 4)}% − ${disp(iNomAnualPct, 4)}%`, difPct, 4),
+          passoNota(
+            'base',
+            `Ponto de partida: taxa efetiva mensal i_m = ${disp(imPct, 4)}% (${disp(im, 6)} em fração).`,
+          ),
+          passoNum(
+            'nominal',
+            'Taxa NOMINAL anual — multiplica por 12 (capitalização linear, sem juros sobre juros)',
+            'i_nom = i_m × 12',
+            `${disp(imPct, 4)}% × 12`,
+            iNomAnualPct,
+            4,
+          ),
+          passoNum(
+            'efetiva',
+            'Taxa EFETIVA anual — capitaliza os 12 meses a juros compostos',
+            'i_ef = (1 + i_m)^12 − 1',
+            `(1 + ${disp(im, 6)})^12 − 1`,
+            iEfAnualPct,
+            4,
+          ),
+          passoNum(
+            'dif',
+            'Diferença — o "ganho" embutido da capitalização composta',
+            'i_ef − i_nom',
+            `${disp(iEfAnualPct, 4)}% − ${disp(iNomAnualPct, 4)}%`,
+            difPct,
+            4,
+          ),
         ],
       );
 
@@ -819,10 +925,22 @@ function construirExplicacao(
         descricao:
           'A taxa NOMINAL é apenas um rótulo anual: ela é dividida igualmente pelos períodos de capitalização, sem considerar os juros sobre juros. Já a taxa EFETIVA é a que realmente incide, pois acumula a capitalização composta. Por isso, para a MESMA taxa mensal, a efetiva anual é sempre MAIOR que a nominal anual. No Brasil, contratos e o BACEN exigem a divulgação da taxa efetiva (e do CET) justamente porque a nominal subestima o custo real. Importante: em base mensal, efetiva e nominal coincidem — a diferença só aparece ao anualizar.',
         legenda: [
-          { simbolo: 'i_ef', nome: 'Taxa efetiva anual (juros compostos)', valor: fmtPct(iEfAnualPct, 4) },
-          { simbolo: 'i_nom', nome: 'Taxa nominal anual (capitalização linear)', valor: fmtPct(iNomAnualPct, 4) },
+          {
+            simbolo: 'i_ef',
+            nome: 'Taxa efetiva anual (juros compostos)',
+            valor: fmtPct(iEfAnualPct, 4),
+          },
+          {
+            simbolo: 'i_nom',
+            nome: 'Taxa nominal anual (capitalização linear)',
+            valor: fmtPct(iNomAnualPct, 4),
+          },
           { simbolo: 'm', nome: 'Capitalizações por ano', valor: '12' },
-          { simbolo: 'i_m', nome: 'Taxa efetiva mensal (base do exemplo)', valor: fmtPct(imPct, 4) },
+          {
+            simbolo: 'i_m',
+            nome: 'Taxa efetiva mensal (base do exemplo)',
+            valor: fmtPct(imPct, 4),
+          },
         ],
         passos: passosDeTrace(trace),
         regras: [
@@ -865,7 +983,11 @@ function construirExplicacao(
           descricao:
             'Resolve a equação do Price para o número de períodos: "pagando PMT por mês a esta taxa, em quantos meses quito o financiamento?". O logaritmo aparece porque o prazo está no expoente da fórmula de juros compostos — para "descer" uma incógnita do expoente, aplica-se ln dos dois lados. Atenção à condição de existência: a parcela precisa ser MAIOR que os juros do primeiro mês (PV×i), senão a dívida nunca diminui.',
           legenda: [
-            { simbolo: 'n', nome: 'Prazo calculado (meses)', valor: `${nCalc} (exato ${nExato.toFixed(4)})` },
+            {
+              simbolo: 'n',
+              nome: 'Prazo calculado (meses)',
+              valor: `${nCalc} (exato ${nExato.toFixed(4)})`,
+            },
             { simbolo: 'PV', nome: 'Valor Bruto', valor: fmtBRL(pv) },
             { simbolo: 'i', nome: 'Taxa de juros mensal', valor: taxaExibicao },
             { simbolo: 'PMT', nome: 'Parcela fixada', valor: fmtBRL(pmt) },
@@ -909,7 +1031,11 @@ function construirExplicacao(
           descricao:
             'No SAC a conta é direta, sem logaritmos: a primeira parcela é amortização + juros do 1º mês. Deduzindo os juros (PV×i) da primeira parcela, sobra a cota de amortização constante A. Como toda parcela abate exatamente A do principal, o prazo é simplesmente quantas cotas A cabem no valor financiado.',
           legenda: [
-            { simbolo: 'n', nome: 'Prazo calculado (meses)', valor: `${nCalc} (exato ${new Decimal(trace.resultado).toFixed(4)})` },
+            {
+              simbolo: 'n',
+              nome: 'Prazo calculado (meses)',
+              valor: `${nCalc} (exato ${new Decimal(trace.resultado).toFixed(4)})`,
+            },
             { simbolo: 'PV', nome: 'Valor Bruto', valor: fmtBRL(pv) },
             { simbolo: 'A', nome: 'Amortização constante deduzida', valor: fmtBRL(amort) },
           ],
@@ -940,11 +1066,28 @@ function construirExplicacao(
       const semTarifa = pv.minus(tarifa);
       const liq = semTarifa.minus(iof);
 
-      const trace = montarTrace('valor-liquido', 'Valor Líquido Liberado', 'Líquido = Bruto − Tarifa − IOF', [
-        passoNota('base', `Partir do valor bruto contratado (PV): ${fmtBRL(pv)}.`),
-        passoNum('tarifa', 'Subtrair a tarifa de abertura de crédito (TAC)', 'PV − Tarifa', `${disp(pv, 2)} − ${disp(tarifa, 2)}`, semTarifa),
-        passoNum('iof', 'Subtrair o IOF retido na liberação', '(PV − Tarifa) − IOF', `${disp(semTarifa, 2)} − ${disp(iof, 2)}`, liq),
-      ]);
+      const trace = montarTrace(
+        'valor-liquido',
+        'Valor Líquido Liberado',
+        'Líquido = Bruto − Tarifa − IOF',
+        [
+          passoNota('base', `Partir do valor bruto contratado (PV): ${fmtBRL(pv)}.`),
+          passoNum(
+            'tarifa',
+            'Subtrair a tarifa de abertura de crédito (TAC)',
+            'PV − Tarifa',
+            `${disp(pv, 2)} − ${disp(tarifa, 2)}`,
+            semTarifa,
+          ),
+          passoNum(
+            'iof',
+            'Subtrair o IOF retido na liberação',
+            '(PV − Tarifa) − IOF',
+            `${disp(semTarifa, 2)} − ${disp(iof, 2)}`,
+            liq,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Valor Líquido Liberado',
@@ -985,11 +1128,28 @@ function construirExplicacao(
       const iofA = new Decimal(dados.memoriaCalculo?.iofAdicional || '0');
       const iofT = iofD.plus(iofA);
 
-      const trace = montarTrace('iof-total', 'IOF Total', 'IOF_total = IOF_diário + IOF_adicional', [
-        passoNota('diario', `Componente diária acumulada (detalhada no card "IOF Diário"): ${fmtBRL(iofD)}.`),
-        passoNota('adicional', `Componente adicional fixa de 0,38% (card "IOF Adicional"): ${fmtBRL(iofA)}.`),
-        passoNum('total', 'Somar as duas componentes', 'IOF_diário + IOF_adicional', `${disp(iofD, 2)} + ${disp(iofA, 2)}`, iofT),
-      ]);
+      const trace = montarTrace(
+        'iof-total',
+        'IOF Total',
+        'IOF_total = IOF_diário + IOF_adicional',
+        [
+          passoNota(
+            'diario',
+            `Componente diária acumulada (detalhada no card "IOF Diário"): ${fmtBRL(iofD)}.`,
+          ),
+          passoNota(
+            'adicional',
+            `Componente adicional fixa de 0,38% (card "IOF Adicional"): ${fmtBRL(iofA)}.`,
+          ),
+          passoNum(
+            'total',
+            'Somar as duas componentes',
+            'IOF_diário + IOF_adicional',
+            `${disp(iofD, 2)} + ${disp(iofA, 2)}`,
+            iofT,
+          ),
+        ],
+      );
 
       return {
         titulo: 'IOF Total (Imposto sobre Operações Financeiras)',
@@ -1006,7 +1166,11 @@ function construirExplicacao(
         legenda: [
           { simbolo: 'IOF_total', nome: 'Imposto total retido', valor: fmtBRL(iofT) },
           { simbolo: 'IOF_diário', nome: 'Componente proporcional ao prazo', valor: fmtBRL(iofD) },
-          { simbolo: 'IOF_adicional', nome: 'Componente fixa (0,38% do principal)', valor: fmtBRL(iofA) },
+          {
+            simbolo: 'IOF_adicional',
+            nome: 'Componente fixa (0,38% do principal)',
+            valor: fmtBRL(iofA),
+          },
         ],
         passos: passosDeTrace(trace),
         regras: [
@@ -1037,10 +1201,25 @@ function construirExplicacao(
         'IOF Diário Acumulado',
         'IOF_diário = Σ [ A_k × α × min(dias_k, 365) ]',
         [
-          passoNota('dias', 'Para cada parcela k, contar os dias corridos entre a liberação e o vencimento.'),
-          passoNota('teto', 'Limitar a contagem ao teto legal: min(dias_k, 365) — Decreto 6.306/2007.'),
-          passoNota('produto', `Multiplicar, por parcela: amortização_k × ${aliquotaFracao} (${aliquota} ao dia) × dias limitados.`),
-          passoNum('soma', 'Somar a contribuição de todas as parcelas', 'Σ (A_k × α × dias_k)', 'soma das n parcelas', iofD),
+          passoNota(
+            'dias',
+            'Para cada parcela k, contar os dias corridos entre a liberação e o vencimento.',
+          ),
+          passoNota(
+            'teto',
+            'Limitar a contagem ao teto legal: min(dias_k, 365) — Decreto 6.306/2007.',
+          ),
+          passoNota(
+            'produto',
+            `Multiplicar, por parcela: amortização_k × ${aliquotaFracao} (${aliquota} ao dia) × dias limitados.`,
+          ),
+          passoNum(
+            'soma',
+            'Somar a contribuição de todas as parcelas',
+            'Σ (A_k × α × dias_k)',
+            'soma das n parcelas',
+            iofD,
+          ),
         ],
       );
 
@@ -1055,13 +1234,28 @@ function construirExplicacao(
           '<msub><mi class="fx-v1">A</mi><mi>k</mi></msub><mo>·</mo><mi class="fx-v2">α</mi><mo>·</mo>' +
           '<mi>min</mi><mo>(</mo><msub><mi class="fx-v3">d</mi><mi>k</mi></msub><mo>,</mo><mn>365</mn><mo>)</mo>' +
           '</mrow></math>',
-        descricao:
-          `Cada parcela do cronograma devolve uma fatia do principal (a amortização). O IOF diário tributa cada fatia proporcionalmente ao tempo que ela ficou emprestada: amortização × alíquota diária (${aliquota} ao dia para ${publicoPJ ? 'pessoa jurídica' : 'pessoa física'}) × dias corridos da liberação até o vencimento da parcela. O Decreto 6.306/2007 limita a contagem a 365 dias — parcelas que vencem após 1 ano pagam o teto, o que torna o IOF percentualmente menos relevante em prazos longos.`,
+        descricao: `Cada parcela do cronograma devolve uma fatia do principal (a amortização). O IOF diário tributa cada fatia proporcionalmente ao tempo que ela ficou emprestada: amortização × alíquota diária (${aliquota} ao dia para ${publicoPJ ? 'pessoa jurídica' : 'pessoa física'}) × dias corridos da liberação até o vencimento da parcela. O Decreto 6.306/2007 limita a contagem a 365 dias — parcelas que vencem após 1 ano pagam o teto, o que torna o IOF percentualmente menos relevante em prazos longos.`,
         legenda: [
-          { simbolo: 'IOF_diário', nome: 'IOF diário acumulado de todas as parcelas', valor: fmtBRL(iofD) },
-          { simbolo: 'Amortização_k', nome: 'Principal devolvido na parcela k', valor: 'varia por parcela' },
-          { simbolo: 'alíquota_diária', nome: `Alíquota diária (PF: 0,0082% / PJ: 0,0041%)`, valor: `${aliquota} ao dia` },
-          { simbolo: 'dias_k', nome: 'Dias corridos da liberação ao vencimento k', valor: 'varia por parcela' },
+          {
+            simbolo: 'IOF_diário',
+            nome: 'IOF diário acumulado de todas as parcelas',
+            valor: fmtBRL(iofD),
+          },
+          {
+            simbolo: 'Amortização_k',
+            nome: 'Principal devolvido na parcela k',
+            valor: 'varia por parcela',
+          },
+          {
+            simbolo: 'alíquota_diária',
+            nome: `Alíquota diária (PF: 0,0082% / PJ: 0,0041%)`,
+            valor: `${aliquota} ao dia`,
+          },
+          {
+            simbolo: 'dias_k',
+            nome: 'Dias corridos da liberação ao vencimento k',
+            valor: 'varia por parcela',
+          },
         ],
         passos: passosDeTrace(trace),
         regras: [
@@ -1087,10 +1281,27 @@ function construirExplicacao(
       const iofA = new Decimal(dados.memoriaCalculo?.iofAdicional || '0');
       const iofABruto = pv.times('0.0038');
 
-      const trace = montarTrace('iof-adicional', 'IOF Adicional Fixo (0,38%)', 'IOF_adicional = PV × 0,0038', [
-        passoNum('produto', 'Multiplicar o principal pela alíquota fixa de 0,38%', 'PV × 0,0038', `${disp(pv, 2)} × 0,0038`, iofABruto),
-        passoNum('arred', 'Arredondar para centavos (2 casas)', 'arred(PV × 0,0038)', disp(iofABruto, 6), iofA),
-      ]);
+      const trace = montarTrace(
+        'iof-adicional',
+        'IOF Adicional Fixo (0,38%)',
+        'IOF_adicional = PV × 0,0038',
+        [
+          passoNum(
+            'produto',
+            'Multiplicar o principal pela alíquota fixa de 0,38%',
+            'PV × 0,0038',
+            `${disp(pv, 2)} × 0,0038`,
+            iofABruto,
+          ),
+          passoNum(
+            'arred',
+            'Arredondar para centavos (2 casas)',
+            'arred(PV × 0,0038)',
+            disp(iofABruto, 6),
+            iofA,
+          ),
+        ],
+      );
 
       return {
         titulo: 'IOF Adicional Fixo (0,38%)',
@@ -1110,13 +1321,8 @@ function construirExplicacao(
         ],
         passos: passosDeTrace(trace),
         regras: [regraArredondamento],
-        hp12c: [
-          `${fmtNum(pv)} ENTER ,38 %   → ${fmtNum(iofA)}`,
-        ],
-        excel: [
-          `=${fmtNum(pv)}*0,38%   → ${fmtNum(iofA)}`,
-          NOTA_EXCEL_REGIONAL,
-        ],
+        hp12c: [`${fmtNum(pv)} ENTER ,38 %   → ${fmtNum(iofA)}`],
+        excel: [`=${fmtNum(pv)}*0,38%   → ${fmtNum(iofA)}`, NOTA_EXCEL_REGIONAL],
         normas: [NORMA_IOF],
       };
     }
@@ -1125,10 +1331,21 @@ function construirExplicacao(
       const totPago = new Decimal(dados.totais?.totalParcelas || '0');
       const totJuros = new Decimal(dados.totais?.totalJuros || '0');
 
-      const trace = montarTrace('total-pago', 'Total Pago pelo Cliente', 'Total = Σ PMT_k = PV + Juros', [
-        passoNota('soma', 'Somar o valor final de todas as parcelas do cronograma.'),
-        passoNum('total', 'Equivale ao principal mais o total de juros', 'PV + Juros', `${disp(pv, 2)} + ${disp(totJuros, 2)}`, totPago),
-      ]);
+      const trace = montarTrace(
+        'total-pago',
+        'Total Pago pelo Cliente',
+        'Total = Σ PMT_k = PV + Juros',
+        [
+          passoNota('soma', 'Somar o valor final de todas as parcelas do cronograma.'),
+          passoNum(
+            'total',
+            'Equivale ao principal mais o total de juros',
+            'PV + Juros',
+            `${disp(pv, 2)} + ${disp(totJuros, 2)}`,
+            totPago,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Total Pago pelo Cliente',
@@ -1144,7 +1361,11 @@ function construirExplicacao(
         descricao:
           'Soma nominal de todas as prestações do cronograma. Como cada parcela é composta de amortização + juros, e a soma das amortizações fecha exatamente no principal, o total pago equivale ao valor financiado mais o total de juros. Atenção: é uma soma NOMINAL — não desconta o valor do dinheiro no tempo. Para comparar o custo real entre propostas, use o CET, não o total pago.',
         legenda: [
-          { simbolo: 'Total Pago', nome: 'Soma nominal de todas as parcelas', valor: fmtBRL(totPago) },
+          {
+            simbolo: 'Total Pago',
+            nome: 'Soma nominal de todas as parcelas',
+            valor: fmtBRL(totPago),
+          },
           { simbolo: 'PV', nome: 'Principal (soma das amortizações)', valor: fmtBRL(pv) },
           { simbolo: 'Σ Juros', nome: 'Total de juros do cronograma', valor: fmtBRL(totJuros) },
         ],
@@ -1156,9 +1377,7 @@ function construirExplicacao(
           'Some as parcelas acumulando na memória: parcela STO + 0 (repetir) e RCL 0 ao final.',
           `No Price (parcelas iguais): ${fmtNum(new Decimal(dados.parcelaCalculada || '0'))} ENTER ${n} ×   → aproximação (a última parcela pode variar centavos).`,
         ],
-        excel: [
-          `=SOMA(coluna_das_parcelas)   → ${fmtNum(totPago)}`,
-        ],
+        excel: [`=SOMA(coluna_das_parcelas)   → ${fmtNum(totPago)}`],
         normas: [NORMA_CDC_TRANSPARENCIA],
       };
     }
@@ -1167,11 +1386,25 @@ function construirExplicacao(
       const totJuros = new Decimal(dados.totais?.totalJuros || '0');
       const pctPrincipal = pv.isZero() ? new Decimal(0) : totJuros.div(pv).times(100);
 
-      const trace = montarTrace('total-juros', 'Total de Juros Acumulado', 'Total Juros = Σ (Saldo_(k−1) × i)', [
-        passoNota('porPeriodo', 'Em cada período k: juros_k = saldo devedor do início do mês × taxa mensal.'),
-        passoNota('soma', 'Somar os juros de todas as parcelas do cronograma.'),
-        passoNum('total', `Total apurado — equivale a ${fmtPct(pctPrincipal, 2)} do principal (nominal)`, 'Σ juros_k', 'soma dos juros das n parcelas', totJuros),
-      ]);
+      const trace = montarTrace(
+        'total-juros',
+        'Total de Juros Acumulado',
+        'Total Juros = Σ (Saldo_(k−1) × i)',
+        [
+          passoNota(
+            'porPeriodo',
+            'Em cada período k: juros_k = saldo devedor do início do mês × taxa mensal.',
+          ),
+          passoNota('soma', 'Somar os juros de todas as parcelas do cronograma.'),
+          passoNum(
+            'total',
+            `Total apurado — equivale a ${fmtPct(pctPrincipal, 2)} do principal (nominal)`,
+            'Σ juros_k',
+            'soma dos juros das n parcelas',
+            totJuros,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Total de Juros Acumulado',
@@ -1186,8 +1419,16 @@ function construirExplicacao(
         descricao:
           'Acumula os juros cobrados em todas as parcelas. Em ambos os sistemas (Price e SAC), os juros de cada mês são calculados aplicando a taxa sobre o SALDO DEVEDOR do início do período — nunca sobre o valor original. É por isso que amortizações antecipadas economizam juros: elas reduzem o saldo sobre o qual os juros futuros incidiriam.',
         legenda: [
-          { simbolo: 'Total Juros', nome: 'Soma dos juros de todas as parcelas', valor: fmtBRL(totJuros) },
-          { simbolo: 'Saldo_(k−1)', nome: 'Saldo devedor no início do período k', valor: 'varia por parcela' },
+          {
+            simbolo: 'Total Juros',
+            nome: 'Soma dos juros de todas as parcelas',
+            valor: fmtBRL(totJuros),
+          },
+          {
+            simbolo: 'Saldo_(k−1)',
+            nome: 'Saldo devedor no início do período k',
+            valor: 'varia por parcela',
+          },
           { simbolo: 'i', nome: 'Taxa mensal', valor: taxaExibicao },
         ],
         passos: passosDeTrace(trace),
@@ -1214,18 +1455,45 @@ function construirExplicacao(
         topico === 'cetMensal' ? 'CET Mensal' : 'CET Anual',
         'Líquido = Σ [ PMT_k / (1 + CET_a)^(dias_k/365) ]',
         [
-          passoNota('fluxo', `Montar o fluxo de caixa: recebimento de ${fmtBRL(liq)} na data zero (líquido, não o bruto) e os pagamentos nas datas de vencimento.`),
-          passoNota('dias', 'Converter cada prazo para a convenção BACEN: t_k = dias corridos / 365 (anos fracionários).'),
-          passoNota('tir', 'Resolver numericamente (Newton-Raphson com fallback de bisseção) a taxa anual que iguala o valor presente dos pagamentos ao valor liberado.'),
-          passoNum('anual', 'CET anual encontrado (TIR do fluxo)', 'CET_anual', 'raiz da equação do fluxo', cAnual, 6),
-          passoNum('mensal', 'Converter para o mês por equivalência composta', '(1 + CET_anual)^(1/12) − 1', `(1 + ${disp(cAnual, 6)})^(1/12) − 1`, cMensal, 6),
+          passoNota(
+            'fluxo',
+            `Montar o fluxo de caixa: recebimento de ${fmtBRL(liq)} na data zero (líquido, não o bruto) e os pagamentos nas datas de vencimento.`,
+          ),
+          passoNota(
+            'dias',
+            'Converter cada prazo para a convenção BACEN: t_k = dias corridos / 365 (anos fracionários).',
+          ),
+          passoNota(
+            'tir',
+            'Resolver numericamente (Newton-Raphson com fallback de bisseção) a taxa anual que iguala o valor presente dos pagamentos ao valor liberado.',
+          ),
+          passoNum(
+            'anual',
+            'CET anual encontrado (TIR do fluxo)',
+            'CET_anual',
+            'raiz da equação do fluxo',
+            cAnual,
+            6,
+          ),
+          passoNum(
+            'mensal',
+            'Converter para o mês por equivalência composta',
+            '(1 + CET_anual)^(1/12) − 1',
+            `(1 + ${disp(cAnual, 6)})^(1/12) − 1`,
+            cMensal,
+            6,
+          ),
         ],
       );
 
       return {
-        titulo: topico === 'cetMensal' ? 'CET Mensal (Custo Efetivo Total)' : 'CET Anual (Custo Efetivo Total)',
+        titulo:
+          topico === 'cetMensal'
+            ? 'CET Mensal (Custo Efetivo Total)'
+            : 'CET Anual (Custo Efetivo Total)',
         trace,
-        formula: 'Líquido = Σ [ PMT_k / (1 + CET_anual)^(dias_k/365) ]    e    CET_mensal = (1 + CET_anual)^(1/12) − 1',
+        formula:
+          'Líquido = Σ [ PMT_k / (1 + CET_anual)^(dias_k/365) ]    e    CET_mensal = (1 + CET_anual)^(1/12) − 1',
         formulaMathML:
           '<math display="block"><mrow>' +
           '<mtext class="fx-v0">Líquido</mtext><mo>=</mo>' +
@@ -1241,11 +1509,31 @@ function construirExplicacao(
         descricao:
           'O CET é a medida OFICIAL do custo de um crédito no Brasil, exigida pela Resolução CMN 4.881/2020. Ele responde: "considerando TUDO que pago (parcelas) e o que de fato recebi (líquido, já descontados IOF e tarifas), qual taxa única resume esta operação?". Tecnicamente é a Taxa Interna de Retorno (TIR) do fluxo de caixa, com uma regra de contagem específica do BACEN: o prazo de cada pagamento entra como dias corridos divididos por 365. Como o CET incorpora tributos e tarifas, ele é SEMPRE maior ou igual à taxa de juros contratada — é o número certo para comparar propostas de bancos diferentes.',
         legenda: [
-          { simbolo: 'Líquido', nome: 'Valor efetivamente liberado (base do CET)', valor: fmtBRL(liq) },
-          { simbolo: 'PMT_k', nome: 'Pagamento na data k (parcela + encargos)', valor: 'varia por parcela' },
-          { simbolo: 'dias_k', nome: 'Dias corridos da liberação ao pagamento k', valor: 'varia por parcela' },
-          { simbolo: 'CET_mensal', nome: 'CET expresso ao mês', valor: fmtPct(cMensal.times(100), 4) },
-          { simbolo: 'CET_anual', nome: 'CET expresso ao ano', valor: fmtPct(cAnual.times(100), 2) },
+          {
+            simbolo: 'Líquido',
+            nome: 'Valor efetivamente liberado (base do CET)',
+            valor: fmtBRL(liq),
+          },
+          {
+            simbolo: 'PMT_k',
+            nome: 'Pagamento na data k (parcela + encargos)',
+            valor: 'varia por parcela',
+          },
+          {
+            simbolo: 'dias_k',
+            nome: 'Dias corridos da liberação ao pagamento k',
+            valor: 'varia por parcela',
+          },
+          {
+            simbolo: 'CET_mensal',
+            nome: 'CET expresso ao mês',
+            valor: fmtPct(cMensal.times(100), 4),
+          },
+          {
+            simbolo: 'CET_anual',
+            nome: 'CET expresso ao ano',
+            valor: fmtPct(cAnual.times(100), 2),
+          },
         ],
         passos: passosDeTrace(trace),
         regras: [
@@ -1278,11 +1566,29 @@ function construirExplicacao(
     case 'prazoFinal': {
       const prazoFinalN = new Decimal(dados.resumo?.prazoFinal || '0');
 
-      const trace = montarTrace('prazo-final', 'Prazo Final Pós-Eventos', 'Prazo final = min { k : Saldo_k = 0 }', [
-        passoNota('eventos', 'Aplicar cada evento (amortização extra, antecipação ou quitação) em ordem cronológica, abatendo o saldo na data correspondente.'),
-        passoNota('reproj', 'Reprojetar o cronograma parcela a parcela: juros sobre o novo saldo, amortização conforme o sistema (Price ou SAC).'),
-        passoNum('n', 'Parcela em que o saldo devedor zera', 'min { k : Saldo_k = 0 }', `${dados.resumo?.prazoFinal} meses`, prazoFinalN, 0),
-      ]);
+      const trace = montarTrace(
+        'prazo-final',
+        'Prazo Final Pós-Eventos',
+        'Prazo final = min { k : Saldo_k = 0 }',
+        [
+          passoNota(
+            'eventos',
+            'Aplicar cada evento (amortização extra, antecipação ou quitação) em ordem cronológica, abatendo o saldo na data correspondente.',
+          ),
+          passoNota(
+            'reproj',
+            'Reprojetar o cronograma parcela a parcela: juros sobre o novo saldo, amortização conforme o sistema (Price ou SAC).',
+          ),
+          passoNum(
+            'n',
+            'Parcela em que o saldo devedor zera',
+            'min { k : Saldo_k = 0 }',
+            `${dados.resumo?.prazoFinal} meses`,
+            prazoFinalN,
+            0,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Prazo Final Pós-Eventos',
@@ -1296,7 +1602,11 @@ function construirExplicacao(
         descricao:
           'Quando o cliente faz amortizações extraordinárias com a opção "reduzir prazo", o valor da parcela é mantido e o cronograma simplesmente acaba mais cedo: o aporte abate o saldo devedor, e o motor reprojeta o cronograma até detectar a parcela em que o saldo zera. Pelo CDC (art. 52, § 2º), a liquidação antecipada total ou parcial é um DIREITO do consumidor, com redução proporcional dos juros — o banco não pode cobrar os juros "futuros" das parcelas eliminadas.',
         legenda: [
-          { simbolo: 'Prazo final', nome: 'Nova quantidade de parcelas', valor: `${dados.resumo?.prazoFinal} meses` },
+          {
+            simbolo: 'Prazo final',
+            nome: 'Nova quantidade de parcelas',
+            valor: `${dados.resumo?.prazoFinal} meses`,
+          },
         ],
         passos: passosDeTrace(trace),
         regras: [
@@ -1319,11 +1629,28 @@ function construirExplicacao(
       const novoJ = new Decimal(dados.totais?.totalJuros || '0');
       const economia = new Decimal(dados.resumo?.economiaJuros || '0');
 
-      const trace = montarTrace('economia-juros', 'Economia de Juros Obtida', 'Economia = Juros_original − Juros_eventos', [
-        passoNota('orig', `Total de juros do cronograma base, sem eventos: ${fmtBRL(originalJ)}.`),
-        passoNota('novo', `Total de juros do cronograma reprojetado, com os eventos: ${fmtBRL(novoJ)}.`),
-        passoNum('dif', 'Diferença — juros que o cliente deixou de pagar', 'Juros_original − Juros_eventos', `${disp(originalJ, 2)} − ${disp(novoJ, 2)}`, economia),
-      ]);
+      const trace = montarTrace(
+        'economia-juros',
+        'Economia de Juros Obtida',
+        'Economia = Juros_original − Juros_eventos',
+        [
+          passoNota(
+            'orig',
+            `Total de juros do cronograma base, sem eventos: ${fmtBRL(originalJ)}.`,
+          ),
+          passoNota(
+            'novo',
+            `Total de juros do cronograma reprojetado, com os eventos: ${fmtBRL(novoJ)}.`,
+          ),
+          passoNum(
+            'dif',
+            'Diferença — juros que o cliente deixou de pagar',
+            'Juros_original − Juros_eventos',
+            `${disp(originalJ, 2)} − ${disp(novoJ, 2)}`,
+            economia,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Economia de Juros Obtida',
@@ -1339,7 +1666,11 @@ function construirExplicacao(
           'Mede quanto o cliente deixou de pagar em juros graças às amortizações extras e antecipações. O mecanismo: juros são sempre calculados sobre o saldo devedor; cada real amortizado antecipadamente para de render juros para o banco em todos os meses seguintes. Por isso, quanto MAIS CEDO o aporte, maior a economia — o mesmo valor amortizado na parcela 2 economiza mais do que na parcela 10.',
         legenda: [
           { simbolo: 'Economia', nome: 'Juros economizados', valor: fmtBRL(economia) },
-          { simbolo: 'Juros originais', nome: 'Total de juros sem eventos', valor: fmtBRL(originalJ) },
+          {
+            simbolo: 'Juros originais',
+            nome: 'Total de juros sem eventos',
+            valor: fmtBRL(originalJ),
+          },
           { simbolo: 'Juros novos', nome: 'Total de juros com eventos', valor: fmtBRL(novoJ) },
         ],
         passos: passosDeTrace(trace),
@@ -1347,12 +1678,8 @@ function construirExplicacao(
           regraArredondamento,
           'A redução proporcional dos juros na liquidação antecipada é garantida por lei (CDC art. 52, § 2º).',
         ],
-        hp12c: [
-          `${fmtNum(originalJ)} ENTER ${fmtNum(novoJ)} −   → ${fmtNum(economia)}`,
-        ],
-        excel: [
-          `=${fmtNum(originalJ)}-${fmtNum(novoJ)}   → ${fmtNum(economia)}`,
-        ],
+        hp12c: [`${fmtNum(originalJ)} ENTER ${fmtNum(novoJ)} −   → ${fmtNum(economia)}`],
+        excel: [`=${fmtNum(originalJ)}-${fmtNum(novoJ)}   → ${fmtNum(economia)}`],
         normas: [NORMA_CDC_LIQUIDACAO, NORMA_RES_3516],
       };
     }
@@ -1360,11 +1687,28 @@ function construirExplicacao(
     case 'amortizacoesExtras': {
       const extra = new Decimal(dados.resumo?.amortizacoesExtras || '0');
 
-      const trace = montarTrace('amort-extras', 'Amortizações Extras Totais', 'Extras = Σ aportes de principal', [
-        passoNota('somaApor', 'Somar o valor de cada amortização extra aplicada ao saldo devedor.'),
-        passoNota('vp', 'Nas antecipações de parcelas, somar o valor PRESENTE delas (descontado pela taxa do contrato), não o nominal — Resolução CMN 3.516/2007.'),
-        passoNum('total', 'Total amortizado fora das parcelas regulares', 'Σ aportes', 'soma dos aportes de principal', extra),
-      ]);
+      const trace = montarTrace(
+        'amort-extras',
+        'Amortizações Extras Totais',
+        'Extras = Σ aportes de principal',
+        [
+          passoNota(
+            'somaApor',
+            'Somar o valor de cada amortização extra aplicada ao saldo devedor.',
+          ),
+          passoNota(
+            'vp',
+            'Nas antecipações de parcelas, somar o valor PRESENTE delas (descontado pela taxa do contrato), não o nominal — Resolução CMN 3.516/2007.',
+          ),
+          passoNum(
+            'total',
+            'Total amortizado fora das parcelas regulares',
+            'Σ aportes',
+            'soma dos aportes de principal',
+            extra,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Amortizações Extras Totais',
@@ -1399,11 +1743,28 @@ function construirExplicacao(
     case 'moraEncargos': {
       const encargos = new Decimal(dados.resumo?.totalEncargos || '0');
 
-      const trace = montarTrace('mora-encargos', 'Mora e Multas de Atraso', 'Encargos = Σ (Parcela × multa) + Σ (Parcela × i_mora × dias/30)', [
-        passoNota('multa', 'Para cada parcela em atraso: multa = parcela × percentual de multa (limitado a 2% pelo CDC).'),
-        passoNota('mora', 'Juros de mora pro-rata: parcela × taxa mensal de mora × (dias de atraso / 30).'),
-        passoNum('total', 'Somar multa + juros de mora de todos os atrasos', 'Σ (multa + mora)', 'soma dos encargos de cada atraso', encargos),
-      ]);
+      const trace = montarTrace(
+        'mora-encargos',
+        'Mora e Multas de Atraso',
+        'Encargos = Σ (Parcela × multa) + Σ (Parcela × i_mora × dias/30)',
+        [
+          passoNota(
+            'multa',
+            'Para cada parcela em atraso: multa = parcela × percentual de multa (limitado a 2% pelo CDC).',
+          ),
+          passoNota(
+            'mora',
+            'Juros de mora pro-rata: parcela × taxa mensal de mora × (dias de atraso / 30).',
+          ),
+          passoNum(
+            'total',
+            'Somar multa + juros de mora de todos os atrasos',
+            'Σ (multa + mora)',
+            'soma dos encargos de cada atraso',
+            encargos,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Mora e Multas de Atraso Acumuladas',
@@ -1434,10 +1795,7 @@ function construirExplicacao(
           'Mora: parcela ENTER taxa_mora % dias × 30 ÷   → juros pro-rata.',
           'Somar os dois resultados.',
         ],
-        excel: [
-          '=parcela*2% + parcela*taxa_mora*(dias_atraso/30)',
-          NOTA_EXCEL_REGIONAL,
-        ],
+        excel: ['=parcela*2% + parcela*taxa_mora*(dias_atraso/30)', NOTA_EXCEL_REGIONAL],
         normas: [NORMA_CDC_MULTA, NORMA_CC_MORA],
       };
     }
@@ -1445,12 +1803,26 @@ function construirExplicacao(
     case 'totalPagoPos': {
       const totalP = new Decimal(dados.totais?.totalParcelas || '0');
 
-      const trace = montarTrace('total-pago-pos', 'Total Pago Pós-Eventos', 'Total = Σ parcelas + Σ extras + Σ mora', [
-        passoNota('parc', 'Somar todas as parcelas do cronograma reprojetado pelos eventos.'),
-        passoNota('extras', 'Somar as amortizações extras e antecipações (pelo valor efetivamente pago).'),
-        passoNota('mora', 'Somar multas e juros de mora de eventuais atrasos.'),
-        passoNum('total', 'Desembolso total acumulado pelo cliente', 'Σ parcelas + Σ extras + Σ mora', 'soma de todas as saídas de caixa', totalP),
-      ]);
+      const trace = montarTrace(
+        'total-pago-pos',
+        'Total Pago Pós-Eventos',
+        'Total = Σ parcelas + Σ extras + Σ mora',
+        [
+          passoNota('parc', 'Somar todas as parcelas do cronograma reprojetado pelos eventos.'),
+          passoNota(
+            'extras',
+            'Somar as amortizações extras e antecipações (pelo valor efetivamente pago).',
+          ),
+          passoNota('mora', 'Somar multas e juros de mora de eventuais atrasos.'),
+          passoNum(
+            'total',
+            'Desembolso total acumulado pelo cliente',
+            'Σ parcelas + Σ extras + Σ mora',
+            'soma de todas as saídas de caixa',
+            totalP,
+          ),
+        ],
+      );
 
       return {
         titulo: 'Total Pago Pós-Eventos',
@@ -1470,12 +1842,8 @@ function construirExplicacao(
         ],
         passos: passosDeTrace(trace),
         regras: [regraArredondamento],
-        hp12c: [
-          'Acumule cada desembolso na memória: valor STO + 0 (repetir); RCL 0 ao final.',
-        ],
-        excel: [
-          '=SOMA(parcelas) + SOMA(amortizações_extras) + SOMA(encargos)',
-        ],
+        hp12c: ['Acumule cada desembolso na memória: valor STO + 0 (repetir); RCL 0 ao final.'],
+        excel: ['=SOMA(parcelas) + SOMA(amortizações_extras) + SOMA(encargos)'],
         normas: [NORMA_CDC_TRANSPARENCIA],
       };
     }
@@ -1483,17 +1851,33 @@ function construirExplicacao(
     case 'cetMensalPos': {
       const cetM = new Decimal(dados.cetMensal || '0');
 
-      const trace = montarTrace('cet-mensal-pos', 'CET Mensal Pós-Eventos', 'Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]', [
-        passoNota('fluxo', 'Reconstituir o fluxo: valor liberado na data zero; cada pagamento (parcela, aporte, mora) na sua data real.'),
-        passoNota('dias', 'Converter os prazos para dias corridos / 365 (convenção BACEN).'),
-        passoNota('tir', 'Resolver a TIR numericamente (Newton-Raphson + bisseção).'),
-        passoNum('mensal', 'CET mensal do fluxo realizado', 'TIR mensal', 'raiz do fluxo de caixa real', cetM, 6),
-      ]);
+      const trace = montarTrace(
+        'cet-mensal-pos',
+        'CET Mensal Pós-Eventos',
+        'Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]',
+        [
+          passoNota(
+            'fluxo',
+            'Reconstituir o fluxo: valor liberado na data zero; cada pagamento (parcela, aporte, mora) na sua data real.',
+          ),
+          passoNota('dias', 'Converter os prazos para dias corridos / 365 (convenção BACEN).'),
+          passoNota('tir', 'Resolver a TIR numericamente (Newton-Raphson + bisseção).'),
+          passoNum(
+            'mensal',
+            'CET mensal do fluxo realizado',
+            'TIR mensal',
+            'raiz do fluxo de caixa real',
+            cetM,
+            6,
+          ),
+        ],
+      );
 
       return {
         titulo: 'CET Mensal Pós-Eventos (fluxo realizado)',
         trace,
-        formula: 'Resolver a TIR do fluxo de caixa REAL:  Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]',
+        formula:
+          'Resolver a TIR do fluxo de caixa REAL:  Liberado = Σ [ pagamento_k / (1 + i)^(dias_k/365) ]',
         formulaMathML:
           '<math display="block"><mrow>' +
           '<mtext>Liberado</mtext><mo>=</mo>' +
@@ -1505,12 +1889,14 @@ function construirExplicacao(
         descricao:
           'Recalcula o Custo Efetivo Total considerando o que de fato aconteceu: parcelas pagas, amortizações extras nas suas datas reais, antecipações e encargos de mora. É o "CET realizado" da operação, em contraste com o CET contratado da simulação base. Usa a mesma convenção regulatória do BACEN (dias corridos / 365). Amortizações antecipadas tendem a manter o CET próximo à taxa contratual; atrasos com mora o elevam.',
         legenda: [
-          { simbolo: 'CET mensal', nome: 'Taxa efetiva do fluxo realizado', valor: fmtPct(cetM.times(100), 4) },
+          {
+            simbolo: 'CET mensal',
+            nome: 'Taxa efetiva do fluxo realizado',
+            valor: fmtPct(cetM.times(100), 4),
+          },
         ],
         passos: passosDeTrace(trace),
-        regras: [
-          'Mesma convenção e tolerância do CET base (Resolução CMN 4.881/2020).',
-        ],
+        regras: ['Mesma convenção e tolerância do CET base (Resolução CMN 4.881/2020).'],
         hp12c: [
           'Fluxos irregulares: registre cada valor com g CFj na ordem das datas (CF0 = líquido com CHS) e calcule f IRR.',
           'Obs.: a HP12C assume períodos uniformes entre fluxos — para datas irregulares o resultado é aproximado.',

@@ -14,7 +14,12 @@ import { ActivatedRoute, Params, Router } from '@angular/router';
 import { take, debounceTime } from 'rxjs';
 import { SimulacaoStore } from './simulacao.store';
 import { CampoAlvo } from '../../core/engine/solver';
-import { BaseAmortizacao, EventoCalc, LinhaCronograma, mapearData } from '../../core/engine/eventos';
+import {
+  BaseAmortizacao,
+  EventoCalc,
+  LinhaCronograma,
+  mapearData,
+} from '../../core/engine/eventos';
 import { adicionarMeses } from '../../core/engine/dates';
 import { Decimal, arredondarMoeda } from '../../core/engine/decimal.config';
 import { OpcaoAmortizacao, Parcela } from '../../core/engine/models';
@@ -33,7 +38,6 @@ import {
 } from './explicador';
 import { ExplicacaoModalComponent } from './explicacao-modal.component';
 import { GraficoSaldoComponent, SerieLinha } from './grafico-saldo.component';
-
 
 const CAMPOS: CampoAlvo[] = ['valorBruto', 'taxa', 'prazo', 'parcela'];
 
@@ -106,8 +110,6 @@ export class SimuladorComponent {
   readonly formatoMoeda = computed(() => this.configService.config().formatos.valor);
   readonly formatoCetMensal = computed(() => this.configService.config().formatos.cetMensal);
   readonly formatoCetAnual = computed(() => this.configService.config().formatos.cetAnual);
-
-
 
   readonly form = this.fb.nonNullable.group({
     sistema: this.store.sistema(),
@@ -221,10 +223,13 @@ export class SimuladorComponent {
 
     if (p['sistema'] === 'price' || p['sistema'] === 'sac') patch.sistema = p['sistema'];
     if (p['valorBruto'] !== undefined) patch.valorBruto = p['valorBruto'];
-    if (p['taxa'] !== undefined && Number.isFinite(Number(p['taxa']))) patch.taxa = Number(p['taxa']);
+    if (p['taxa'] !== undefined && Number.isFinite(Number(p['taxa'])))
+      patch.taxa = Number(p['taxa']);
     if (p['tipoTaxa'] === 'efetiva' || p['tipoTaxa'] === 'nominal') patch.tipoTaxa = p['tipoTaxa'];
-    if (p['unidadeTaxa'] === 'mensal' || p['unidadeTaxa'] === 'anual') patch.unidadeTaxa = p['unidadeTaxa'];
-    if (p['prazo'] !== undefined && Number.isInteger(Number(p['prazo']))) patch.prazo = Number(p['prazo']);
+    if (p['unidadeTaxa'] === 'mensal' || p['unidadeTaxa'] === 'anual')
+      patch.unidadeTaxa = p['unidadeTaxa'];
+    if (p['prazo'] !== undefined && Number.isInteger(Number(p['prazo'])))
+      patch.prazo = Number(p['prazo']);
     if (p['parcela'] !== undefined) patch.parcela = p['parcela'];
     if (p['dataBase'] !== undefined) patch.dataBase = p['dataBase'];
     if (p['publico'] === 'PF' || p['publico'] === 'PJ') patch.publico = p['publico'];
@@ -377,7 +382,12 @@ export class SimuladorComponent {
         totaisOriginal: res.tipo === 'ok' ? res.dados.totais : null,
         parametros: res.tipo === 'ok' ? res.dados.parametros : null,
       };
-      return obterExplicacaoMatematica(topico, dadosExplicacao, this.store.sistema(), arredondamento);
+      return obterExplicacaoMatematica(
+        topico,
+        dadosExplicacao,
+        this.store.sistema(),
+        arredondamento,
+      );
     }
 
     if (res.tipo !== 'ok') return null;
@@ -484,14 +494,18 @@ export class SimuladorComponent {
       data: e.tipo === 'pagamento' ? e.dataVencimento : e.data,
       valor: e.tipo === 'amortizacao' ? e.valor : this.eventoForm.controls.valor.value,
       base: e.tipo === 'amortizacao' ? e.base : this.eventoForm.controls.base.value,
-      quantidade: e.tipo === 'antecipacao' ? e.quantidade : this.eventoForm.controls.quantidade.value,
+      quantidade:
+        e.tipo === 'antecipacao' ? e.quantidade : this.eventoForm.controls.quantidade.value,
       opcao:
         (e.tipo === 'amortizacao' || e.tipo === 'antecipacao') && e.opcao
           ? e.opcao
           : this.eventoForm.controls.opcao.value,
-      dataVencimento: e.tipo === 'pagamento' ? e.dataVencimento : this.eventoForm.controls.dataVencimento.value,
-      dataPagamento: e.tipo === 'pagamento' ? e.dataPagamento : this.eventoForm.controls.dataPagamento.value,
-      valorPago: e.tipo === 'pagamento' ? e.valorPago ?? '' : this.eventoForm.controls.valorPago.value,
+      dataVencimento:
+        e.tipo === 'pagamento' ? e.dataVencimento : this.eventoForm.controls.dataVencimento.value,
+      dataPagamento:
+        e.tipo === 'pagamento' ? e.dataPagamento : this.eventoForm.controls.dataPagamento.value,
+      valorPago:
+        e.tipo === 'pagamento' ? (e.valorPago ?? '') : this.eventoForm.controls.valorPago.value,
     });
   }
 

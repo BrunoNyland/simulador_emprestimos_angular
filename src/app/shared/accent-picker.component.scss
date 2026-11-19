@@ -32,7 +32,9 @@
 
   /* Bolinha ativa: anel ao redor com a própria cor. */
   &.ativa {
-    box-shadow: 0 0 0 2px var(--header-bg), 0 0 0 3.5px var(--cor);
+    box-shadow:
+      0 0 0 2px var(--header-bg),
+      0 0 0 3.5px var(--cor);
   }
 }
 
@@ -43,6 +45,8 @@
 
   &.ativa {
     border-color: var(--text-muted);
-    box-shadow: 0 0 0 2px var(--header-bg), 0 0 0 3.5px var(--text-muted);
+    box-shadow:
+      0 0 0 2px var(--header-bg),
+      0 0 0 3.5px var(--text-muted);
   }
 }

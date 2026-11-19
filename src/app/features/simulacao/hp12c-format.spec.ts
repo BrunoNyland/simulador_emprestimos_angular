@@ -27,7 +27,9 @@ describe('analisarLinhaHp12c', () => {
   });
 
   it('frase com teclas embutidas vira prosa, mas mantém teclas como botões', () => {
-    const r = analisarLinhaHp12c('Antes de começar: pressione f CLX para limpar (fim do período) e g END');
+    const r = analisarLinhaHp12c(
+      'Antes de começar: pressione f CLX para limpar (fim do período) e g END',
+    );
     expect(r.prosa).toBe(true);
     // o parêntese NÃO é final → permanece como texto, não vira comentário
     expect(r.comentario).toBe('');

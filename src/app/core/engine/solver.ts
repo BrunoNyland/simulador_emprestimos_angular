@@ -31,11 +31,7 @@ export interface ResultadoPrazoComTrace {
  * Valor presente Price CANÔNICO (com traço). PMT*(1-(1+i)^-n)/i (PMT*n se i=0).
  * `valorPresentePrice` é o wrapper fino que descarta o traço.
  */
-export function calcularValorPresentePrice(
-  pmt: Decimal,
-  i: Decimal,
-  n: number,
-): ResultadoComTrace {
+export function calcularValorPresentePrice(pmt: Decimal, i: Decimal, n: number): ResultadoComTrace {
   if (i.isZero()) {
     const valor = pmt.times(n);
     return {
@@ -46,7 +42,14 @@ export function calcularValorPresentePrice(
         formula: 'PV = PMT × n',
         resultado: valor.toString(),
         passos: [
-          passoCalculo('pv', 'Sem juros, soma das parcelas iguais', 'PMT × n', `${disp(pmt, 2)} × ${n}`, valor, 2),
+          passoCalculo(
+            'pv',
+            'Sem juros, soma das parcelas iguais',
+            'PMT × n',
+            `${disp(pmt, 2)} × ${n}`,
+            valor,
+            2,
+          ),
         ],
       },
     };
@@ -67,8 +70,21 @@ export function calcularValorPresentePrice(
         passoCalculo('base', 'Somar 1 à taxa', '1 + i', `1 + ${disp(i)}`, base),
         passoCalculo('pot', 'Fator de desconto total', '(1 + i)^−n', `${disp(base)}^−${n}`, pot),
         passoCalculo('num', 'Subtrair de 1', '1 − (1 + i)^−n', `1 − ${disp(pot)}`, num),
-        passoCalculo('fator', 'Fator de valor presente da anuidade', '[1 − (1 + i)^−n] / i', `${disp(num)} / ${disp(i)}`, fator),
-        passoCalculo('pv', 'Multiplicar pela parcela', 'PMT × fator', `${disp(pmt, 2)} × ${disp(fator)}`, valor, 2),
+        passoCalculo(
+          'fator',
+          'Fator de valor presente da anuidade',
+          '[1 − (1 + i)^−n] / i',
+          `${disp(num)} / ${disp(i)}`,
+          fator,
+        ),
+        passoCalculo(
+          'pv',
+          'Multiplicar pela parcela',
+          'PMT × fator',
+          `${disp(pmt, 2)} × ${disp(fator)}`,
+          valor,
+          2,
+        ),
       ],
     },
   };
@@ -94,7 +110,16 @@ export function calcularPrazoPrice(pv: Decimal, pmt: Decimal, i: Decimal): Resul
         titulo: 'Prazo Price (n) — taxa zero',
         formula: 'n = PV / PMT',
         resultado: exato.toString(),
-        passos: [passoCalculo('n', 'Sem juros, divide o principal pela parcela', 'PV / PMT', `${disp(pv, 2)} / ${disp(pmt, 2)}`, exato, 2)],
+        passos: [
+          passoCalculo(
+            'n',
+            'Sem juros, divide o principal pela parcela',
+            'PV / PMT',
+            `${disp(pv, 2)} / ${disp(pmt, 2)}`,
+            exato,
+            2,
+          ),
+        ],
       },
     };
   }
@@ -115,12 +140,44 @@ export function calcularPrazoPrice(pv: Decimal, pmt: Decimal, i: Decimal): Resul
       formula: 'n = − ln(1 − PV·i / PMT) / ln(1 + i)',
       resultado: exato.toString(),
       passos: [
-        passoCalculo('juros', 'Juros do 1º mês', 'PV × i', `${disp(pv, 2)} × ${disp(i)}`, jurosMes, 2),
-        passoCalculo('frac', 'Fração da parcela consumida por juros', 'PV·i / PMT', `${disp(jurosMes, 2)} / ${disp(pmt, 2)}`, jurosMes.div(pmt)),
+        passoCalculo(
+          'juros',
+          'Juros do 1º mês',
+          'PV × i',
+          `${disp(pv, 2)} × ${disp(i)}`,
+          jurosMes,
+          2,
+        ),
+        passoCalculo(
+          'frac',
+          'Fração da parcela consumida por juros',
+          'PV·i / PMT',
+          `${disp(jurosMes, 2)} / ${disp(pmt, 2)}`,
+          jurosMes.div(pmt),
+        ),
         passoCalculo('arg', 'Subtrair de 1', '1 − PV·i/PMT', `1 − ${disp(jurosMes.div(pmt))}`, arg),
-        passoCalculo('lnArg', 'Logaritmo natural do argumento', 'ln(1 − PV·i/PMT)', `ln(${disp(arg)})`, lnArg),
-        passoCalculo('lnBase', 'Logaritmo natural de (1 + i)', 'ln(1 + i)', `ln(${disp(i.plus(1))})`, lnBase),
-        passoCalculo('n', 'Dividir e inverter o sinal (arredonda p/ inteiro)', '− lnArg / lnBase', `−${disp(lnArg)} / ${disp(lnBase)}`, exato, 2),
+        passoCalculo(
+          'lnArg',
+          'Logaritmo natural do argumento',
+          'ln(1 − PV·i/PMT)',
+          `ln(${disp(arg)})`,
+          lnArg,
+        ),
+        passoCalculo(
+          'lnBase',
+          'Logaritmo natural de (1 + i)',
+          'ln(1 + i)',
+          `ln(${disp(i.plus(1))})`,
+          lnBase,
+        ),
+        passoCalculo(
+          'n',
+          'Dividir e inverter o sinal (arredonda p/ inteiro)',
+          '− lnArg / lnBase',
+          `−${disp(lnArg)} / ${disp(lnBase)}`,
+          exato,
+          2,
+        ),
       ],
     },
   };
@@ -156,8 +213,21 @@ export function calcularValorPresenteSac(
       resultado: valor.toString(),
       passos: [
         passoCalculo('cota', 'Fração de amortização por período', '1 / n', `1 / ${n}`, cotaN),
-        passoCalculo('fator', 'Somar a taxa mensal', '1/n + i', `${disp(cotaN)} + ${disp(i)}`, fator),
-        passoCalculo('pv', 'Dividir a 1ª parcela pelo fator', 'PMT₁ / fator', `${disp(parcela1, 2)} / ${disp(fator)}`, valor, 2),
+        passoCalculo(
+          'fator',
+          'Somar a taxa mensal',
+          '1/n + i',
+          `${disp(cotaN)} + ${disp(i)}`,
+          fator,
+        ),
+        passoCalculo(
+          'pv',
+          'Dividir a 1ª parcela pelo fator',
+          'PMT₁ / fator',
+          `${disp(parcela1, 2)} / ${disp(fator)}`,
+          valor,
+          2,
+        ),
       ],
     },
   };
@@ -169,7 +239,11 @@ export function valorPresenteSac(parcela1: Decimal, i: Decimal, n: number): Deci
 }
 
 /** Prazo SAC CANÔNICO (com traço): n = PV / (parcela1 - PV*i). */
-export function calcularPrazoSac(pv: Decimal, parcela1: Decimal, i: Decimal): ResultadoPrazoComTrace {
+export function calcularPrazoSac(
+  pv: Decimal,
+  parcela1: Decimal,
+  i: Decimal,
+): ResultadoPrazoComTrace {
   const jurosMes = pv.times(i);
   const amort = parcela1.minus(jurosMes);
   if (amort.lessThanOrEqualTo(0)) {
@@ -185,9 +259,30 @@ export function calcularPrazoSac(pv: Decimal, parcela1: Decimal, i: Decimal): Re
       formula: 'n = PV / A    com  A = PMT₁ − PV·i',
       resultado: exato.toString(),
       passos: [
-        passoCalculo('juros', 'Juros do 1º mês', 'PV × i', `${disp(pv, 2)} × ${disp(i)}`, jurosMes, 2),
-        passoCalculo('amort', 'Amortização constante (deduz os juros da 1ª parcela)', 'A = PMT₁ − PV·i', `${disp(parcela1, 2)} − ${disp(jurosMes, 2)}`, amort, 2),
-        passoCalculo('n', 'Dividir o principal pela amortização (arredonda p/ inteiro)', 'PV / A', `${disp(pv, 2)} / ${disp(amort, 2)}`, exato, 2),
+        passoCalculo(
+          'juros',
+          'Juros do 1º mês',
+          'PV × i',
+          `${disp(pv, 2)} × ${disp(i)}`,
+          jurosMes,
+          2,
+        ),
+        passoCalculo(
+          'amort',
+          'Amortização constante (deduz os juros da 1ª parcela)',
+          'A = PMT₁ − PV·i',
+          `${disp(parcela1, 2)} − ${disp(jurosMes, 2)}`,
+          amort,
+          2,
+        ),
+        passoCalculo(
+          'n',
+          'Dividir o principal pela amortização (arredonda p/ inteiro)',
+          'PV / A',
+          `${disp(pv, 2)} / ${disp(amort, 2)}`,
+          exato,
+          2,
+        ),
       ],
     },
   };

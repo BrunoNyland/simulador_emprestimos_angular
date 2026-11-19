@@ -36,7 +36,14 @@ describe('solver — traços (motor = fonte única)', () => {
     expect(r.n).toBe(prazoPrice(d(1000), pmt, d('0.01')));
     expect(r.n).toBe(12);
     expect(new Decimal(r.trace.resultado).toDecimalPlaces(4).toString()).toBe('12');
-    expect(r.trace.passos.map((p) => p.id)).toEqual(['juros', 'frac', 'arg', 'lnArg', 'lnBase', 'n']);
+    expect(r.trace.passos.map((p) => p.id)).toEqual([
+      'juros',
+      'frac',
+      'arg',
+      'lnArg',
+      'lnBase',
+      'n',
+    ]);
   });
 
   it('Prazo SAC: n inteiro bate com prazoSac', () => {

@@ -16,11 +16,7 @@ export type TipoTaxa = 'efetiva' | 'nominal';
 export type UnidadeTaxa = 'mensal' | 'anual';
 
 export type TipoEncargo =
-  | 'fixo'
-  | 'percentual-principal'
-  | 'percentual-ap'
-  | 'por-periodo'
-  | 'unico';
+  'fixo' | 'percentual-principal' | 'percentual-ap' | 'por-periodo' | 'unico';
 
 export interface Encargo {
   nome: string;

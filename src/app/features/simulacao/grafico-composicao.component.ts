@@ -19,10 +19,28 @@ export interface BarraComposicao {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <figure class="g-fig">
-      <svg viewBox="0 0 100 56" preserveAspectRatio="none" class="g-svg" role="img" [attr.aria-label]="rotulo()">
+      <svg
+        viewBox="0 0 100 56"
+        preserveAspectRatio="none"
+        class="g-svg"
+        role="img"
+        [attr.aria-label]="rotulo()"
+      >
         @for (c of colunas(); track c.numero) {
-          <rect class="g-juros" [attr.x]="c.x" [attr.width]="c.w" [attr.y]="c.jurosY" [attr.height]="c.jurosH"></rect>
-          <rect class="g-amort" [attr.x]="c.x" [attr.width]="c.w" [attr.y]="c.amortY" [attr.height]="c.amortH"></rect>
+          <rect
+            class="g-juros"
+            [attr.x]="c.x"
+            [attr.width]="c.w"
+            [attr.y]="c.jurosY"
+            [attr.height]="c.jurosH"
+          ></rect>
+          <rect
+            class="g-amort"
+            [attr.x]="c.x"
+            [attr.width]="c.w"
+            [attr.y]="c.amortY"
+            [attr.height]="c.amortH"
+          ></rect>
         }
       </svg>
       <figcaption class="g-legenda">

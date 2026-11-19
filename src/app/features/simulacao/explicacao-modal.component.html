@@ -17,7 +17,15 @@
         aria-label="Fechar demonstração"
         title="Fechar (Esc)"
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+        >
           <path d="M18 6 6 18"></path>
           <path d="m6 6 12 12"></path>
         </svg>
@@ -71,7 +79,8 @@
           }
         </ol>
         <p class="demo-trace-fonte">
-          Passos gerados pelo próprio motor de cálculo ({{ tr.id }}) — os mesmos valores usados no cronograma.
+          Passos gerados pelo próprio motor de cálculo ({{ tr.id }}) — os mesmos valores usados no
+          cronograma.
         </p>
       } @else {
         <!-- (intencional) sem traço estruturado: cai no espelho textual -->
@@ -86,16 +95,30 @@
         <h4 class="demo-sub">Composição das parcelas (juros × amortização)</h4>
         <app-grafico-composicao [barras]="exp.graficoComposicao!" />
         <p class="demo-grafico-nota">
-          Cada barra é uma parcela: a base (vermelho) são os juros do mês; o topo (verde), a amortização.
+          Cada barra é uma parcela: a base (vermelho) são os juros do mês; o topo (verde), a
+          amortização.
         </p>
       }
 
       <details class="demo-secao">
         <summary class="demo-sub demo-sub--toggle">
-          <svg class="demo-sub-icone" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg
+            class="demo-sub-icone"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
             <path d="M9 18h6"></path>
             <path d="M10 22h4"></path>
-            <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path>
+            <path
+              d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"
+            ></path>
           </svg>
           Conceito
         </summary>
@@ -105,11 +128,25 @@
       @if (exp.hp12c.length > 0) {
         <details class="demo-secao">
           <summary class="demo-sub demo-sub--toggle">
-            <svg class="demo-sub-icone" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg
+              class="demo-sub-icone"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <rect x="4" y="2" width="16" height="20" rx="2"></rect>
               <line x1="8" y1="6" x2="16" y2="6"></line>
-              <line x1="8" y1="11" x2="8" y2="11"></line><line x1="12" y1="11" x2="12" y2="11"></line><line x1="16" y1="11" x2="16" y2="11"></line>
-              <line x1="8" y1="15" x2="8" y2="15"></line><line x1="12" y1="15" x2="12" y2="15"></line>
+              <line x1="8" y1="11" x2="8" y2="11"></line>
+              <line x1="12" y1="11" x2="12" y2="11"></line>
+              <line x1="16" y1="11" x2="16" y2="11"></line>
+              <line x1="8" y1="15" x2="8" y2="15"></line>
+              <line x1="12" y1="15" x2="12" y2="15"></line>
             </svg>
             Como Calcular na HP12C
           </summary>
@@ -127,7 +164,8 @@
                           [class.hp-num]="s.tipo === 'num'"
                           [class.hp-f]="s.modificador === 'f'"
                           [class.hp-g]="s.modificador === 'g'"
-                        >{{ s.texto }}</kbd>
+                          >{{ s.texto }}</kbd
+                        >
                       }
                     }
                   </span>
@@ -144,7 +182,18 @@
       @if (exp.excel.length > 0) {
         <details class="demo-secao">
           <summary class="demo-sub demo-sub--toggle">
-            <svg class="demo-sub-icone" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg
+              class="demo-sub-icone"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <rect x="3" y="3" width="18" height="18" rx="2"></rect>
               <line x1="3" y1="9" x2="21" y2="9"></line>
               <line x1="3" y1="15" x2="21" y2="15"></line>
@@ -153,33 +202,51 @@
             Como Calcular no Excel
           </summary>
           <ul class="demo-calculadora demo-calculadora--excel">
-          @for (linha of exp.excel; track $index) {
-            <li>
-              <span class="dc-texto">{{ linha }}</span>
-              @if (ehFormula(linha)) {
-                <button
-                  type="button"
-                  class="dc-copiar"
-                  (click)="copiarFormula(linha, $index)"
-                  [attr.aria-label]="'Copiar fórmula'"
-                  title="Copiar fórmula"
-                >
-                  @if (copiadoIdx() === $index) {
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20 6 9 17l-5-5"></path>
-                    </svg>
-                    copiado
-                  } @else {
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                    copiar
-                  }
-                </button>
-              }
-            </li>
-          }
+            @for (linha of exp.excel; track $index) {
+              <li>
+                <span class="dc-texto">{{ linha }}</span>
+                @if (ehFormula(linha)) {
+                  <button
+                    type="button"
+                    class="dc-copiar"
+                    (click)="copiarFormula(linha, $index)"
+                    [attr.aria-label]="'Copiar fórmula'"
+                    title="Copiar fórmula"
+                  >
+                    @if (copiadoIdx() === $index) {
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M20 6 9 17l-5-5"></path>
+                      </svg>
+                      copiado
+                    } @else {
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      copiar
+                    }
+                  </button>
+                }
+              </li>
+            }
           </ul>
         </details>
       }
@@ -187,9 +254,22 @@
       @if (exp.regras.length > 0) {
         <details class="demo-secao">
           <summary class="demo-sub demo-sub--toggle">
-            <svg class="demo-sub-icone" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg
+              class="demo-sub-icone"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <rect x="8" y="2" width="8" height="4" rx="1"></rect>
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+              <path
+                d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+              ></path>
               <path d="m9 14 2 2 4-4"></path>
             </svg>
             Regras de Negócio e Arredondamento
@@ -205,7 +285,18 @@
       @if (exp.normas.length > 0) {
         <details class="demo-secao">
           <summary class="demo-sub demo-sub--toggle">
-            <svg class="demo-sub-icone" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg
+              class="demo-sub-icone"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <path d="M3 7l9-4 9 4-9 4-9-4z"></path>
               <path d="M3 7v6l9 4 9-4V7"></path>
             </svg>
@@ -214,7 +305,9 @@
           <ul class="demo-normas">
             @for (norma of exp.normas; track norma.url + norma.rotulo) {
               <li>
-                <a [href]="norma.url" target="_blank" rel="noopener noreferrer">{{ norma.rotulo }}</a>
+                <a [href]="norma.url" target="_blank" rel="noopener noreferrer">{{
+                  norma.rotulo
+                }}</a>
                 <span class="demo-norma-descricao">{{ norma.descricao }}</span>
               </li>
             }
@@ -225,7 +318,18 @@
       @if (exp.glossario && exp.glossario.length > 0) {
         <details class="demo-secao">
           <summary class="demo-sub demo-sub--toggle">
-            <svg class="demo-sub-icone" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg
+              class="demo-sub-icone"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
@@ -248,7 +352,16 @@
           @for (rel of exp.relacionados; track rel.topico) {
             <button type="button" class="demo-rel-link" (click)="navegar.emit(rel.topico)">
               {{ rel.rotulo }}
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M5 12h14"></path>
                 <path d="m12 5 7 7-7 7"></path>
               </svg>

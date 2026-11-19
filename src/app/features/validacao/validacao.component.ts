@@ -39,7 +39,7 @@ export class ValidacaoComponent {
     try {
       const parsed = JSON.parse(pasted);
       // Assume array of objects with { numero, valorParcela, amortizacao, ... }
-      const delesParcelas: any[] = Array.isArray(parsed) ? parsed : (parsed.parcelas || []);
+      const delesParcelas: any[] = Array.isArray(parsed) ? parsed : parsed.parcelas || [];
 
       const diffRows: DiffRow[] = [];
       let totalDivergencias = 0;

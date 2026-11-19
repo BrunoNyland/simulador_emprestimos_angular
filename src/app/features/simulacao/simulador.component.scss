@@ -28,7 +28,9 @@
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 
   &:hover {
     background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
@@ -691,7 +693,6 @@ tfoot td {
   }
 }
 
-
 /* ===== Instrução da Demonstração Matemática ===== */
 .demo-instrucao {
   font-size: 0.8rem;
@@ -715,7 +716,10 @@ tfoot td {
 .icone-info {
   color: var(--text-muted);
   opacity: 0.55;
-  transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -770,7 +774,3 @@ tfoot td {
     border-radius: 50%;
   }
 }
-
-
-
-

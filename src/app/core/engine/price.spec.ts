@@ -10,7 +10,11 @@ describe('price', () => {
   });
 
   it('gera cronograma com parcela constante e fecha os totais', () => {
-    const parcelas = gerarCronogramaPrice({ principal: d(1000), taxaPeriodo: d('0.01'), prazo: 12 });
+    const parcelas = gerarCronogramaPrice({
+      principal: d(1000),
+      taxaPeriodo: d('0.01'),
+      prazo: 12,
+    });
     expect(parcelas).toHaveLength(12);
     expect(parcelas[0].valorParcela).toBe('88.85');
     expect(parcelas[0].juros).toBe('10.00');
@@ -46,7 +50,11 @@ describe('price', () => {
   });
 
   it('registra o residuo na ultima parcela quando o PMT nao fecha exato', () => {
-    const parcelas = gerarCronogramaPrice({ principal: d(1000), taxaPeriodo: d('0.01'), prazo: 12 });
+    const parcelas = gerarCronogramaPrice({
+      principal: d(1000),
+      taxaPeriodo: d('0.01'),
+      prazo: 12,
+    });
     // amort teorica da 12a = 88.85 - 0.88 = 87.97; saldo restante = 87.96
     expect(parcelas[11].residuo).toBe('-0.01');
     expect(parcelas[11].valorParcela).toBe('88.84');

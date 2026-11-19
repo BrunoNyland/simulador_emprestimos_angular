@@ -10,12 +10,7 @@ import { ChangeDetectionStrategy, Component, input, output, signal } from '@angu
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="cartao" [class.realce]="realce()" [class.fechada]="!aberta()">
-      <button
-        type="button"
-        class="cab"
-        (click)="alternar()"
-        [attr.aria-expanded]="aberta()"
-      >
+      <button type="button" class="cab" (click)="alternar()" [attr.aria-expanded]="aberta()">
         <span class="titulo-wrap">
           <span class="titulo">{{ titulo() }}</span>
           @if (sub()) {

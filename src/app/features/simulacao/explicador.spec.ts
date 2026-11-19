@@ -1,6 +1,10 @@
 import { obterExplicacaoMatematica, explicacaoDaParcela } from './explicador';
 import { Decimal } from '../../core/engine/decimal.config';
-import { calcularParcelaPrice, gerarCronogramaPrice, valorParcelaPrice } from '../../core/engine/price';
+import {
+  calcularParcelaPrice,
+  gerarCronogramaPrice,
+  valorParcelaPrice,
+} from '../../core/engine/price';
 import { calcularPrimeiraParcelaSac } from '../../core/engine/sac';
 import { arredondarMoeda } from '../../core/engine/decimal.config';
 
@@ -12,21 +16,21 @@ describe('explicador', () => {
       taxa: '0.02',
       tipoTaxa: 'efetiva',
       unidadeTaxa: 'mensal',
-      prazo: 12
+      prazo: 12,
     },
     parcelaCalculada: '945.60',
     valorLiquido: '9520.00',
     iof: '380.00',
     totais: {
       totalParcelas: '11347.20',
-      totalJuros: '1347.20'
+      totalJuros: '1347.20',
     },
     cetMensal: '0.025',
     cetAnual: '0.344',
     memoriaCalculo: {
       iofDiario: '342.00',
-      iofAdicional: '38.00'
-    }
+      iofAdicional: '38.00',
+    },
   };
 
   it('deve retornar a explicacao para Parcela no Price', () => {
@@ -36,7 +40,7 @@ describe('explicador', () => {
     expect(exp!.formula).toContain('PMT = PV');
     expect(exp!.legenda.length).toBe(4);
     expect(exp!.passos.length).toBeGreaterThan(0);
-    expect(exp!.regras.some(r => r.includes('Half-Even'))).toBe(true);
+    expect(exp!.regras.some((r) => r.includes('Half-Even'))).toBe(true);
   });
 
   it('deve retornar a explicacao para Parcela no SAC', () => {
@@ -87,16 +91,22 @@ describe('explicador', () => {
     expect(exp.trace!.id).toBe('parcela-linha-price');
     // os valores da legenda refletem a linha real (formatados em BRL)
     const valLegenda = (s: string) => exp.legenda.find((l) => l.simbolo === s)!.valor;
-    expect(valLegenda('J')).toContain(Number(linha.juros).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-    expect(valLegenda('A')).toContain(Number(linha.amortizacao).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-    expect(valLegenda('Saldo final')).toContain(Number(linha.saldoFinal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+    expect(valLegenda('J')).toContain(
+      Number(linha.juros).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    );
+    expect(valLegenda('A')).toContain(
+      Number(linha.amortizacao).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    );
+    expect(valLegenda('Saldo final')).toContain(
+      Number(linha.saldoFinal).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    );
   });
 
   it('deve retornar a explicacao para Valor Bruto no Price', () => {
     const exp = obterExplicacaoMatematica('valorBruto', dadosBase, 'price', 'half-up');
     expect(exp).not.toBeNull();
     expect(exp!.formula).toContain('PV = PMT');
-    expect(exp!.regras.some(r => r.includes('Half-Up'))).toBe(true);
+    expect(exp!.regras.some((r) => r.includes('Half-Up'))).toBe(true);
   });
 
   it('deve retornar a explicacao para Taxa de Juros', () => {
@@ -112,7 +122,12 @@ describe('explicador', () => {
       taxaPeriodo: new Decimal('0.02'),
       prazo: 12,
     });
-    const exp = obterExplicacaoMatematica('parcela', { ...dadosBase, parcelas }, 'price', 'half-even');
+    const exp = obterExplicacaoMatematica(
+      'parcela',
+      { ...dadosBase, parcelas },
+      'price',
+      'half-even',
+    );
     expect(exp!.graficoComposicao!.length).toBe(12);
     expect(exp!.graficoComposicao![0]).toEqual({
       numero: 1,
@@ -190,9 +205,24 @@ describe('explicador', () => {
       totaisOriginal: dadosBase.totais,
     };
     const topicos = [
-      'parcela', 'valorBruto', 'taxa', 'prazo', 'valorLiquido',
-      'iof', 'iofDiario', 'iofAdicional', 'totalPago', 'totalJuros', 'cetMensal', 'cetAnual',
-      'prazoFinal', 'economiaJuros', 'amortizacoesExtras', 'moraEncargos', 'totalPagoPos', 'cetMensalPos',
+      'parcela',
+      'valorBruto',
+      'taxa',
+      'prazo',
+      'valorLiquido',
+      'iof',
+      'iofDiario',
+      'iofAdicional',
+      'totalPago',
+      'totalJuros',
+      'cetMensal',
+      'cetAnual',
+      'prazoFinal',
+      'economiaJuros',
+      'amortizacoesExtras',
+      'moraEncargos',
+      'totalPagoPos',
+      'cetMensalPos',
     ];
     for (const sistema of ['price', 'sac'] as const) {
       for (const t of topicos) {
@@ -247,17 +277,29 @@ describe('explicador', () => {
   it('mora cita o limite de 2% do CDC (art. 52, § 1º)', () => {
     const dadosEventos = {
       ...dadosBase,
-      resumo: { totalEncargos: '18.91', prazoFinal: 12, economiaJuros: '0', amortizacoesExtras: '0' },
+      resumo: {
+        totalEncargos: '18.91',
+        prazoFinal: 12,
+        economiaJuros: '0',
+        amortizacoesExtras: '0',
+      },
     };
     const exp = obterExplicacaoMatematica('moraEncargos', dadosEventos, 'price', 'half-even');
     expect(exp).not.toBeNull();
-    expect(exp!.normas.some((nr) => nr.rotulo.includes('8.078') && nr.rotulo.includes('52'))).toBe(true);
+    expect(exp!.normas.some((nr) => nr.rotulo.includes('8.078') && nr.rotulo.includes('52'))).toBe(
+      true,
+    );
   });
 
   it('CET pos-eventos orienta o uso de XTIR no Excel (dias/365)', () => {
     const dadosEventos = {
       ...dadosBase,
-      resumo: { totalEncargos: '0', prazoFinal: 10, economiaJuros: '100', amortizacoesExtras: '500' },
+      resumo: {
+        totalEncargos: '0',
+        prazoFinal: 10,
+        economiaJuros: '100',
+        amortizacoesExtras: '500',
+      },
     };
     const exp = obterExplicacaoMatematica('cetMensalPos', dadosEventos, 'price', 'half-even');
     expect(exp).not.toBeNull();
@@ -267,13 +309,33 @@ describe('explicador', () => {
   it('todos os topicos expoem um traço estruturado (mesmo formato da Parcela)', () => {
     const dadosEventos = {
       ...dadosBase,
-      resumo: { prazoFinal: 10, economiaJuros: '120.00', amortizacoesExtras: '500.00', totalEncargos: '18.91' },
+      resumo: {
+        prazoFinal: 10,
+        economiaJuros: '120.00',
+        amortizacoesExtras: '500.00',
+        totalEncargos: '18.91',
+      },
       totaisOriginal: dadosBase.totais,
     };
     const topicos = [
-      'parcela', 'valorBruto', 'taxa', 'prazo', 'valorLiquido',
-      'iof', 'iofDiario', 'iofAdicional', 'totalPago', 'totalJuros', 'cetMensal', 'cetAnual',
-      'prazoFinal', 'economiaJuros', 'amortizacoesExtras', 'moraEncargos', 'totalPagoPos', 'cetMensalPos',
+      'parcela',
+      'valorBruto',
+      'taxa',
+      'prazo',
+      'valorLiquido',
+      'iof',
+      'iofDiario',
+      'iofAdicional',
+      'totalPago',
+      'totalJuros',
+      'cetMensal',
+      'cetAnual',
+      'prazoFinal',
+      'economiaJuros',
+      'amortizacoesExtras',
+      'moraEncargos',
+      'totalPagoPos',
+      'cetMensalPos',
     ];
     for (const t of topicos) {
       const exp = obterExplicacaoMatematica(t, dadosEventos, 'price', 'half-even');
@@ -292,13 +354,33 @@ describe('explicador', () => {
   it('todos os topicos trazem glossario e links relacionados validos', () => {
     const dadosEventos = {
       ...dadosBase,
-      resumo: { prazoFinal: 10, economiaJuros: '120.00', amortizacoesExtras: '500.00', totalEncargos: '18.91' },
+      resumo: {
+        prazoFinal: 10,
+        economiaJuros: '120.00',
+        amortizacoesExtras: '500.00',
+        totalEncargos: '18.91',
+      },
       totaisOriginal: dadosBase.totais,
     };
     const topicos = [
-      'parcela', 'valorBruto', 'taxa', 'prazo', 'valorLiquido',
-      'iof', 'iofDiario', 'iofAdicional', 'totalPago', 'totalJuros', 'cetMensal', 'cetAnual',
-      'prazoFinal', 'economiaJuros', 'amortizacoesExtras', 'moraEncargos', 'totalPagoPos', 'cetMensalPos',
+      'parcela',
+      'valorBruto',
+      'taxa',
+      'prazo',
+      'valorLiquido',
+      'iof',
+      'iofDiario',
+      'iofAdicional',
+      'totalPago',
+      'totalJuros',
+      'cetMensal',
+      'cetAnual',
+      'prazoFinal',
+      'economiaJuros',
+      'amortizacoesExtras',
+      'moraEncargos',
+      'totalPagoPos',
+      'cetMensalPos',
     ];
     for (const t of topicos) {
       const exp = obterExplicacaoMatematica(t, dadosEventos, 'price', 'half-even');

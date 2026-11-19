@@ -36,7 +36,8 @@ export function tracarLinhaCronograma(ctx: ContextoLinha): TraceCalculo {
   let subAmort: string;
   if (ultima) {
     amort = saldoInicial;
-    descAmort = 'Última parcela: amortiza todo o saldo devedor restante (absorve o resíduo de centavos)';
+    descAmort =
+      'Última parcela: amortiza todo o saldo devedor restante (absorve o resíduo de centavos)';
     formulaAmort = 'A = saldo inicial';
     subAmort = disp(saldoInicial, 2);
   } else if (sistema === 'price') {
@@ -58,7 +59,8 @@ export function tracarLinhaCronograma(ctx: ContextoLinha): TraceCalculo {
   return {
     id: `parcela-linha-${sistema}`,
     titulo: `Parcela ${numero} de ${prazo} — composição`,
-    formula: 'Parcela = Juros + Amortização   ·   Juros = Saldo × i   ·   Saldo final = Saldo − Amortização',
+    formula:
+      'Parcela = Juros + Amortização   ·   Juros = Saldo × i   ·   Saldo final = Saldo − Amortização',
     resultado: arredondarMoeda(valorParcela).toString(),
     passos: [
       passoCalculo(

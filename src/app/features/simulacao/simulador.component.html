@@ -1,5 +1,8 @@
-<app-secao titulo="Parâmetros da simulação" sub="Informe os valores — o campo destacado é calculado automaticamente."
-  id="params">
+<app-secao
+  titulo="Parâmetros da simulação"
+  sub="Informe os valores — o campo destacado é calculado automaticamente."
+  id="params"
+>
   <form [formGroup]="form">
     <div class="grid grid--topo">
       <label>
@@ -19,68 +22,115 @@
     <fieldset class="grupo-valores">
       <legend>Valores do empréstimo</legend>
       <p class="grupo-dica">
-        Edite <strong>valor, taxa ou prazo</strong> para calcular a <strong>parcela</strong>; edite a
-        <strong>parcela</strong> para calcular o <strong>valor bruto</strong>. O campo calculado fica
-        destacado (<span class="tag-calc">↻ calculado</span>).
+        Edite <strong>valor, taxa ou prazo</strong> para calcular a <strong>parcela</strong>; edite
+        a <strong>parcela</strong> para calcular o <strong>valor bruto</strong>. O campo calculado
+        fica destacado (<span class="tag-calc">↻ calculado</span>).
       </p>
       <div class="grid">
         <label [class.alvo]="store.campoAlvo() === 'valorBruto'">
           <span class="rotulo-valor">
             <span>Valor bruto (R$)</span>
-            @if (store.campoAlvo() === 'valorBruto') {<span class="tag-calc">↻ calculado</span>}
+            @if (store.campoAlvo() === 'valorBruto') {
+              <span class="tag-calc">↻ calculado</span>
+            }
           </span>
-          <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorBruto" />
+          <input
+            type="text"
+            inputmode="decimal"
+            appMoeda
+            [max]="limites().valorMaximo"
+            formControlName="valorBruto"
+          />
         </label>
 
         <label [class.alvo]="store.campoAlvo() === 'taxa'">
           <span class="rotulo-valor">
             <span>Taxa de juros</span>
-            @if (store.campoAlvo() === 'taxa') {<span class="tag-calc">↻ calculado</span>}
+            @if (store.campoAlvo() === 'taxa') {
+              <span class="tag-calc">↻ calculado</span>
+            }
           </span>
           <div class="campo-composto">
-            <input type="text" inputmode="decimal" appMoeda [max]="limites().taxaMaximaPct" formControlName="taxa" />
+            <input
+              type="text"
+              inputmode="decimal"
+              appMoeda
+              [max]="limites().taxaMaximaPct"
+              formControlName="taxa"
+            />
             <select formControlName="unidadeTaxa" class="sufixo" aria-label="Unidade da taxa">
               <option value="mensal">% a.m.</option>
               <option value="anual">% a.a.</option>
             </select>
           </div>
           @if (form.controls.unidadeTaxa.value === 'anual') {
-          <span class="rotulo-campo rotulo-secundario">
-            <select formControlName="tipoTaxa" aria-label="Tipo de taxa anual">
-              <option value="efetiva">Taxa efetiva</option>
-              <option value="nominal">Taxa nominal</option>
-            </select>
-            <button
-              type="button"
-              class="btn-info"
-              (click)="selecionarExplicacao('tipoTaxa')"
-              aria-label="Entenda taxa efetiva × nominal e como converter"
-              title="Entenda taxa efetiva × nominal"
-            >
-              <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 16v-4"></path>
-                <path d="M12 8h.01"></path>
-              </svg>
-            </button>
-          </span>
+            <span class="rotulo-campo rotulo-secundario">
+              <select formControlName="tipoTaxa" aria-label="Tipo de taxa anual">
+                <option value="efetiva">Taxa efetiva</option>
+                <option value="nominal">Taxa nominal</option>
+              </select>
+              <button
+                type="button"
+                class="btn-info"
+                (click)="selecionarExplicacao('tipoTaxa')"
+                aria-label="Entenda taxa efetiva × nominal e como converter"
+                title="Entenda taxa efetiva × nominal"
+              >
+                <svg
+                  class="icone-info"
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 16v-4"></path>
+                  <path d="M12 8h.01"></path>
+                </svg>
+              </button>
+            </span>
           }
         </label>
 
         <label [class.alvo]="store.campoAlvo() === 'prazo'">
           <span class="rotulo-valor">
             <span>Prazo (meses)</span>
-            @if (store.campoAlvo() === 'prazo') {<span class="tag-calc">↻ calculado</span>}
+            @if (store.campoAlvo() === 'prazo') {
+              <span class="tag-calc">↻ calculado</span>
+            }
           </span>
-          <input type="number" formControlName="prazo" min="1" step="1" [max]="limites().prazoMaximo" />
+          <input
+            type="number"
+            formControlName="prazo"
+            min="1"
+            step="1"
+            [max]="limites().prazoMaximo"
+          />
         </label>
 
         <label [class.alvo]="store.campoAlvo() === 'parcela'">
           <span class="rotulo-valor">
-            <span>Parcela (R$) @if (form.controls.sistema.value === 'sac') {<em>· 1ª</em>}</span>
-            @if (store.campoAlvo() === 'parcela') {<span class="tag-calc">↻ calculado</span>}
+            <span
+              >Parcela (R$)
+              @if (form.controls.sistema.value === 'sac') {
+                <em>· 1ª</em>
+              }
+            </span>
+            @if (store.campoAlvo() === 'parcela') {
+              <span class="tag-calc">↻ calculado</span>
+            }
           </span>
-          <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="parcela" />
+          <input
+            type="text"
+            inputmode="decimal"
+            appMoeda
+            [max]="limites().valorMaximo"
+            formControlName="parcela"
+          />
         </label>
       </div>
     </fieldset>
@@ -114,7 +164,13 @@
       </label>
       <label>
         <span>Tarifa de abertura (R$)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="tarifaAbertura" />
+        <input
+          type="text"
+          inputmode="decimal"
+          appMoeda
+          [max]="limites().valorMaximo"
+          formControlName="tarifaAbertura"
+        />
       </label>
     </div>
 
@@ -122,11 +178,23 @@
     <div class="grid">
       <label>
         <span>Juros de mora (% a.m.)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="moraJurosMensalMax()" formControlName="moraJurosMensal" />
+        <input
+          type="text"
+          inputmode="decimal"
+          appMoeda
+          [max]="moraJurosMensalMax()"
+          formControlName="moraJurosMensal"
+        />
       </label>
       <label>
         <span>Multa por atraso (%)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="moraMultaMax()" formControlName="moraMulta" />
+        <input
+          type="text"
+          inputmode="decimal"
+          appMoeda
+          [max]="moraMultaMax()"
+          formControlName="moraMulta"
+        />
       </label>
     </div>
   </form>
@@ -140,12 +208,32 @@
       title="Copia o endereço atual com todos os parâmetros desta simulação"
     >
       @if (linkCopiado()) {
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
           <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
         Link copiado
       } @else {
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
         </svg>
@@ -158,279 +246,472 @@
 @let res = store.resultado();
 
 @if (res.tipo === 'erro') {
-<p class="erro" role="alert">
-  <svg class="icone-erro" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-    <line x1="12" y1="9" x2="12" y2="13"></line>
-    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-  </svg>
-  {{ res.mensagem }}
-</p>
+  <p class="erro" role="alert">
+    <svg
+      class="icone-erro"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+      ></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    {{ res.mensagem }}
+  </p>
 } @else {
-<app-secao titulo="Resultado da simulação" id="resultado">
-  <div class="resumo">
-    <div class="card card--destaque" appClicavel [class.card--ativo]="explicacaoAtiva() === 'parcela'" (click)="selecionarExplicacao('parcela')">
-      <span class="rotulo">
-        <span>Parcela @if (form.controls.sistema.value === 'sac') {(1ª)}</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.parcelaCalculada | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'valorLiquido'" (click)="selecionarExplicacao('valorLiquido')">
-      <span class="rotulo">
-        <span>Valor líquido liberado</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.valorLiquido | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'iof'" (click)="selecionarExplicacao('iof')">
-      <span class="rotulo">
-        <span>IOF</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.iof | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'totalPago'" (click)="selecionarExplicacao('totalPago')">
-      <span class="rotulo">
-        <span>Total pago</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'totalJuros'" (click)="selecionarExplicacao('totalJuros')">
-      <span class="rotulo">
-        <span>Total de juros</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'cetMensal'" (click)="selecionarExplicacao('cetMensal')">
-      <span class="rotulo">
-        <span>CET mensal</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>
-        @if (store.cetBase(); as cet) {
-          @if (store.cetCalculando()) {
-            <span class="cet-calculando">calculando…</span>
+  <app-secao titulo="Resultado da simulação" id="resultado">
+    <div class="resumo">
+      <div
+        class="card card--destaque"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'parcela'"
+        (click)="selecionarExplicacao('parcela')"
+      >
+        <span class="rotulo">
+          <span
+            >Parcela
+            @if (form.controls.sistema.value === 'sac') {
+              (1ª)
+            }
+          </span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +res.dados.parcelaCalculada | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'valorLiquido'"
+        (click)="selecionarExplicacao('valorLiquido')"
+      >
+        <span class="rotulo">
+          <span>Valor líquido liberado</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{ +res.dados.valorLiquido | currency: 'BRL' : 'symbol' : formatoMoeda() }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'iof'"
+        (click)="selecionarExplicacao('iof')"
+      >
+        <span class="rotulo">
+          <span>IOF</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{ +res.dados.iof | currency: 'BRL' : 'symbol' : formatoMoeda() }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'totalPago'"
+        (click)="selecionarExplicacao('totalPago')"
+      >
+        <span class="rotulo">
+          <span>Total pago</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +res.dados.totais.totalParcelas | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'totalJuros'"
+        (click)="selecionarExplicacao('totalJuros')"
+      >
+        <span class="rotulo">
+          <span>Total de juros</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +res.dados.totais.totalJuros | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'cetMensal'"
+        (click)="selecionarExplicacao('cetMensal')"
+      >
+        <span class="rotulo">
+          <span>CET mensal</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>
+          @if (store.cetBase(); as cet) {
+            @if (store.cetCalculando()) {
+              <span class="cet-calculando">calculando…</span>
+            } @else {
+              {{ +cet.mensal | percent: formatoCetMensal() }}
+            }
           } @else {
-            {{ +cet.mensal | percent: formatoCetMensal() }}
-          }
-        } @else {
-          <span class="cet-calculando">calculando…</span>
-        }
-      </strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'cetAnual'" (click)="selecionarExplicacao('cetAnual')">
-      <span class="rotulo">
-        <span>CET anual</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>
-        @if (store.cetBase(); as cet) {
-          @if (store.cetCalculando()) {
             <span class="cet-calculando">calculando…</span>
-          } @else {
-            {{ +cet.anual | percent: formatoCetAnual() }}
           }
-        } @else {
-          <span class="cet-calculando">calculando…</span>
-        }
-      </strong>
+        </strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'cetAnual'"
+        (click)="selecionarExplicacao('cetAnual')"
+      >
+        <span class="rotulo">
+          <span>CET anual</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>
+          @if (store.cetBase(); as cet) {
+            @if (store.cetCalculando()) {
+              <span class="cet-calculando">calculando…</span>
+            } @else {
+              {{ +cet.anual | percent: formatoCetAnual() }}
+            }
+          } @else {
+            <span class="cet-calculando">calculando…</span>
+          }
+        </strong>
+      </div>
     </div>
-  </div>
-</app-secao>
+  </app-secao>
 
-<app-secao titulo="Memória de Cálculo (Auditoria)" id="auditoria">
-  <div class="resumo">
+  <app-secao titulo="Memória de Cálculo (Auditoria)" id="auditoria">
+    <div class="resumo">
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'iofDiario'"
+        (click)="selecionarExplicacao('iofDiario')"
+      >
+        <span class="rotulo">
+          <span>IOF diário</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +res.dados.memoriaCalculo.iofDiario | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'iofAdicional'"
+        (click)="selecionarExplicacao('iofAdicional')"
+      >
+        <span class="rotulo">
+          <span>IOF adicional</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +res.dados.memoriaCalculo.iofAdicional | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Engine version</span>
+        <strong>{{ res.dados.memoriaCalculo.engineVersion }}</strong>
+      </div>
+      <div class="card">
+        <span class="rotulo">Hash (Simulação)</span>
+        <strong>{{ res.dados.memoriaCalculo.hash }}</strong>
+      </div>
+    </div>
+  </app-secao>
 
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'iofDiario'" (click)="selecionarExplicacao('iofDiario')">
-      <span class="rotulo">
-        <span>IOF diário</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.memoriaCalculo.iofDiario | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
+  <app-secao
+    titulo="Cronograma da simulação"
+    [sub]="res.dados.parcelas.length + ' parcelas · clique numa parcela para ver o cálculo'"
+    id="cronograma"
+  >
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vencimento</th>
+            <th>Saldo inicial</th>
+            <th>Juros</th>
+            <th>Amortização</th>
+            <th>Parcela</th>
+            <th>Saldo final</th>
+            <th>Resíduo</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of cronograma().linhas; track p.numero) {
+            <tr
+              class="linha-clicavel"
+              tabindex="0"
+              role="button"
+              [attr.aria-label]="'Ver cálculo da parcela ' + p.numero"
+              (click)="explicarParcela(p)"
+              (keydown.enter)="explicarParcela(p)"
+              (keydown.space)="explicarParcela(p); $event.preventDefault()"
+            >
+              <td>{{ p.numero }}</td>
+              <td>{{ p.dataVencimento | dataBr }}</td>
+              <td>{{ +p.saldoInicial | number: formatoMoeda() }}</td>
+              <td>{{ +p.juros | number: formatoMoeda() }}</td>
+              <td>{{ +p.amortizacao | number: formatoMoeda() }}</td>
+              <td class="num-forte">{{ +p.valorParcela | number: formatoMoeda() }}</td>
+              <td>{{ +p.saldoFinal | number: formatoMoeda() }}</td>
+              <td>{{ p.residuo ? (+p.residuo | number: formatoMoeda()) : '' }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Totais</td>
+            <td>{{ +res.dados.totais.totalJuros | number: formatoMoeda() }}</td>
+            <td>{{ +res.dados.totais.totalAmortizacao | number: formatoMoeda() }}</td>
+            <td>{{ +res.dados.totais.totalParcelas | number: formatoMoeda() }}</td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'iofAdicional'" (click)="selecionarExplicacao('iofAdicional')">
-      <span class="rotulo">
-        <span>IOF adicional</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +res.dados.memoriaCalculo.iofAdicional | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card">
-      <span class="rotulo">Engine version</span>
-      <strong>{{ res.dados.memoriaCalculo.engineVersion }}</strong>
-    </div>
-    <div class="card">
-      <span class="rotulo">Hash (Simulação)</span>
-      <strong>{{ res.dados.memoriaCalculo.hash }}</strong>
-    </div>
-  </div>
-</app-secao>
+    @if (cronograma().truncado) {
+      <button type="button" class="btn-ver-todas" (click)="mostrarTodasParcelas.set(true)">
+        Mostrando {{ cronograma().linhas.length }} de {{ cronograma().total }} parcelas — ver todas
+      </button>
+    }
+  </app-secao>
 
-<app-secao titulo="Cronograma da simulação" [sub]="res.dados.parcelas.length + ' parcelas · clique numa parcela para ver o cálculo'" id="cronograma">
-  <div class="tabela-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Vencimento</th>
-          <th>Saldo inicial</th>
-          <th>Juros</th>
-          <th>Amortização</th>
-          <th>Parcela</th>
-          <th>Saldo final</th>
-          <th>Resíduo</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of cronograma().linhas; track p.numero) {
-        <tr
-          class="linha-clicavel"
-          tabindex="0"
-          role="button"
-          [attr.aria-label]="'Ver cálculo da parcela ' + p.numero"
-          (click)="explicarParcela(p)"
-          (keydown.enter)="explicarParcela(p)"
-          (keydown.space)="explicarParcela(p); $event.preventDefault()"
-        >
-          <td>{{ p.numero }}</td>
-          <td>{{ p.dataVencimento | dataBr }}</td>
-          <td>{{ +p.saldoInicial | number:formatoMoeda() }}</td>
-          <td>{{ +p.juros | number:formatoMoeda() }}</td>
-          <td>{{ +p.amortizacao | number:formatoMoeda() }}</td>
-          <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda() }}</td>
-          <td>{{ +p.saldoFinal | number:formatoMoeda() }}</td>
-          <td>{{ p.residuo ? (+p.residuo | number:formatoMoeda()) : '' }}</td>
-        </tr>
-        }
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3">Totais</td>
-          <td>{{ +res.dados.totais.totalJuros | number:formatoMoeda() }}</td>
-          <td>{{ +res.dados.totais.totalAmortizacao | number:formatoMoeda() }}</td>
-          <td>{{ +res.dados.totais.totalParcelas | number:formatoMoeda() }}</td>
-          <td>—</td>
-          <td>—</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-  @if (cronograma().truncado) {
-    <button type="button" class="btn-ver-todas" (click)="mostrarTodasParcelas.set(true)">
-      Mostrando {{ cronograma().linhas.length }} de {{ cronograma().total }} parcelas — ver todas
-    </button>
-  }
-</app-secao>
-
-<app-secao titulo="Comparativo Price × SAC" sub="SAC costuma ter 1ª parcela maior e menos juros no total."
-  id="comparativo" (abertaChange)="store.comparativoVisivel.set($event)">
-  <!-- comparativo só é calculado quando a seção está aberta (lazy): evita 2 CETs
+  <app-secao
+    titulo="Comparativo Price × SAC"
+    sub="SAC costuma ter 1ª parcela maior e menos juros no total."
+    id="comparativo"
+    (abertaChange)="store.comparativoVisivel.set($event)"
+  >
+    <!-- comparativo só é calculado quando a seção está aberta (lazy): evita 2 CETs
        extras a cada recálculo enquanto a seção está recolhida. -->
-  @let comp = store.comparativo();
-  @if (comp) {
-  <div class="tabela-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Indicador</th>
-          <th>Price</th>
-          <th>SAC</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1ª parcela</td>
-          <td>{{ +comp.price.primeiraParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-          <td>{{ +comp.sac.primeiraParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-        </tr>
-        <tr>
-          <td>Última parcela</td>
-          <td>{{ +comp.price.ultimaParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-          <td>{{ +comp.sac.ultimaParcela | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-        </tr>
-        <tr>
-          <td>Total de juros</td>
-          <td>{{ +comp.price.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-          <td>{{ +comp.sac.totais.totalJuros | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-        </tr>
-        <tr>
-          <td>Total pago</td>
-          <td>{{ +comp.price.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-          <td>{{ +comp.sac.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</td>
-        </tr>
-        <tr>
-          <td>IOF total</td>
-          <td>{{ comp.price.iof ? (+comp.price.iof | currency: 'BRL':'symbol':formatoMoeda()) : '—' }}</td>
-          <td>{{ comp.sac.iof ? (+comp.sac.iof | currency: 'BRL':'symbol':formatoMoeda()) : '—' }}</td>
-        </tr>
-        <tr>
-          <td>CET (a.m.)</td>
-          @if (!comp.price.cetEntrada) {
-            <td>—</td>
-            <td>—</td>
-          } @else if (store.comparativoCet(); as cc) {
-            <td>{{ +cc.price.mensal | percent: formatoCetMensal() }}</td>
-            <td>{{ +cc.sac.mensal | percent: formatoCetMensal() }}</td>
-          } @else {
-            <td class="cet-calculando">calculando…</td>
-            <td class="cet-calculando">calculando…</td>
-          }
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  @if (comparativoSeries(); as series) {
-    <p class="grafico-titulo">Saldo devedor ao longo do tempo</p>
-    <app-grafico-saldo [series]="series" />
-  }
-  } @else {
-    <p class="aviso-comp">Informe uma simulação válida (valor, taxa e prazo) para ver o comparativo.</p>
-  }
-</app-secao>
+    @let comp = store.comparativo();
+    @if (comp) {
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>Price</th>
+              <th>SAC</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1ª parcela</td>
+              <td>
+                {{ +comp.price.primeiraParcela | currency: 'BRL' : 'symbol' : formatoMoeda() }}
+              </td>
+              <td>{{ +comp.sac.primeiraParcela | currency: 'BRL' : 'symbol' : formatoMoeda() }}</td>
+            </tr>
+            <tr>
+              <td>Última parcela</td>
+              <td>{{ +comp.price.ultimaParcela | currency: 'BRL' : 'symbol' : formatoMoeda() }}</td>
+              <td>{{ +comp.sac.ultimaParcela | currency: 'BRL' : 'symbol' : formatoMoeda() }}</td>
+            </tr>
+            <tr>
+              <td>Total de juros</td>
+              <td>
+                {{ +comp.price.totais.totalJuros | currency: 'BRL' : 'symbol' : formatoMoeda() }}
+              </td>
+              <td>
+                {{ +comp.sac.totais.totalJuros | currency: 'BRL' : 'symbol' : formatoMoeda() }}
+              </td>
+            </tr>
+            <tr>
+              <td>Total pago</td>
+              <td>
+                {{ +comp.price.totais.totalParcelas | currency: 'BRL' : 'symbol' : formatoMoeda() }}
+              </td>
+              <td>
+                {{ +comp.sac.totais.totalParcelas | currency: 'BRL' : 'symbol' : formatoMoeda() }}
+              </td>
+            </tr>
+            <tr>
+              <td>IOF total</td>
+              <td>
+                {{
+                  comp.price.iof
+                    ? (+comp.price.iof | currency: 'BRL' : 'symbol' : formatoMoeda())
+                    : '—'
+                }}
+              </td>
+              <td>
+                {{
+                  comp.sac.iof ? (+comp.sac.iof | currency: 'BRL' : 'symbol' : formatoMoeda()) : '—'
+                }}
+              </td>
+            </tr>
+            <tr>
+              <td>CET (a.m.)</td>
+              @if (!comp.price.cetEntrada) {
+                <td>—</td>
+                <td>—</td>
+              } @else if (store.comparativoCet(); as cc) {
+                <td>{{ +cc.price.mensal | percent: formatoCetMensal() }}</td>
+                <td>{{ +cc.sac.mensal | percent: formatoCetMensal() }}</td>
+              } @else {
+                <td class="cet-calculando">calculando…</td>
+                <td class="cet-calculando">calculando…</td>
+              }
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      @if (comparativoSeries(); as series) {
+        <p class="grafico-titulo">Saldo devedor ao longo do tempo</p>
+        <app-grafico-saldo [series]="series" />
+      }
+    } @else {
+      <p class="aviso-comp">
+        Informe uma simulação válida (valor, taxa e prazo) para ver o comparativo.
+      </p>
+    }
+  </app-secao>
 }
 
-<app-secao titulo="Eventos pós-simulação"
+<app-secao
+  titulo="Eventos pós-simulação"
   sub="Lance amortizações, quitações, antecipações ou atrasos — geram um novo cronograma abaixo, sem alterar a simulação base."
-  id="eventos">
+  id="eventos"
+>
   <form [formGroup]="eventoForm" (ngSubmit)="adicionarEvento()">
     <div class="grid">
       <label>
@@ -443,62 +724,87 @@
         </select>
       </label>
       @if (eventoForm.controls.tipo.value !== 'pagamento') {
-      <label>
-        <span>Data do evento</span>
-        <input type="date" formControlName="data" />
-        <small>No meio do período, usa juros pro-rata.</small>
-      </label>
+        <label>
+          <span>Data do evento</span>
+          <input type="date" formControlName="data" />
+          <small>No meio do período, usa juros pro-rata.</small>
+        </label>
       }
       @if (eventoForm.controls.tipo.value === 'amortizacao') {
-      <label>
-        <span>Valor extra (R$)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valor" />
-      </label>
-      <label>
-        <span>O valor é</span>
-        <select formControlName="base">
-          <option value="amortizado">Total amortizado (abate o principal)</option>
-          <option value="pago">Total pago (caixa: juros + amortização)</option>
-        </select>
-      </label>
+        <label>
+          <span>Valor extra (R$)</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            appMoeda
+            [max]="limites().valorMaximo"
+            formControlName="valor"
+          />
+        </label>
+        <label>
+          <span>O valor é</span>
+          <select formControlName="base">
+            <option value="amortizado">Total amortizado (abate o principal)</option>
+            <option value="pago">Total pago (caixa: juros + amortização)</option>
+          </select>
+        </label>
       }
       @if (eventoForm.controls.tipo.value === 'antecipacao') {
-      <label>
-        <span>Qtd. de parcelas</span>
-        <input type="number" formControlName="quantidade" min="1" step="1" />
-      </label>
+        <label>
+          <span>Qtd. de parcelas</span>
+          <input type="number" formControlName="quantidade" min="1" step="1" />
+        </label>
       }
-      @if (eventoForm.controls.tipo.value === 'amortizacao' || eventoForm.controls.tipo.value === 'antecipacao') {
-      <label>
-        <span>O que reduzir</span>
-        <select formControlName="opcao">
-          <option value="reduzir-prazo">Reduzir o prazo (termina antes)</option>
-          <option value="reduzir-parcela">Reduzir a parcela (mesmo prazo)</option>
-        </select>
-      </label>
+      @if (
+        eventoForm.controls.tipo.value === 'amortizacao' ||
+        eventoForm.controls.tipo.value === 'antecipacao'
+      ) {
+        <label>
+          <span>O que reduzir</span>
+          <select formControlName="opcao">
+            <option value="reduzir-prazo">Reduzir o prazo (termina antes)</option>
+            <option value="reduzir-parcela">Reduzir a parcela (mesmo prazo)</option>
+          </select>
+        </label>
       }
       @if (eventoForm.controls.tipo.value === 'pagamento') {
-      <label>
-        <span>Data de vencimento</span>
-        <input type="date" formControlName="dataVencimento" />
-        <small>Vencimento da parcela.</small>
-      </label>
-      <label>
-        <span>Data do pagamento</span>
-        <input type="date" formControlName="dataPagamento" />
-        <small>Atraso = diferença para o vencimento.</small>
-      </label>
-      <label>
-        <span>Valor pago (R$)</span>
-        <input type="text" inputmode="decimal" appMoeda [max]="limites().valorMaximo" formControlName="valorPago"
-          placeholder="vazio = parcela cheia" />
-        <small>Só para pagamento parcial.</small>
-      </label>
+        <label>
+          <span>Data de vencimento</span>
+          <input type="date" formControlName="dataVencimento" />
+          <small>Vencimento da parcela.</small>
+        </label>
+        <label>
+          <span>Data do pagamento</span>
+          <input type="date" formControlName="dataPagamento" />
+          <small>Atraso = diferença para o vencimento.</small>
+        </label>
+        <label>
+          <span>Valor pago (R$)</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            appMoeda
+            [max]="limites().valorMaximo"
+            formControlName="valorPago"
+            placeholder="vazio = parcela cheia"
+          />
+          <small>Só para pagamento parcial.</small>
+        </label>
       }
     </div>
 
     <p class="evento-ajuda">
-      <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg
+        class="icone-info"
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
         <circle cx="12" cy="12" r="10"></circle>
         <path d="M12 16v-4"></path>
         <path d="M12 8h.01"></path>
@@ -507,25 +813,39 @@
     </p>
 
     @if (erroEvento(); as erro) {
-    <p class="evento-erro" role="alert">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-        <line x1="12" y1="9" x2="12" y2="13"></line>
-        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-      </svg>
-      {{ erro }}
-    </p>
+      <p class="evento-erro" role="alert">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path
+            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+          ></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        {{ erro }}
+      </p>
     }
 
     <div class="evento-rodape">
       @if (!erroEvento() && previewEvento(); as pv) {
-      <span class="evento-preview">
-        <strong>{{ editandoIndice() !== null ? 'Salvar:' : 'Lançar:' }}</strong> {{ pv }}
-      </span>
+        <span class="evento-preview">
+          <strong>{{ editandoIndice() !== null ? 'Salvar:' : 'Lançar:' }}</strong> {{ pv }}
+        </span>
       }
       <span class="evento-botoes">
         @if (editandoIndice() !== null) {
-        <button type="button" class="btn-secundario" (click)="cancelarEdicao()">Cancelar edição</button>
+          <button type="button" class="btn-secundario" (click)="cancelarEdicao()">
+            Cancelar edição
+          </button>
         }
         <button type="submit" class="btn-primario" [disabled]="!!erroEvento()">
           {{ editandoIndice() !== null ? '✓ Salvar evento' : '＋ Adicionar evento' }}
@@ -535,202 +855,336 @@
   </form>
 
   @if (eventosDescritos().length) {
-  <ul class="lista-eventos">
-    @for (item of eventosDescritos(); track $index) {
-    <li [class.em-edicao]="editandoIndice() === $index">
-      <span>{{ item.descricao }}</span>
-      <span class="evento-acoes">
-        <button
-          type="button"
-          class="btn-icone"
-          (click)="editarEvento($index)"
-          aria-label="Editar evento"
-          title="Editar"
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 20h9"></path>
-            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-          </svg>
+    <ul class="lista-eventos">
+      @for (item of eventosDescritos(); track $index) {
+        <li [class.em-edicao]="editandoIndice() === $index">
+          <span>{{ item.descricao }}</span>
+          <span class="evento-acoes">
+            <button
+              type="button"
+              class="btn-icone"
+              (click)="editarEvento($index)"
+              aria-label="Editar evento"
+              title="Editar"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="btn-icone btn-icone--perigo"
+              (click)="removerEvento($index)"
+              aria-label="Remover evento"
+              title="Remover"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path
+                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                ></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+            </button>
+          </span>
+        </li>
+      }
+    </ul>
+    @if (eventosDescritos().length > 1) {
+      <div class="acoes-lista">
+        <button type="button" class="btn-remover" (click)="store.limparEventos()">
+          Limpar todos
         </button>
-        <button
-          type="button"
-          class="btn-icone btn-icone--perigo"
-          (click)="removerEvento($index)"
-          aria-label="Remover evento"
-          title="Remover"
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
-          </svg>
-        </button>
-      </span>
-    </li>
+      </div>
     }
-  </ul>
-  @if (eventosDescritos().length > 1) {
-  <div class="acoes-lista">
-    <button type="button" class="btn-remover" (click)="store.limparEventos()">Limpar todos</button>
-  </div>
-  }
   } @else {
-  <p class="vazio">Nenhum evento. Adicione amortização, quitação, antecipação ou pagamento.</p>
+    <p class="vazio">Nenhum evento. Adicione amortização, quitação, antecipação ou pagamento.</p>
   }
 </app-secao>
 
 @let ev = store.eventosResultado();
 @if (ev) {
-<app-secao titulo="Resultado após eventos"
-  sub="Cronograma recomposto pelos eventos. Clique numa parcela para ver o cálculo — inclui a conta do evento."
-  [realce]="true" id="pos-eventos">
-  <div class="resumo">
-    <div class="card card--destaque" appClicavel [class.card--ativo]="explicacaoAtiva() === 'prazoFinal'" (click)="selecionarExplicacao('prazoFinal')">
-      <span class="rotulo">
-        <span>Prazo final</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ ev.resumo.prazoFinal }} meses</strong>
+  <app-secao
+    titulo="Resultado após eventos"
+    sub="Cronograma recomposto pelos eventos. Clique numa parcela para ver o cálculo — inclui a conta do evento."
+    [realce]="true"
+    id="pos-eventos"
+  >
+    <div class="resumo">
+      <div
+        class="card card--destaque"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'prazoFinal'"
+        (click)="selecionarExplicacao('prazoFinal')"
+      >
+        <span class="rotulo">
+          <span>Prazo final</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{ ev.resumo.prazoFinal }} meses</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'economiaJuros'"
+        (click)="selecionarExplicacao('economiaJuros')"
+      >
+        <span class="rotulo">
+          <span>Economia de juros</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +ev.resumo.economiaJuros | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'amortizacoesExtras'"
+        (click)="selecionarExplicacao('amortizacoesExtras')"
+      >
+        <span class="rotulo">
+          <span>Amortizações extras</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +ev.resumo.amortizacoesExtras | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'moraEncargos'"
+        (click)="selecionarExplicacao('moraEncargos')"
+      >
+        <span class="rotulo">
+          <span>Mora/encargos</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +ev.resumo.totalEncargos | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'totalPagoPos'"
+        (click)="selecionarExplicacao('totalPagoPos')"
+      >
+        <span class="rotulo">
+          <span>Total pago</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{
+          +ev.totais.totalParcelas | currency: 'BRL' : 'symbol' : formatoMoeda()
+        }}</strong>
+      </div>
+      <div
+        class="card"
+        appClicavel
+        [class.card--ativo]="explicacaoAtiva() === 'cetMensalPos'"
+        (click)="selecionarExplicacao('cetMensalPos')"
+      >
+        <span class="rotulo">
+          <span>CET mensal</span>
+          <svg
+            class="icone-info"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <strong>{{ +ev.cetMensal | percent: formatoCetMensal() }}</strong>
+      </div>
     </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'economiaJuros'" (click)="selecionarExplicacao('economiaJuros')">
-      <span class="rotulo">
-        <span>Economia de juros</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +ev.resumo.economiaJuros | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'amortizacoesExtras'" (click)="selecionarExplicacao('amortizacoesExtras')">
-      <span class="rotulo">
-        <span>Amortizações extras</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +ev.resumo.amortizacoesExtras | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'moraEncargos'" (click)="selecionarExplicacao('moraEncargos')">
-      <span class="rotulo">
-        <span>Mora/encargos</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +ev.resumo.totalEncargos | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'totalPagoPos'" (click)="selecionarExplicacao('totalPagoPos')">
-      <span class="rotulo">
-        <span>Total pago</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +ev.totais.totalParcelas | currency: 'BRL':'symbol':formatoMoeda() }}</strong>
-    </div>
-    <div class="card" appClicavel [class.card--ativo]="explicacaoAtiva() === 'cetMensalPos'" (click)="selecionarExplicacao('cetMensalPos')">
-      <span class="rotulo">
-        <span>CET mensal</span>
-        <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 16v-4"></path>
-          <path d="M12 8h.01"></path>
-        </svg>
-      </span>
-      <strong>{{ +ev.cetMensal | percent: formatoCetMensal() }}</strong>
-    </div>
-  </div>
 
-  <div class="tabela-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Vencimento</th>
-          <th>Saldo inicial</th>
-          <th>Juros</th>
-          <th>Amortização</th>
-          <th>Parcela</th>
-          <th>Saldo final</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of ev.parcelas; track p.numero) {
-        <tr
-          class="linha-clicavel"
-          tabindex="0"
-          role="button"
-          [attr.aria-label]="'Ver cálculo da parcela ' + p.numero"
-          (click)="explicarLinhaEvento(p)"
-          (keydown.enter)="explicarLinhaEvento(p)"
-          (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
-        >
-          <td>{{ p.numero }}</td>
-          <td>{{ p.dataVencimento | dataBr }}</td>
-          <td>{{ +p.saldoInicial | number:formatoMoeda() }}</td>
-          <td>{{ +p.juros | number:formatoMoeda() }}</td>
-          <td>{{ +p.amortizacao | number:formatoMoeda() }}</td>
-          <td class="num-forte">{{ +p.valorParcela | number:formatoMoeda() }}</td>
-          <td>{{ +p.saldoFinal | number:formatoMoeda() }}</td>
-        </tr>
-        @for (d of p.detalhes ?? []; track $index) {
-        <tr
-          class="linha-evento"
-          tabindex="0"
-          role="button"
-          [attr.aria-label]="'Ver cálculo do evento: ' + d.descricao"
-          (click)="explicarLinhaEvento(p)"
-          (keydown.enter)="explicarLinhaEvento(p)"
-          (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
-        >
-          <td class="evento-marcador">↳</td>
-          <td>{{ d.data | dataBr }}</td>
-          <td class="evento-desc">{{ d.descricao }}</td>
-          <td>{{ +d.juros ? (+d.juros | number:formatoMoeda()) : '—' }}</td>
-          <td>{{ +d.amortizacao ? (+d.amortizacao | number:formatoMoeda()) : '—' }}</td>
-          <td class="num-forte">{{ +d.valor | number:formatoMoeda() }}</td>
-          <td>{{ +d.saldoApos | number:formatoMoeda() }}</td>
-        </tr>
-        }
-        }
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan="3">Totais</td>
-          <td>{{ +ev.totais.totalJuros | number:formatoMoeda() }}</td>
-          <td>{{ +ev.totais.totalAmortizacao | number:formatoMoeda() }}</td>
-          <td>{{ +ev.totais.totalParcelas | number:formatoMoeda() }}</td>
-          <td>—</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-</app-secao>
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vencimento</th>
+            <th>Saldo inicial</th>
+            <th>Juros</th>
+            <th>Amortização</th>
+            <th>Parcela</th>
+            <th>Saldo final</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of ev.parcelas; track p.numero) {
+            <tr
+              class="linha-clicavel"
+              tabindex="0"
+              role="button"
+              [attr.aria-label]="'Ver cálculo da parcela ' + p.numero"
+              (click)="explicarLinhaEvento(p)"
+              (keydown.enter)="explicarLinhaEvento(p)"
+              (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
+            >
+              <td>{{ p.numero }}</td>
+              <td>{{ p.dataVencimento | dataBr }}</td>
+              <td>{{ +p.saldoInicial | number: formatoMoeda() }}</td>
+              <td>{{ +p.juros | number: formatoMoeda() }}</td>
+              <td>{{ +p.amortizacao | number: formatoMoeda() }}</td>
+              <td class="num-forte">{{ +p.valorParcela | number: formatoMoeda() }}</td>
+              <td>{{ +p.saldoFinal | number: formatoMoeda() }}</td>
+            </tr>
+            @for (d of p.detalhes ?? []; track $index) {
+              <tr
+                class="linha-evento"
+                tabindex="0"
+                role="button"
+                [attr.aria-label]="'Ver cálculo do evento: ' + d.descricao"
+                (click)="explicarLinhaEvento(p)"
+                (keydown.enter)="explicarLinhaEvento(p)"
+                (keydown.space)="explicarLinhaEvento(p); $event.preventDefault()"
+              >
+                <td class="evento-marcador">↳</td>
+                <td>{{ d.data | dataBr }}</td>
+                <td class="evento-desc">{{ d.descricao }}</td>
+                <td>{{ +d.juros ? (+d.juros | number: formatoMoeda()) : '—' }}</td>
+                <td>{{ +d.amortizacao ? (+d.amortizacao | number: formatoMoeda()) : '—' }}</td>
+                <td class="num-forte">{{ +d.valor | number: formatoMoeda() }}</td>
+                <td>{{ +d.saldoApos | number: formatoMoeda() }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Totais</td>
+            <td>{{ +ev.totais.totalJuros | number: formatoMoeda() }}</td>
+            <td>{{ +ev.totais.totalAmortizacao | number: formatoMoeda() }}</td>
+            <td>{{ +ev.totais.totalParcelas | number: formatoMoeda() }}</td>
+            <td>—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </app-secao>
 }
 
-
 <p class="demo-instrucao">
-  <svg class="icone-info" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <svg
+    class="icone-info"
+    viewBox="0 0 24 24"
+    width="14"
+    height="14"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
     <circle cx="12" cy="12" r="10"></circle>
     <path d="M12 16v-4"></path>
     <path d="M12 8h.01"></path>
   </svg>
   Clique em qualquer <strong>card de resultado</strong> com o ícone de informação para abrir a
-  <strong>demonstração matemática passo a passo</strong>: fórmulas exatas, como reproduzir o cálculo na
-  HP12C e no Excel, e a base legal de cada valor.
+  <strong>demonstração matemática passo a passo</strong>: fórmulas exatas, como reproduzir o cálculo
+  na HP12C e no Excel, e a base legal de cada valor.
 </p>
 
 @let exp = explicacao();

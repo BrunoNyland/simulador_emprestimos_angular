@@ -22,7 +22,8 @@ describe('traço de cálculo (fonte única motor ↔ explicação)', () => {
 
   it('Price: cada passo tem resultado em alta precisão consistente com o anterior', () => {
     const r = calcularParcelaPrice(d(1000), d('0.01'), 12);
-    const passo = (id: string) => new Decimal(r.trace.passos.find((p) => p.id === id)!.resultado ?? '0');
+    const passo = (id: string) =>
+      new Decimal(r.trace.passos.find((p) => p.id === id)!.resultado ?? '0');
     // base = 1 + i
     expect(passo('base').toString()).toBe('1.01');
     // denom = 1 - pot

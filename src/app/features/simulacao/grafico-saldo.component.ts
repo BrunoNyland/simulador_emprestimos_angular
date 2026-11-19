@@ -20,7 +20,13 @@ export interface SerieLinha {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <figure class="g-fig">
-      <svg viewBox="0 0 100 56" preserveAspectRatio="none" class="g-svg" role="img" [attr.aria-label]="rotulo()">
+      <svg
+        viewBox="0 0 100 56"
+        preserveAspectRatio="none"
+        class="g-svg"
+        role="img"
+        [attr.aria-label]="rotulo()"
+      >
         <line class="g-base" x1="0" y1="56" x2="100" y2="56"></line>
         @for (p of linhas(); track p.nome) {
           <path class="g-linha" [attr.d]="p.d" [style.stroke]="p.cor"></path>
@@ -110,6 +116,9 @@ export class GraficoSaldoComponent {
   });
 
   protected readonly rotulo = computed(
-    () => `Saldo devedor ao longo do tempo: ${this.series().map((s) => s.nome).join(' e ')}.`,
+    () =>
+      `Saldo devedor ao longo do tempo: ${this.series()
+        .map((s) => s.nome)
+        .join(' e ')}.`,
   );
 }

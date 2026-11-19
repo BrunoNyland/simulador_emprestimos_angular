@@ -7,7 +7,9 @@ const d = (v: string | number) => new Decimal(v);
 
 /** Lê o resultado final de um passo do traço (string Decimal -> 2 casas). */
 function passo(trace: ReturnType<typeof tracarLinhaCronograma>, id: string): string {
-  return arredondarMoeda(new Decimal(trace.passos.find((p) => p.id === id)!.resultado ?? '0')).toFixed(2);
+  return arredondarMoeda(
+    new Decimal(trace.passos.find((p) => p.id === id)!.resultado ?? '0'),
+  ).toFixed(2);
 }
 
 describe('traço por linha do cronograma (fonte única)', () => {

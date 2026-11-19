@@ -50,10 +50,18 @@ describe('encargos', () => {
       calcularEncargo({ ...fixo50, tipo: 'por-periodo', valor: '2' }, principal, 12).toString(),
     ).toBe('24');
     expect(
-      calcularEncargo({ ...fixo50, tipo: 'percentual-ap', valor: '0.005' }, principal, 12).toString(),
+      calcularEncargo(
+        { ...fixo50, tipo: 'percentual-ap', valor: '0.005' },
+        principal,
+        12,
+      ).toString(),
     ).toBe('60'); // 1000 * 0.005 * 12
     expect(
-      calcularEncargo({ ...fixo50, tipo: 'percentual-principal', valor: '0.02' }, principal, 12).toString(),
+      calcularEncargo(
+        { ...fixo50, tipo: 'percentual-principal', valor: '0.02' },
+        principal,
+        12,
+      ).toString(),
     ).toBe('20');
   });
 

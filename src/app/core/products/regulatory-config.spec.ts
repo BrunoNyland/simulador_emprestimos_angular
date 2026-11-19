@@ -19,10 +19,7 @@ describe('regulatory-config loader', () => {
   });
 
   it('faz parse do arquivo real public/data/regulatory-config.jsonc', () => {
-    const texto = readFileSync(
-      join(process.cwd(), 'public/data/regulatory-config.jsonc'),
-      'utf-8',
-    );
+    const texto = readFileSync(join(process.cwd(), 'public/data/regulatory-config.jsonc'), 'utf-8');
     const config = parseRegulatoryConfig(texto);
     expect(config.iof.aliquotaDiaria.PF).toBe('0.000082');
     expect(config.iof.aliquotaDiaria.PJ).toBe('0.000041');
@@ -31,10 +28,7 @@ describe('regulatory-config loader', () => {
   });
 
   it('resolve parametros de IOF por publico e isencao por produto', () => {
-    const texto = readFileSync(
-      join(process.cwd(), 'public/data/regulatory-config.jsonc'),
-      'utf-8',
-    );
+    const texto = readFileSync(join(process.cwd(), 'public/data/regulatory-config.jsonc'), 'utf-8');
     const config = parseRegulatoryConfig(texto);
 
     const pf = resolverParametrosIof(config, 'PF', 'credito-pessoal');

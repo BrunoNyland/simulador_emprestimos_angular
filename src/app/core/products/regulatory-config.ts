@@ -1,11 +1,6 @@
 import { Decimal } from '../engine/decimal.config';
 import { ParametrosIof } from '../engine/iof';
-import {
-  ConvencaoDias,
-  ModoArredondamento,
-  Periodicidade,
-  Publico,
-} from '../engine/models';
+import { ConvencaoDias, ModoArredondamento, Periodicidade, Publico } from '../engine/models';
 
 /** Estrutura da config regulatoria (ver public/data/regulatory-config.jsonc). */
 export interface RegulatoryConfig {

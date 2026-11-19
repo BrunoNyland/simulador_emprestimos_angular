@@ -29,12 +29,17 @@ export interface ResultadoCetSerial {
 export class CetService {
   private worker?: Worker;
   private seq = 0;
-  private readonly pendentes = new Map<number, { resolve: (r: ResultadoCetSerial) => void; entrada: EntradaCet }>();
+  private readonly pendentes = new Map<
+    number,
+    { resolve: (r: ResultadoCetSerial) => void; entrada: EntradaCet }
+  >();
 
   constructor() {
     if (typeof Worker !== 'undefined') {
       try {
-        this.worker = new Worker(new URL('./engine/cet.worker', import.meta.url), { type: 'module' });
+        this.worker = new Worker(new URL('./engine/cet.worker', import.meta.url), {
+          type: 'module',
+        });
         this.worker.onmessage = ({ data }) => this.aoReceber(data);
       } catch {
         // Ambiente anuncia Worker mas não consegue instanciar o módulo -> fallback.
